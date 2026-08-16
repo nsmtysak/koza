@@ -35,7 +35,7 @@ var Settings = (function () {
   }
 
   function finishSetup() {
-    var patch = { configured: true, region: 'kitashinchi' };
+    var patch = { configured: true };
     if (answers.my_role) patch.my_role = answers.my_role;
     if (answers.shimei_system) patch.shimei_system = answers.shimei_system;
     if (answers.douhan_reward_type) {

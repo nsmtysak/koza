@@ -90,8 +90,7 @@ var Store = (function () {
   /* ---------- StoreProfile ---------- */
 
   var DEFAULT_PROFILE = {
-    store_name: '西家',
-    region: 'kitashinchi',
+    store_name: '',
     shimei_system: null,
     jonai_label: '場内指名',
     douhan_reward_type: null,

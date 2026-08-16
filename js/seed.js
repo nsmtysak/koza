@@ -136,7 +136,7 @@ var Seed = (function () {
 
     Store.saveProfile({
       configured: true,
-      store_name: '西家',
+      store_name: '',
       my_role: 'kakari',
       shimei_system: 'eikyu',
       closing_day: 0,
