@@ -1,0 +1,571 @@
+/* Kōza v2 — 逆算エンジン
+ *
+ * このアプリの中心。「今日誰に声をかけるか」ではなく、
+ * 「締め日に目標へ届かせるために、どの日を埋めるか。そのために今日何をするか」を出す。
+ *
+ * 順番はこう。
+ *   1. 目標 − 実績 − 見込み ＝ 不足額
+ *   2. 不足を埋めるには何日分の枠が要るか
+ *   3. どの日を埋めるか（空いている日・その方が来やすい曜日・締めに間に合うか）
+ *   4. その日に来ていただくには、いつ声をかけるか（＝リードタイム分だけ手前）
+ *   5. 手前の日が今日なら、それが今日の仕事
+ *
+ * 数字はすべてここで出す。AIには渡すだけで、計算はさせない。
+ * 「なぜ今日この人なのか」を本人に説明できないと、このアプリは使われない。
+ */
+var Plan = (function () {
+  'use strict';
+
+  var HORIZON = 14;            // 先を見る日数
+
+  /* 数字は全部お店の設定から取る。店ごとに違うものを決め打ちにしない */
+  function num(key, fallback) {
+    var v = parseInt(Store.getProfile()[key], 10);
+    return isFinite(v) ? v : fallback;
+  }
+
+  function leadDefault(kind) {
+    return kind === 'douhan' ? num('lead_default_douhan', 5) : num('lead_default_visit', 4);
+  }
+
+  /**
+   * 今このお客様にご連絡してよいか。
+   * だめなときは理由を返す。黙って候補から消すと、本人が理由を分からないまま迷う。
+   */
+  function contactGuard(customerId) {
+    var t0 = Store.today();
+    var touches = Store.touchesOf(customerId).filter(function (t) { return t.direction === 'sent'; });
+
+    var lastInvite = touches.filter(function (t) { return t.intent === 'invite'; })[0];
+    if (lastInvite) {
+      var sinceInvite = Store.daysBetween(lastInvite.date, t0);
+      if (sinceInvite !== null && sinceInvite < num('cooldown_invite', 10) && !lastInvite.result) {
+        return {
+          ok: false,
+          reason: sinceInvite === 0 ? '今日お誘いを差し上げたばかりです'
+            : sinceInvite + '日前にお誘いしています。お返事を待ちます'
+        };
+      }
+    }
+
+    var last = touches[0];
+    if (last) {
+      var since = Store.daysBetween(last.date, t0);
+      if (since !== null && since < num('cooldown_contact', 3)) {
+        return { ok: false, reason: since === 0 ? '今日ご連絡したばかりです' : since + '日前にご連絡しています' };
+      }
+    }
+    return { ok: true, reason: '' };
+  }
+
+  /** 今、ご連絡を送ってよい時間帯か */
+  function sendTimeWarning() {
+    var h = new Date().getHours();
+    var from = num('quiet_from', 23), to = num('quiet_to', 9);
+    var quiet = from <= to ? (h >= from && h < to) : (h >= from || h < to);
+    if (!quiet) return '';
+    return '今は' + h + '時です。この時間のご連絡は、ご家庭のある方には特にご迷惑になります。' +
+      '下書きだけ用意して、' + to + '時以降にお送りになるほうが安全です。';
+  }
+
+  /**
+   * その日に鉢合わせると困る方がいないか。
+   * 顔を合わせてはいけない間柄は、この仕事では珍しくない。
+   */
+  function clashOn(date, customerId) {
+    var c = Store.getCustomer(customerId);
+    if (!c) return null;
+    var out = [];
+
+    Store.appointmentsOn(date).forEach(function (a) {
+      if (!a.customer_id || a.customer_id === customerId) return;
+      var other = Store.getCustomer(a.customer_id);
+      if (!other) return;
+
+      if ((c.avoid_pair || []).indexOf(other.id) >= 0 ||
+          (other.avoid_pair || []).indexOf(c.id) >= 0) {
+        out.push({ customer: other, why: '顔を合わせない方が良い間柄として登録されています' });
+        return;
+      }
+      // 同業・同じ会社の方が重なると、双方が気を遣うことになる
+      if (c.company && other.company && c.company === other.company) {
+        out.push({ customer: other, why: '同じ会社の方です（' + c.company + '）' });
+      }
+    });
+
+    return out.length ? out : null;
+  }
+
+  /* ---------- その方についての推定 ---------- */
+
+  /** 声をかけてから、実際にお見えになるまでの日数 */
+  function leadTime(customerId, kind) {
+    var samples = Store.touchesOf(customerId).filter(function (t) {
+      return t.intent === 'invite' && t.result === 'came' && t.came_date;
+    }).map(function (t) {
+      return Store.daysBetween(t.date, t.came_date);
+    }).filter(function (n) { return n !== null && n >= 0 && n <= 30; });
+
+    if (samples.length >= 2) {
+      var sum = samples.reduce(function (a, b) { return a + b; }, 0);
+      return { days: Math.max(1, Math.round(sum / samples.length)), samples: samples.length };
+    }
+    return { days: leadDefault(kind), samples: samples.length };
+  }
+
+  /** 誘って来ていただける割合。記録が少ないうちは断定しない */
+  function comeRate(customerId) {
+    var inv = Store.touchesOf(customerId).filter(function (t) { return t.intent === 'invite'; });
+    var came = inv.filter(function (t) { return t.result === 'came'; }).length;
+    var missed = inv.filter(function (t) { return t.result === 'missed'; }).length;
+    var n = came + missed;
+    // 標本が少ないうちは 0% や 100% と言い切らない
+    return { rate: (came + 1) / (n + 2), came: came, missed: missed, samples: n };
+  }
+
+  /** ご来店の多い曜日 */
+  function weekdayPattern(customerId) {
+    var counts = [0, 0, 0, 0, 0, 0, 0];
+    Store.visitsOf(customerId).forEach(function (v) {
+      counts[new Date(v.date + 'T00:00:00').getDay()] += 1;
+    });
+    var top = -1, best = 0;
+    counts.forEach(function (n, i) { if (n > best) { best = n; top = i; } });
+    return { counts: counts, top: best >= 2 ? top : -1, total: counts.reduce(function (a, b) { return a + b; }, 0) };
+  }
+
+  /** その方に効いた誘い方 */
+  function styleStats(customerId) {
+    var out = {};
+    var src = customerId ? Store.touchesOf(customerId) : Store.listTouches();
+    src.forEach(function (t) {
+      if (t.intent !== 'invite' || !t.style) return;
+      if (!out[t.style]) out[t.style] = { tried: 0, came: 0 };
+      if (t.result === 'came' || t.result === 'missed') {
+        out[t.style].tried += 1;
+        if (t.result === 'came') out[t.style].came += 1;
+      }
+    });
+    return out;
+  }
+
+  function bestStyle(customerId) {
+    function pick(stats, minTried) {
+      var best = null;
+      Object.keys(stats).forEach(function (k) {
+        var s = stats[k];
+        if (s.tried < minTried) return;
+        var r = s.came / s.tried;
+        if (!best || r > best.rate) best = { style: k, rate: r, tried: s.tried };
+      });
+      return best;
+    }
+    return pick(styleStats(customerId), 2) || pick(styleStats(null), 3) || null;
+  }
+
+  /** 全体の平均単価。個人の記録が無いときの当てにする */
+  function overallAverage() {
+    var vals = Store.listVisits().map(function (v) { return v.spend; })
+      .filter(function (n) { return typeof n === 'number' && n > 0; });
+    if (!vals.length) return 0;
+    return Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+  }
+
+  /** その方がお見えになったときの見込み額 */
+  function expectedSpend(customerId) {
+    var m = Store.moneyOf(customerId);
+    if (m.average) return m.average;
+    return overallAverage();
+  }
+
+  /* ---------- 目標に対して今どこにいるか ---------- */
+
+  function progress() {
+    var t0 = Store.today();
+    var period = Store.periodOf(t0);
+    var goal = Store.getGoal(period.key);
+    var visits = Store.visitsBetween(period.start, t0);
+
+    // 自分の口座のご来店だけを実績に数える。ヘルプで付いた席は自分の売上ではない
+    var actual = 0, douhanDone = 0, helpVisits = 0;
+    visits.forEach(function (v) {
+      if (!Store.isMyVisit(v)) { helpVisits += 1; return; }
+      if (typeof v.spend === 'number' && v.spend > 0) actual += v.spend;
+      if (v.douhan) douhanDone += 1;
+    });
+
+    // これから先の予定を、確度で割り引いて見込みに入れる
+    var booked = 0, bookedCount = 0, douhanBooked = 0;
+    Store.openAppointments().forEach(function (a) {
+      if (a.date < t0 || a.date > period.end) return;
+      if (a.customer_id && !Store.isMyAccount(Store.getCustomer(a.customer_id))) return;
+      var w = Store.CONFIDENCE_WEIGHT[a.confidence] || 0.5;
+      var amt = typeof a.expected_spend === 'number' && a.expected_spend > 0
+        ? a.expected_spend
+        : (a.customer_id ? expectedSpend(a.customer_id) : overallAverage());
+      booked += amt * w;
+      bookedCount += 1;
+      if (a.kind === 'douhan') douhanBooked += w;
+    });
+    booked = Math.round(booked);
+
+    var forecast = actual + booked;
+    var gap = goal.sales ? Math.max(0, goal.sales - forecast) : 0;
+    var daysLeft = Math.max(0, Store.daysBetween(t0, period.end)) + 1;
+    var avg = overallAverage();
+
+    return {
+      period: period,
+      goal: goal,
+      actual: actual,
+      visits: visits.length,
+      help_visits: helpVisits,
+      booked: booked,
+      booked_count: bookedCount,
+      forecast: forecast,
+      gap: gap,
+      pace: goal.sales ? Math.round(forecast / goal.sales * 100) : null,
+      days_left: daysLeft,
+      average_spend: avg,
+      // 不足を埋めるのに、あと何組お迎えすればよいか
+      need_visits: gap && avg ? Math.ceil(gap / avg) : 0,
+      douhan: { target: goal.douhan, done: douhanDone, booked: Math.round(douhanBooked * 10) / 10 }
+    };
+  }
+
+  /* ---------- 14日の盤面 ---------- */
+
+  function isOpenDay(iso) {
+    return !Holiday.closedReason(iso);
+  }
+
+  function board(days) {
+    var t0 = Store.today();
+    var period = Store.periodOf(t0);
+    var out = [];
+
+    for (var i = 0; i < (days || HORIZON); i++) {
+      var date = Store.addDays(t0, i);
+      var apts = Store.appointmentsOn(date).map(function (a) {
+        return { appointment: a, customer: a.customer_id ? Store.getCustomer(a.customer_id) : null };
+      });
+
+      var expected = 0;
+      apts.forEach(function (x) {
+        var w = Store.CONFIDENCE_WEIGHT[x.appointment.confidence] || 0.5;
+        var amt = typeof x.appointment.expected_spend === 'number' && x.appointment.expected_spend > 0
+          ? x.appointment.expected_spend
+          : (x.customer ? expectedSpend(x.customer.id) : overallAverage());
+        expected += amt * w;
+      });
+
+      var closed = Holiday.closedReason(date);
+
+      out.push({
+        date: date,
+        weekday: Store.weekdayOf(date),
+        offset: i,
+        open: !closed,
+        closed_reason: closed,
+        in_period: date <= period.end,
+        items: apts,
+        douhan: apts.some(function (x) { return x.appointment.kind === 'douhan'; }),
+        expected: Math.round(expected),
+        empty: apts.length === 0
+      });
+    }
+    return out;
+  }
+
+  /* ---------- どの日に、誰を、いつ誘うか ---------- */
+
+  /** その方をその日にお誘いしてよいか */
+  function slotAllowed(customer, date) {
+    var apts = Store.appointmentsOn(date);
+    var already = apts.some(function (a) { return a.customer_id === customer.id; });
+    if (already) return false;
+    // 顔を合わせない方が良い相手が既に入っている日は外す
+    var avoid = customer.avoid_pair || [];
+    if (avoid.length && apts.some(function (a) { return avoid.indexOf(a.customer_id) >= 0; })) return false;
+    return true;
+  }
+
+  function slotScore(customer, day, lead) {
+    var s = 0;
+    if (!day.open) return -1;
+    if (day.offset < lead) return -1;                 // 間に合わない
+    s += day.items.length === 0 ? 30 : (day.items.length === 1 ? 12 : 0);
+    var wp = weekdayPattern(customer.id);
+    var wd = new Date(day.date + 'T00:00:00').getDay();
+    if (wp.top === wd) s += 22;
+    else if (wp.counts[wd] > 0) s += 8;
+    s += Math.max(0, 14 - day.offset);                // 締めまでに効く日を先に
+    if (!day.in_period) s -= 25;                      // 締めをまたぐと今月には効かない
+    return s;
+  }
+
+  /**
+   * 声かけ候補ごとに「狙う日」と「声をかける締切」を出す。
+   * ここが「今日のお客様づくりは今日ではない」の中身。
+   */
+  function candidates(limit) {
+    var t0 = Store.today();
+    var days = board(HORIZON);
+    var reasons = {};
+    Insight.callList().forEach(function (x) { reasons[x.customer.id] = x; });
+
+    var out = [];
+    var held = [];      // 今は間を置くべき方
+
+    Store.activeCustomers().forEach(function (c) {
+      // ほかの方の口座には、こちらから誘いをかけない。
+      // 越境は係の方の顔をつぶし、店の中で最も信を失う。ここは例外を作らない。
+      if (!Store.canContactDirectly(c)) return;
+
+      // すでに予定が入っている方は、誘う対象ではない（当日の準備の対象）
+      if (Store.nextAppointmentOf(c.id)) return;
+
+      // 間を置かずに重ねてご連絡しない。しつこいと思われたら終わり
+      var guard = contactGuard(c.id);
+      if (!guard.ok) { held.push({ customer: c, reason: guard.reason }); return; }
+
+      var lead = leadTime(c.id, 'visit');
+      var rate = comeRate(c.id);
+      var amt = expectedSpend(c.id);
+      var wp = weekdayPattern(c.id);
+
+      // 行ける日を点数順に持っておく。あとで日をばらけさせるために使う
+      var slots = [];
+      days.forEach(function (d) {
+        if (!slotAllowed(c, d.date)) return;
+        var s = slotScore(c, d, lead.days);
+        if (s < 0) return;
+        slots.push({ day: d, score: s });
+      });
+      if (!slots.length) return;
+      slots.sort(function (a, b) { return b.score - a.score; });
+
+      var hooks = Insight.digest(c.id).open_hooks.slice(0, 4).map(function (h) { return h.text; });
+      var r = reasons[c.id];
+      var last = Store.visitsOf(c.id)[0] || null;
+
+      out.push({
+        customer: c,
+        reason: r ? r.reason : null,
+        slots: slots,
+        target_date: null,
+        target_weekday: '',
+        contact_by: null,
+        urgency: 'soon',
+        lead: lead,
+        come_rate: rate,
+        expected_spend: amt,
+        weekday_top: wp.top,
+        best_style: bestStyle(c.id),
+        hooks: hooks,
+        last_visit: last ? last.date : null,
+        last_topic: last ? last.topic_detail : '',
+        days_since: last ? Store.daysBetween(last.date, t0) : null,
+        average_interval: Store.averageInterval(c.id),
+        visit_count: Store.visitsOf(c.id).length,
+        // 期待値。この方に声をかけると、いくら見込めるか
+        value: Math.round(amt * rate.rate)
+      });
+    });
+
+    /* 狙う日を割り振る。
+     * 全員を同じ日に寄せると、その日だけ満席で他が空のままになる。
+     * 期待値の高い方から、空いている日を先に取っていく。 */
+    out.sort(function (a, b) { return b.value - a.value; });
+
+    var used = {};
+    Store.openAppointments().forEach(function (a) {
+      if (a.date >= t0) used[a.date] = (used[a.date] || 0) + 1;
+    });
+
+    var PER_DAY = 2;   // 1日に自分がお迎えできる組数の目安
+    out.forEach(function (x) {
+      var chosen = null;
+      for (var i = 0; i < x.slots.length; i++) {
+        var d = x.slots[i].day.date;
+        if ((used[d] || 0) < PER_DAY) { chosen = x.slots[i]; break; }
+      }
+      // どこも埋まっているなら、いちばん空いている日に寄せる。
+      // 第一希望に積み上げると、その日だけ十数名になって使いものにならない
+      if (!chosen) {
+        x.slots.forEach(function (s) {
+          var n = used[s.day.date] || 0;
+          if (!chosen || n < (used[chosen.day.date] || 0)) chosen = s;
+        });
+      }
+      used[chosen.day.date] = (used[chosen.day.date] || 0) + 1;
+
+      x.target_date = chosen.day.date;
+      x.target_weekday = chosen.day.weekday;
+      x.contact_by = Store.addDays(chosen.day.date, -x.lead.days);
+      x.urgency = x.contact_by < t0 ? 'late' : (x.contact_by === t0 ? 'today' : 'soon');
+      delete x.slots;
+    });
+
+    // 締切が近く、期待値の高い方から
+    var rank = { late: 0, today: 1, soon: 2 };
+    out.sort(function (a, b) {
+      if (rank[a.urgency] !== rank[b.urgency]) return rank[a.urgency] - rank[b.urgency];
+      return b.value - a.value;
+    });
+
+    lastHeld = held;
+    return limit ? out.slice(0, limit) : out;
+  }
+
+  var lastHeld = [];
+  function heldBack() { return lastHeld; }
+
+  /**
+   * 不足額を埋めるための組み合わせ。
+   * 期待値の高い方から順に枠へ入れて、不足が消えるところで止める。
+   */
+  function fillPlan() {
+    var p = progress();
+    var cands = candidates();
+    var taken = {};
+    var chosen = [];
+    var sum = 0;
+
+    cands.forEach(function (x) {
+      if (p.gap && sum >= p.gap) return;
+      if (taken[x.target_date] && taken[x.target_date] >= 2) return;
+      taken[x.target_date] = (taken[x.target_date] || 0) + 1;
+      chosen.push(x);
+      sum += x.value;
+    });
+
+    return {
+      progress: p,
+      chosen: chosen,
+      expected: sum,
+      covers_gap: !p.gap || sum >= p.gap,
+      today: chosen.filter(function (x) { return x.urgency === 'today' || x.urgency === 'late'; }),
+      soon: chosen.filter(function (x) { return x.urgency === 'soon'; })
+    };
+  }
+
+  /**
+   * お礼がまだの方。
+   *
+   * 永久指名制の店では、口座は信頼の積み上げそのもの。
+   * 来ていただいた翌日に一言あるかどうかで、次があるかが決まる。
+   * ここは売上の逆算より前に置く。目先の一組より、信頼のほうが高くつく。
+   */
+  function aftercare() {
+    var t0 = Store.today();
+    var seen = {};
+    var out = [];
+
+    Store.listVisits().forEach(function (v) {
+      var since = Store.daysBetween(v.date, t0);
+      if (since === null || since < 1 || since > 3) return;
+
+      (v.attendees || []).forEach(function (a) {
+        if (!a.customer_id || seen[a.customer_id]) return;
+        var c = Store.getCustomer(a.customer_id);
+        if (!c) return;
+        seen[a.customer_id] = true;
+
+        // ほかの方の口座には、こちらからお礼を送らない（係の方の仕事）
+        if (!Store.canContactDirectly(c)) return;
+
+        var thanked = Store.touchesOf(c.id).some(function (t) {
+          return t.date >= v.date && t.direction === 'sent' && t.intent !== 'invite' &&
+            ['line', 'phone', 'letter', 'mail'].indexOf(t.kind) >= 0;
+        });
+        if (thanked) return;
+
+        out.push({
+          customer: c,
+          visit: v,
+          days: since,
+          role: a.role,
+          kind: 'thanks',
+          topic: v.topic_detail || '',
+          bottle: v.bottle || '',
+          douhan: !!v.douhan
+        });
+      });
+
+      /* ご紹介いただいた方へのお礼。
+       * 連れてきてくださった方に何も言わないのが、いちばん角が立つ。
+       * ご本人より先に、紹介者にお礼を差し上げるのが筋。 */
+      (v.attendees || []).forEach(function (a) {
+        var c = Store.getCustomer(a.customer_id);
+        if (!c || !c.intro_by) return;
+        var isFirst = Store.visitsOf(c.id).slice(-1)[0];
+        if (!isFirst || isFirst.id !== v.id) return;      // 初回のご来店のときだけ
+
+        var by = Store.getCustomer(c.intro_by);
+        if (!by || seen['intro_' + by.id]) return;
+        if (!Store.canContactDirectly(by)) return;
+        seen['intro_' + by.id] = true;
+
+        out.push({
+          customer: by,
+          visit: v,
+          days: since,
+          kind: 'intro',
+          topic: c.display_name + 'をご紹介いただいた',
+          bottle: '',
+          douhan: false
+        });
+      });
+    });
+
+    return out.sort(function (a, b) { return a.days - b.days; });
+  }
+
+  /** 今日お会いする方 */
+  function todaysGuests() {
+    return Store.appointmentsOn(Store.today()).map(function (a) {
+      return { appointment: a, customer: a.customer_id ? Store.getCustomer(a.customer_id) : null };
+    }).filter(function (x) { return x.customer; });
+  }
+
+  /**
+   * ご来店の予定はあるが、ほかの方の口座の方。
+   * こちらから誘う相手ではないが、店内でのお相手は自分の仕事。
+   * 係の方を立てながら、次にご指名いただける下地をつくる。
+   */
+  function guestsOfOthers(days) {
+    var t0 = Store.today();
+    var end = Store.addDays(t0, days || 7);
+    return Store.openAppointments().filter(function (a) {
+      if (!a.customer_id || a.date < t0 || a.date > end) return false;
+      return !Store.canContactDirectly(Store.getCustomer(a.customer_id));
+    }).map(function (a) {
+      return { appointment: a, customer: Store.getCustomer(a.customer_id) };
+    }).filter(function (x) { return x.customer; });
+  }
+
+  /** 数日以内にお会いする方（会う前の準備が要る） */
+  function upcomingGuests(days) {
+    var t0 = Store.today();
+    var end = Store.addDays(t0, days || 3);
+    return Store.openAppointments().filter(function (a) {
+      return a.date >= t0 && a.date <= end && a.customer_id;
+    }).map(function (a) {
+      return { appointment: a, customer: Store.getCustomer(a.customer_id) };
+    }).filter(function (x) { return x.customer; });
+  }
+
+  return {
+    HORIZON: HORIZON,
+    leadTime: leadTime, comeRate: comeRate, weekdayPattern: weekdayPattern,
+    styleStats: styleStats, bestStyle: bestStyle,
+    expectedSpend: expectedSpend, overallAverage: overallAverage,
+    progress: progress, board: board, candidates: candidates, fillPlan: fillPlan,
+    aftercare: aftercare, guestsOfOthers: guestsOfOthers,
+    contactGuard: contactGuard, sendTimeWarning: sendTimeWarning,
+    clashOn: clashOn, heldBack: heldBack,
+    todaysGuests: todaysGuests, upcomingGuests: upcomingGuests,
+    isOpenDay: isOpenDay
+  };
+})();

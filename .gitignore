@@ -1,0 +1,23 @@
+# 端末ごとの設定
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+*~
+
+# 作業中のもの
+node_modules/
+*.log
+tmp/
+scratch/
+
+# 書き出したデータ。お客様の実名と連絡先が入るので、絶対に上げない
+koza-*.json
+*-画像あり.json

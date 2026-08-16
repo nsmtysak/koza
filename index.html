@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#100f0d">
+<title>Kōza</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kōza">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="css/app.css?v=11">
+</head>
+<body>
+
+<!-- ========== 暗証番号 ========== -->
+<section id="v-lock" class="view" hidden>
+  <div class="lock-wrap">
+    <h1 class="brand">Kōza</h1>
+    <p class="lock-label" id="lock-label">暗証番号を入れてください</p>
+    <div class="lock-dots" id="lock-dots"></div>
+    <p class="lock-msg" id="lock-msg"></p>
+
+    <div class="lock-pad" id="lock-pad">
+      <button class="lock-key" data-k="1" type="button">1</button>
+      <button class="lock-key" data-k="2" type="button">2</button>
+      <button class="lock-key" data-k="3" type="button">3</button>
+      <button class="lock-key" data-k="4" type="button">4</button>
+      <button class="lock-key" data-k="5" type="button">5</button>
+      <button class="lock-key" data-k="6" type="button">6</button>
+      <button class="lock-key" data-k="7" type="button">7</button>
+      <button class="lock-key" data-k="8" type="button">8</button>
+      <button class="lock-key" data-k="9" type="button">9</button>
+      <span></span>
+      <button class="lock-key" data-k="0" type="button">0</button>
+      <button class="lock-key wide" data-k="back" type="button">←</button>
+    </div>
+
+    <button class="ghost small" id="lock-cancel" hidden>やめる</button>
+  </div>
+</section>
+
+<!-- ========== 初回セットアップ ========== -->
+<section id="v-setup" class="view">
+  <header class="vhead">
+    <h1 class="brand">Kōza</h1>
+    <p class="lede">はじめに4つだけ教えてください。<br>分からないものは飛ばして構いません。</p>
+  </header>
+
+  <div class="wizard">
+    <div class="q" data-step="0">
+      <p class="qnum">1 / 4</p>
+      <h2>今のあなたの立場は？</h2>
+      <div class="opts" data-field="my_role">
+        <button class="opt" data-value="kakari">係が中心<small>自分の口座のお客様が多い</small></button>
+        <button class="opt" data-value="help">ヘルプが中心<small>他の方の席に付くことが多い</small></button>
+        <button class="opt" data-value="both">両方</button>
+      </div>
+    </div>
+
+    <div class="q" data-step="1" hidden>
+      <p class="qnum">2 / 4</p>
+      <h2>指名の制度は？</h2>
+      <div class="opts" data-field="shimei_system">
+        <button class="opt" data-value="eikyu">永久指名制<small>一度ついたお客様は原則ずっと自分の口座</small></button>
+        <button class="opt" data-value="jiyu">自由指名制<small>来店ごとに指名が変わりうる</small></button>
+      </div>
+    </div>
+
+    <div class="q" data-step="2" hidden>
+      <p class="qnum">3 / 4</p>
+      <h2>同伴の報酬は？</h2>
+      <div class="opts" data-field="douhan_reward_type">
+        <button class="opt" data-value="fixed">定額バック</button>
+        <button class="opt" data-value="percent">小計連動</button>
+        <button class="opt" data-value="prize">同伴賞（月◯回で賞金）</button>
+        <button class="opt" data-value="none">なし</button>
+      </div>
+    </div>
+
+    <div class="q" data-step="3" hidden>
+      <p class="qnum">4 / 4</p>
+      <h2>セットは何分ですか？</h2>
+      <div class="opts" data-field="set_duration_min">
+        <button class="opt" data-value="60">60分</button>
+        <button class="opt" data-value="90">90分</button>
+        <button class="opt" data-value="0">決まっていない</button>
+      </div>
+    </div>
+
+    <div class="wizard-foot">
+      <button class="ghost" id="setup-skip">あとで設定する</button>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 今日 ========== -->
+<section id="v-home" class="view" hidden>
+  <header class="vhead">
+    <p class="today" id="home-today"></p>
+    <h1 class="brand">Kōza</h1>
+  </header>
+
+  <div id="home-goal" class="goalbar"></div>
+
+  <div id="home-gift" class="banner" hidden></div>
+
+  <section class="block" id="home-guests-block" hidden>
+    <h2 class="sect">今日お会いする方</h2>
+    <div id="home-guests" class="cards"></div>
+  </section>
+
+  <section class="block">
+    <div class="sect-row">
+      <h2 class="sect">今日の段取り</h2>
+      <button class="ghost small" id="plan-refresh">組み直す</button>
+    </div>
+    <div id="plan-body"></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sect">ほかに声をかけられる方</h2>
+    <div id="call-list" class="cards"></div>
+    <button class="ghost small full" id="call-more" hidden></button>
+  </section>
+
+  <section class="block">
+    <h2 class="sect">直近の来歴</h2>
+    <div id="recent-list" class="cards"></div>
+  </section>
+
+  <p id="export-nag" class="nag" hidden></p>
+</section>
+
+<!-- ========== 枠（盤面と逆算） ========== -->
+<section id="v-board" class="view" hidden>
+  <header class="vhead">
+    <h1>枠</h1>
+    <p class="lede-sm">今日のお客様は今日つくるものではありません。埋まっていない日を、今日のうちに動かします。</p>
+  </header>
+
+  <div id="board-progress"></div>
+
+  <section class="block">
+    <div class="sect-row">
+      <h2 class="sect">これから2週間</h2>
+      <button class="ghost small" id="board-add">予定を入れる</button>
+    </div>
+    <div id="board-days" class="board"></div>
+  </section>
+
+  <section class="block">
+    <h2 class="sect">埋めるならこの方々</h2>
+    <p class="help">狙う日と、声をかける締切です。締切は「その方が誘われてからお越しになるまでの日数」から逆算しています。</p>
+    <div id="board-candidates" class="cards"></div>
+  </section>
+</section>
+
+<!-- ========== 予定を入れる ========== -->
+<section id="v-appt" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="appt-back" aria-label="戻る">←</button>
+    <h1 id="appt-title">予定を入れる</h1>
+  </header>
+
+  <div class="form">
+    <label class="f">
+      <span>日にち</span>
+      <input type="date" id="appt-date">
+    </label>
+
+    <div class="f">
+      <span>どなた</span>
+      <select id="appt-customer"></select>
+    </div>
+
+    <div class="f">
+      <span>種類</span>
+      <div id="appt-kind"></div>
+    </div>
+
+    <div class="f">
+      <span>確からしさ</span>
+      <div id="appt-confidence"></div>
+      <p class="help">確定＝日が決まっている／お約束＝口約束／狙う＝こちらの狙い。見込みの計算で重みが変わります。</p>
+    </div>
+
+    <label class="f">
+      <span>見込みのお会計（円・空欄なら平均で計算）</span>
+      <input type="text" id="appt-spend" inputmode="numeric" placeholder="180,000">
+    </label>
+
+    <label class="f">
+      <span>覚え書き</span>
+      <input type="text" id="appt-note">
+    </label>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="appt-save">入れる</button>
+    <button class="ghost" id="appt-cancel">やめる</button>
+  </div>
+  <div class="actions">
+    <button class="danger" id="appt-delete" hidden>この予定を消す</button>
+  </div>
+</section>
+
+<!-- ========== お誘い ========== -->
+<section id="v-invite" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="invite-back" aria-label="戻る">←</button>
+    <h1 id="invite-title">お誘い</h1>
+  </header>
+  <div id="invite-body"></div>
+</section>
+
+<!-- ========== お客様一覧 ========== -->
+<section id="v-people" class="view" hidden>
+  <header class="vhead">
+    <h1>お客様</h1>
+  </header>
+
+  <div class="search-row">
+    <input type="search" id="people-search" placeholder="お名前・会社・趣味で探す">
+  </div>
+
+  <div class="filter-row" id="people-sort"></div>
+
+  <div id="people-list" class="cards"></div>
+
+  <div class="actions col">
+    <button class="primary" id="btn-scan-card">名刺を撮って登録</button>
+    <button class="ghost" id="btn-new-person">手で登録する</button>
+  </div>
+</section>
+
+<!-- ========== 顧客カード ========== -->
+<section id="v-person" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="person-back" aria-label="戻る">←</button>
+    <h1 id="person-title">お客様</h1>
+  </header>
+
+  <div id="person-head" class="person-head"></div>
+
+  <div class="tabs" id="person-tabs">
+    <button class="tab is-on" data-tab="brief">準備</button>
+    <button class="tab" data-tab="profile">プロフィール</button>
+    <button class="tab" data-tab="history">来歴</button>
+    <button class="tab" data-tab="touch">接点</button>
+  </div>
+
+  <div id="person-body"></div>
+</section>
+
+<!-- ========== 記録（入力） ========== -->
+<section id="v-record" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="record-back" aria-label="戻る">←</button>
+    <h1>今日のこと</h1>
+  </header>
+
+  <p class="lede-sm">思い出せる順で構いません。誰と、何を話したか、いくらだったか。</p>
+
+  <textarea id="memo" rows="9" placeholder="例）今日、田中さんが部長の佐藤さんと2人で。娘さんの受験の話。芋の水割り3杯とボトル1本。8万くらい。来月頭にまた来るって。"></textarea>
+
+  <div class="mic-row">
+    <button id="btn-mic" class="mic" type="button" hidden>マイクで話す</button>
+    <span class="mic-note">キーボードのマイクからでも入れられます</span>
+  </div>
+
+  <div class="actions">
+    <button id="btn-structure" class="primary">整理する</button>
+  </div>
+</section>
+
+<!-- ========== 記録の確認 ========== -->
+<section id="v-confirm" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="confirm-back" aria-label="戻る">←</button>
+    <h1 id="confirm-title">この内容で残します</h1>
+  </header>
+
+  <p class="confirm-note" id="confirm-note"></p>
+
+  <div class="form">
+    <label class="f">
+      <span>来店日</span>
+      <input type="date" id="f-date">
+    </label>
+
+    <div class="f">
+      <span>ご一緒された方</span>
+      <div id="f-attendees" class="attendees"></div>
+      <button class="ghost small" id="f-add-attendee">＋ 人を足す</button>
+    </div>
+
+    <div class="f">
+      <span>自分の立場</span>
+      <div id="f-myrole"></div>
+    </div>
+
+    <div class="f inline">
+      <label class="chk"><input type="checkbox" id="f-douhan"><span>同伴</span></label>
+      <label class="chk"><input type="checkbox" id="f-kirikaeshi"><span>切り返し</span></label>
+      <label class="chk"><input type="checkbox" id="f-nominaoshi"><span>飲み直し</span></label>
+    </div>
+
+    <div class="grid2">
+      <label class="f">
+        <span>セット数</span>
+        <input type="number" id="f-sets" min="0" step="1" inputmode="numeric">
+      </label>
+      <label class="f">
+        <span>お会計（概算・円）</span>
+        <input type="text" id="f-spend" inputmode="numeric" placeholder="80,000">
+      </label>
+    </div>
+
+    <label class="f">
+      <span>入れていただいたボトル</span>
+      <input type="text" id="f-bottle" placeholder="響17年 など">
+    </label>
+
+    <label class="f">
+      <span>話したこと</span>
+      <textarea id="f-topicdetail" rows="3"></textarea>
+    </label>
+
+    <label class="f">
+      <span>召し上がったもの</span>
+      <input type="text" id="f-drinks" placeholder="芋焼酎 水割り ×3">
+    </label>
+
+    <label class="f">
+      <span>ご様子（事実だけ）</span>
+      <textarea id="f-observation" rows="2"></textarea>
+    </label>
+
+    <div class="f">
+      <span>次に声をかけるきっかけ</span>
+      <ul id="f-hooks" class="hooks"></ul>
+    </div>
+
+    <label class="f">
+      <span>次にお越しになりそうな頃</span>
+      <input type="text" id="f-next" placeholder="2026-09上旬">
+    </label>
+
+    <div class="f" id="f-appt-wrap" hidden>
+      <span>次のご来店の予定</span>
+      <p class="help">お話に出た次のご来店です。チェックを入れたものを枠に立てます。</p>
+      <div id="f-appt" class="enrich"></div>
+    </div>
+
+    <div class="f" id="f-enrich-wrap" hidden>
+      <span>プロフィールに書き足す</span>
+      <p class="help">今回の話から分かったことです。チェックを入れたものだけ残します。</p>
+      <div id="f-enrich" class="enrich"></div>
+    </div>
+
+    <details class="raw">
+      <summary>元の言葉を見る（自分だけ）</summary>
+      <p id="f-raw"></p>
+    </details>
+  </div>
+
+  <div class="actions">
+    <button id="btn-commit" class="primary">残す</button>
+    <button id="btn-discard" class="ghost">やめる</button>
+  </div>
+
+  <div class="actions">
+    <button id="btn-delete-visit" class="danger" hidden>この来歴を削除する</button>
+  </div>
+</section>
+
+<!-- ========== 名刺 ========== -->
+<section id="v-scan" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="scan-back" aria-label="戻る">←</button>
+    <h1>名刺の登録</h1>
+  </header>
+
+  <div id="scan-stage">
+    <p class="lede-sm">名刺を明るいところで、まっすぐ撮ってください。</p>
+    <label class="drop" id="scan-drop">
+      <span class="drop-icon" aria-hidden="true"></span>
+      <span class="drop-label">名刺を撮る / 選ぶ</span>
+      <input type="file" id="scan-file" accept="image/*" capture="environment" hidden>
+    </label>
+    <p class="help">画像はこの端末の中だけに残ります。読み取りのときだけAIに送られ、送った画像は保存されません。</p>
+  </div>
+
+  <div id="scan-preview" hidden>
+    <img id="scan-img" alt="撮影した名刺">
+    <div class="actions">
+      <button class="primary" id="scan-read">読み取る</button>
+      <button class="ghost" id="scan-retake">撮り直す</button>
+    </div>
+  </div>
+
+  <div id="scan-form" class="form" hidden></div>
+  <div class="actions" id="scan-actions" hidden>
+    <button class="primary" id="scan-save">この内容で登録する</button>
+    <button class="ghost" id="scan-cancel">やめる</button>
+  </div>
+</section>
+
+<!-- ========== 贈答 ========== -->
+<section id="v-gifts" class="view" hidden>
+  <header class="vhead">
+    <h1>贈答とご挨拶</h1>
+  </header>
+  <div id="gift-body"></div>
+</section>
+
+<!-- ========== 会う前の準備 ========== -->
+<section id="v-brief" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="brief-back" aria-label="戻る">←</button>
+    <h1 id="brief-title">会う前に</h1>
+  </header>
+  <div id="brief-body"></div>
+</section>
+
+<!-- ========== 設定 ========== -->
+<section id="v-settings" class="view" hidden>
+  <header class="vhead"><h1>設定</h1></header>
+
+  <div class="form">
+    <h2 class="sect">目標</h2>
+    <p class="help">ここを入れると、締め日から逆算して「今日どの日を埋めにいくか」が出ます。空のままでも記録はできます。</p>
+
+    <div class="grid2">
+      <label class="f">
+        <span>月の目標（円）</span>
+        <input type="text" id="s-target-sales" inputmode="numeric" placeholder="4,000,000">
+      </label>
+      <label class="f">
+        <span>締め日（0＝月末）</span>
+        <input type="number" id="s-closing-day" min="0" max="28" inputmode="numeric">
+      </label>
+    </div>
+
+    <label class="f">
+      <span>月の同伴の目標（回数・0＝なし）</span>
+      <input type="number" id="s-target-douhan" min="0" inputmode="numeric">
+    </label>
+
+    <h2 class="sect">お店の休み</h2>
+    <p class="help">法人のお客様が中心なら、企業が休む日は枠になりません。ここが合っていないと「埋められる日」を数え間違えます。</p>
+
+    <div class="f">
+      <span>営業する曜日</span>
+      <div id="s-open-days" class="daypick"></div>
+    </div>
+
+    <div class="f inline">
+      <label class="chk"><input type="checkbox" id="s-closed-holidays"><span>祝日は休み</span></label>
+      <label class="chk"><input type="checkbox" id="s-closed-newyear"><span>年末年始は休み</span></label>
+      <label class="chk"><input type="checkbox" id="s-closed-obon"><span>お盆は休み</span></label>
+    </div>
+
+    <div class="grid2">
+      <label class="f">
+        <span>年末年始（から）</span>
+        <input type="text" id="s-newyear-from" placeholder="12-29">
+      </label>
+      <label class="f">
+        <span>年末年始（まで）</span>
+        <input type="text" id="s-newyear-to" placeholder="01-03">
+      </label>
+    </div>
+
+    <div class="grid2">
+      <label class="f">
+        <span>お盆（から）</span>
+        <input type="text" id="s-obon-from" placeholder="08-13">
+      </label>
+      <label class="f">
+        <span>お盆（まで）</span>
+        <input type="text" id="s-obon-to" placeholder="08-16">
+      </label>
+    </div>
+
+    <div class="f">
+      <span>臨時の休み</span>
+      <div id="s-closed-dates" class="tag-list"></div>
+      <div class="tag-input">
+        <input type="date" id="s-closed-date-new">
+        <button class="ghost small" id="btn-add-closed" type="button">休みにする</button>
+      </div>
+    </div>
+
+    <h2 class="sect">お店のこと</h2>
+
+    <label class="f">
+      <span>お店の呼び名</span>
+      <input type="text" id="s-store-name">
+    </label>
+
+    <label class="f">
+      <span>源氏名</span>
+      <input type="text" id="s-my-name" placeholder="記録には出ません">
+    </label>
+
+    <label class="f">
+      <span>自分の立場</span>
+      <select id="s-myrole">
+        <option value="kakari">係が中心</option>
+        <option value="help">ヘルプが中心</option>
+        <option value="both">両方</option>
+      </select>
+    </label>
+
+    <label class="f">
+      <span>指名制度</span>
+      <select id="s-shimei">
+        <option value="eikyu">永久指名制</option>
+        <option value="jiyu">自由指名制</option>
+      </select>
+    </label>
+
+    <label class="f">
+      <span>場内指名の呼び方</span>
+      <input type="text" id="s-jonai-label" placeholder="場内指名 / リクエスト">
+    </label>
+
+    <div class="grid2">
+      <label class="f">
+        <span>同伴の報酬</span>
+        <select id="s-douhan-type">
+          <option value="fixed">定額バック</option>
+          <option value="percent">小計連動</option>
+          <option value="prize">同伴賞</option>
+          <option value="none">なし</option>
+        </select>
+      </label>
+      <label class="f">
+        <span>額（円 / %）</span>
+        <input type="number" id="s-douhan-value" min="0" inputmode="numeric">
+      </label>
+    </div>
+
+    <div class="grid2">
+      <label class="f">
+        <span>同伴タイムアウト（分）</span>
+        <input type="number" id="s-douhan-timeout" min="0" step="5" inputmode="numeric">
+      </label>
+      <label class="f">
+        <span>セット（分）</span>
+        <input type="number" id="s-set-duration" min="0" step="5" inputmode="numeric">
+      </label>
+    </div>
+
+    <label class="f">
+      <span>同伴の月間ノルマ（回数・0＝なし）</span>
+      <input type="number" id="s-douhan-quota" min="0" inputmode="numeric">
+    </label>
+
+    <div class="grid2">
+      <label class="f">
+        <span>同伴の入店締め</span>
+        <input type="time" id="s-douhan-deadline">
+      </label>
+      <label class="f">
+        <span>開店</span>
+        <input type="time" id="s-open-time">
+      </label>
+    </div>
+
+    <div class="grid2">
+      <label class="f">
+        <span>「係」の呼び方</span>
+        <input type="text" id="s-kakari-label" placeholder="係">
+      </label>
+      <label class="f">
+        <span>「ヘルプ」の呼び方</span>
+        <input type="text" id="s-help-label" placeholder="ヘルプ">
+      </label>
+    </div>
+
+    <h2 class="sect">お客様への配慮</h2>
+    <p class="help">お誘いを出しすぎないための歯止めです。ここに引っかかった方は候補から外れ、「今は間を置く方」に理由つきで出ます。</p>
+
+    <div class="grid2">
+      <label class="f">
+        <span>ご連絡の間隔（日）</span>
+        <input type="number" id="s-cooldown-contact" min="0" max="30" inputmode="numeric">
+      </label>
+      <label class="f">
+        <span>お返事を待つ日数</span>
+        <input type="number" id="s-cooldown-invite" min="0" max="60" inputmode="numeric">
+      </label>
+    </div>
+
+    <div class="grid2">
+      <label class="f">
+        <span>送らない時間（から）</span>
+        <input type="number" id="s-quiet-from" min="0" max="23" inputmode="numeric">
+      </label>
+      <label class="f">
+        <span>送らない時間（まで）</span>
+        <input type="number" id="s-quiet-to" min="0" max="23" inputmode="numeric">
+      </label>
+    </div>
+
+    <div class="grid2">
+      <label class="f">
+        <span>お声がけから来店まで（日）</span>
+        <input type="number" id="s-lead-visit" min="1" max="30" inputmode="numeric">
+      </label>
+      <label class="f">
+        <span>同伴の場合（日）</span>
+        <input type="number" id="s-lead-douhan" min="1" max="30" inputmode="numeric">
+      </label>
+    </div>
+    <p class="help">この2つは、記録がまだ少ない方に使う目安です。記録が2件たまると、その方の実績で置き換わります。</p>
+
+    <h2 class="sect">AI接続</h2>
+    <p class="help">入れておくと、話した言葉の整理と、会う前の準備をAIが手伝います。空でも記録は残せます。</p>
+
+    <label class="f">
+      <span>GAS ウェブアプリ URL</span>
+      <input type="url" id="s-gas-url" placeholder="https://script.google.com/macros/s/.../exec">
+    </label>
+    <label class="f">
+      <span>合言葉</span>
+      <input type="text" id="s-gas-token" autocomplete="off">
+    </label>
+
+    <div class="actions">
+      <button id="btn-test-api" class="ghost">つながるか試す</button>
+      <span id="api-test-result" class="test-result"></span>
+    </div>
+
+    <div class="actions col">
+      <button id="btn-setup-link" class="ghost">設定を渡すリンクを作る</button>
+      <textarea id="setup-link" rows="3" readonly hidden></textarea>
+    </div>
+
+    <h2 class="sect">使用状況</h2>
+    <p class="help">件数だけです。お客様のお名前や会話の中身は出ません。</p>
+    <div id="usage" class="usage"></div>
+
+    <h2 class="sect">暗証番号</h2>
+    <p class="help">お客様のお名前とご連絡先が入っています。<strong>人に見られると迷惑がかかるのはお客様のほうです。</strong>開くときに4桁の番号を求めます。</p>
+    <p class="help">これは覗き見を止めるためのものです。端末そのもののロックと、両方をお使いください。</p>
+
+    <div class="actions col">
+      <button id="btn-lock-set" class="ghost">暗証番号を決める</button>
+      <label class="f">
+        <span>離れてから閉じるまで（分）</span>
+        <input type="number" id="s-lock-after" min="0" max="120" inputmode="numeric">
+      </label>
+    </div>
+
+    <h2 class="sect">データの持ち出し</h2>
+    <p class="help">記録はこの端末の中だけにあります。<strong>機種変更やデータ削除で消えます。</strong>月に一度は書き出してください。</p>
+    <p class="help" id="last-export"></p>
+
+    <div class="actions col">
+      <button id="btn-export" class="primary">書き出す</button>
+      <button id="btn-export-img" class="ghost">名刺画像も含めて書き出す</button>
+      <label class="ghost filebtn">
+        読み込む
+        <input type="file" id="file-import" accept="application/json,.json" hidden>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="btn-save-settings" class="primary">設定を保存</button>
+    </div>
+
+    <!-- 本番でお渡しする前に、この details ごと削除する（DEPLOY.md 8節） -->
+    <details class="raw" id="seed-block">
+      <summary>お試しのデータ（確認用）</summary>
+      <p class="help">画面の見え方を確かめるための、架空のお客様50名です。実在の方ではありません。</p>
+      <p class="help"><strong>本番でお使いになる前に、必ず「全部消す」を押してください。</strong>お試しのデータと本物の記録が混ざると、見分けがつかなくなります。</p>
+      <div class="actions col">
+        <button id="btn-seed" class="ghost" type="button">お試しのデータを入れる（50名）</button>
+        <button id="btn-wipe" class="danger" type="button">全部消す</button>
+      </div>
+      <p class="help" id="seed-result"></p>
+    </details>
+  </div>
+</section>
+
+<!-- ========== ナビ ========== -->
+<nav id="nav" class="nav" hidden>
+  <button data-go="home" class="navbtn is-on">今日</button>
+  <button data-go="board" class="navbtn">枠</button>
+  <button data-go="people" class="navbtn">お客様</button>
+  <button data-go="gifts" class="navbtn">贈答</button>
+  <button data-go="settings" class="navbtn">設定</button>
+</nav>
+
+<button id="fab" class="fab" hidden aria-label="今日のことを記録する">
+  <span class="fab-icon" aria-hidden="true"></span>
+</button>
+
+<div id="busy" class="busy" hidden>
+  <div class="spinner" aria-hidden="true"></div>
+  <p id="busy-msg">整理しています…</p>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="js/db.js?v=11"></script>
+<script src="js/store.js?v=11"></script>
+<script src="js/holiday.js?v=11"></script>
+<script src="js/insight.js?v=11"></script>
+<script src="js/plan.js?v=11"></script>
+<script src="js/api.js?v=11"></script>
+<script src="js/ui.js?v=11"></script>
+<script src="js/lock.js?v=11"></script>
+<script src="js/record.js?v=11"></script>
+<script src="js/scan.js?v=11"></script>
+<script src="js/people.js?v=11"></script>
+<script src="js/brief.js?v=11"></script>
+<script src="js/gifts.js?v=11"></script>
+<script src="js/board.js?v=11"></script>
+<script src="js/invite.js?v=11"></script>
+<script src="js/home.js?v=11"></script>
+<script src="js/seed.js?v=11"></script>
+<script src="js/settings.js?v=11"></script>
+<script src="js/app.js?v=11"></script>
+</body>
+</html>

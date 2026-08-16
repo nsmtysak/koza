@@ -1,0 +1,1043 @@
+/* Kōza v2 — データ層
+ *
+ * 6つの実体で回す。
+ *   Customer     お客様そのもの（名刺・家族・趣味・嗜好）
+ *   Visit        来歴。いつ誰と来て何を話したか
+ *   Touch        接点。誘い・年賀状・お中元・LINE・電話など、来店以外の全部
+ *   Appointment  来店予定。埋まっている枠と、狙っている枠
+ *   Goal         月の目標。ここから逆算して今日やることが決まる
+ *   Brief        AIが出した「次にこうする」と、その結果
+ *
+ * 目標 → 不足 → 埋めるべき枠 → 逆算した締切 → 今日の行動、が背骨。
+ * 誘いは Touch に intent='invite' で残り、来店したかどうかで決着する。
+ * その決着が次の逆算（リードタイム・来ていただける率）の精度になる。
+ */
+var Store = (function () {
+  'use strict';
+
+  var NS = 'koza2.';
+  var K = {
+    profile:      NS + 'profile',
+    customers:    NS + 'customers',
+    visits:       NS + 'visits',
+    touches:      NS + 'touches',
+    briefs:       NS + 'briefs',
+    appointments: NS + 'appointments',
+    goals:        NS + 'goals',
+    api:          NS + 'api',
+    meta:         NS + 'meta'
+  };
+  var SCHEMA_VERSION = 3;
+
+  /* ---------- 基本 ---------- */
+
+  function read(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      console.warn('読み込みに失敗:', key, e);
+      return fallback;
+    }
+  }
+
+  function write(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (e) {
+      console.error('保存に失敗:', key, e);
+      return false;
+    }
+  }
+
+  function uid(p) {
+    return p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function nowISO() { return new Date().toISOString(); }
+
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  function daysBetween(isoA, isoB) {
+    if (!isoA || !isoB) return null;
+    var a = new Date(isoA + 'T00:00:00').getTime();
+    var b = new Date(isoB + 'T00:00:00').getTime();
+    return Math.round((b - a) / 86400000);
+  }
+
+  function toISO(d) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  function addDays(iso, n) {
+    var d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return toISO(d);
+  }
+
+  function weekdayOf(iso) {
+    return ['日', '月', '火', '水', '木', '金', '土'][new Date(iso + 'T00:00:00').getDay()];
+  }
+
+  /* ---------- StoreProfile ---------- */
+
+  var DEFAULT_PROFILE = {
+    store_name: '西家',
+    region: 'kitashinchi',
+    shimei_system: null,
+    jonai_label: '場内指名',
+    douhan_reward_type: null,
+    douhan_reward_value: 0,
+    douhan_reward_condition_sets: 0,
+    douhan_timeout_min: 0,
+    douhan_quota_monthly: 0,
+    set_duration_min: 60,
+    my_role: null,
+    my_name: '',
+    /* 暗証番号。生のまま持たない（記録と同じ場所に置くと意味がないため）。
+     * { salt, hash, algo } を入れる。null なら未設定。 */
+    lock: null,
+    lock_after_min: 3,       // 画面を離れてから、これだけ経ったら閉じる
+    closing_day: 0,          // 締め日。0＝月末
+    target_sales: 0,         // 月の目標（円）。0＝未設定
+    target_douhan: 0,        // 月の同伴目標（本）
+
+    /* 休み。法人のお客様が中心なので、企業が休む日は店も休む。
+     * 空き枠として数えると、埋められるはずの日を数え間違える。 */
+    open_days: [1, 2, 3, 4, 5, 6],   // 営業曜日（0＝日）。既定は日曜休み
+    closed_on_holidays: true,
+    closed_newyear: true,
+    newyear_from: '12-29', newyear_to: '01-03',
+    closed_obon: true,
+    obon_from: '08-13', obon_to: '08-16',
+    closed_dates: [],        // 臨時の休み（YYYY-MM-DD）
+
+    /* お店のきまり */
+    douhan_deadline: '',     // 同伴の入店締め時刻。例 21:00
+    open_time: '', close_time: '',
+    kakari_label: '係', help_label: 'ヘルプ',
+
+    /* お客様への配慮。ここは店ではなく相手に合わせて動かす */
+    quiet_from: 23,          // この時刻から翌 quiet_to 時までは送らない
+    quiet_to: 9,
+    cooldown_contact: 3,     // 前のご連絡から空ける日数
+    cooldown_invite: 10,     // お返事待ちのお誘いを重ねない日数
+    lead_default_visit: 4,   // 記録が足りないときのリードタイム
+    lead_default_douhan: 5,
+    configured: false
+  };
+
+  function getProfile() {
+    return Object.assign({}, DEFAULT_PROFILE, read(K.profile, null) || {});
+  }
+
+  function saveProfile(patch) {
+    var p = Object.assign(getProfile(), patch);
+    write(K.profile, p);
+    return p;
+  }
+
+  /* ---------- Customer ---------- */
+
+  var DEFAULT_CUSTOMER = {
+    name: '',                // 実名（名刺から）
+    display_name: '',        // 呼び方「田中様」
+    kana: '',
+    company: '', department: '', title: '',
+    phone: '', mobile: '', email: '', address: '', website: '',
+    card_image_id: null,
+    first_met: null,
+    intro_by: null,          // 紹介してくれた顧客のid
+    relation_type: null,     // kakari | help | other
+    shimei_type: null,       // hon | jonai | free
+    tier: null,              // futo | regular | light
+    /* 口座 ＝ そのお客様がどなたのものか。
+     * 永久指名制の店では、口座は信頼関係そのもの。
+     * 他の方の口座のお客様に直接ご連絡するのは越境で、店の中で最も信を失う行為。
+     * だからこのアプリは、口座によって出せる手を変える。 */
+    account_owner: null,     // self | mama | other | free（未設定は自分の口座として扱う）
+    account_owner_name: '',  // ほかの方の口座のとき、その方の呼び名
+    birthday: '',            // MM-DD もしくは YYYY-MM-DD
+    family: [],              // [{relation, name, note, birthday}]
+    interests: [],           // 趣味・興味
+    prefs: { drinks: [], food: [], smoke: '', karaoke: [], likes: [], dislikes: [] },
+    ng_topics: [],
+    avoid_pair: [],
+    gift_policy: { nenga: true, ochugen: false, oseibo: false },
+    memo: '',
+    tags: [],
+    archived: false
+  };
+
+  function listCustomers() {
+    return read(K.customers, []);
+  }
+
+  function activeCustomers() {
+    return listCustomers().filter(function (c) { return !c.archived; });
+  }
+
+  function getCustomer(id) {
+    var all = listCustomers();
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
+
+  /* ---------- 口座 ----------
+   * ここを間違えると、係の方の顔をつぶす。手を出してよい相手かどうかを必ず通す。
+   */
+
+  var ACCOUNT_LABELS = {
+    self: '自分の口座',
+    mama: 'ママの口座',
+    other: 'ほかの方の口座',
+    free: 'フリー'
+  };
+
+  /** 自分の口座か。未設定は自分のものとして扱う（従来の記録を壊さないため） */
+  function isMyAccount(c) {
+    return !!c && (!c.account_owner || c.account_owner === 'self');
+  }
+
+  /**
+   * こちらから直接ご連絡してよい方か。
+   * ほかの方の口座には、こちらから誘いをかけてはいけない。
+   * できるのは、ご来店くださったときに店内で丁寧にお相手することだけ。
+   */
+  function canContactDirectly(c) {
+    return isMyAccount(c) || (c && c.account_owner === 'free');
+  }
+
+  function accountLabel(c) {
+    if (!c) return '';
+    if (!c.account_owner) return '';
+    if (c.account_owner === 'other' && c.account_owner_name) {
+      return c.account_owner_name + 'さんの口座';
+    }
+    return ACCOUNT_LABELS[c.account_owner] || '';
+  }
+
+  /** その来店が自分の売上になるか。主客の口座で決まる */
+  function isMyVisit(v) {
+    var att = v.attendees || [];
+    if (!att.length) return true;
+    var shukyaku = att.filter(function (a) { return a.role === 'shukyaku'; });
+    var target = shukyaku.length ? shukyaku : att;
+    return target.some(function (a) { return isMyAccount(getCustomer(a.customer_id)); });
+  }
+
+  /** 表記ゆれに強めの突合。完全一致 → 姓一致＋会社一致 の順 */
+  function matchCustomer(hint) {
+    hint = hint || {};
+    var all = activeCustomers();
+    var key = (hint.name || '').trim();
+    var disp = (hint.display_name || '').trim();
+    var comp = (hint.company || '').trim();
+    var i;
+
+    for (i = 0; i < all.length; i++) {
+      if (key && all[i].name === key) return all[i];
+    }
+    for (i = 0; i < all.length; i++) {
+      if (disp && all[i].display_name === disp) return all[i];
+    }
+    // 「田中」だけ渡された場合：姓の前方一致。会社が分かれば併用する
+    var surname = key || disp.replace(/(様|さん|氏)$/, '');
+    if (!surname) return null;
+
+    var hits = all.filter(function (c) {
+      return (c.name && c.name.indexOf(surname) === 0) ||
+             (c.display_name && c.display_name.indexOf(surname) === 0);
+    });
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1 && comp) {
+      var byComp = hits.filter(function (c) { return c.company && c.company.indexOf(comp) >= 0; });
+      if (byComp.length === 1) return byComp[0];
+    }
+    return null;   // 複数候補は呼び出し側で選ばせる
+  }
+
+  function candidates(surname) {
+    if (!surname) return [];
+    return activeCustomers().filter(function (c) {
+      return (c.name && c.name.indexOf(surname) === 0) ||
+             (c.display_name && c.display_name.indexOf(surname) === 0);
+    });
+  }
+
+  function createCustomer(fields) {
+    var c = Object.assign({}, DEFAULT_CUSTOMER, fields || {});
+    c.prefs = Object.assign({}, DEFAULT_CUSTOMER.prefs, fields && fields.prefs || {});
+    c.gift_policy = Object.assign({}, DEFAULT_CUSTOMER.gift_policy, fields && fields.gift_policy || {});
+    c.id = uid('c');
+    if (!c.display_name) {
+      var base = (c.name || '').split(/[\s　]+/)[0];
+      c.display_name = base ? base + '様' : 'お名前未登録';
+    }
+    if (!c.first_met) c.first_met = today();
+    c.created_at = nowISO();
+    c.updated_at = nowISO();
+
+    var all = listCustomers();
+    all.push(c);
+    write(K.customers, all);
+    return c;
+  }
+
+  function updateCustomer(id, patch) {
+    var all = listCustomers();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === id) {
+        all[i] = Object.assign(all[i], patch, { updated_at: nowISO() });
+        write(K.customers, all);
+        return all[i];
+      }
+    }
+    return null;
+  }
+
+  function deleteCustomer(id) {
+    var c = getCustomer(id);
+    if (c && c.card_image_id) Blobs.remove(c.card_image_id);
+    write(K.customers, listCustomers().filter(function (x) { return x.id !== id; }));
+    // 来歴からも外す
+    var vs = read(K.visits, []).map(function (v) {
+      v.attendees = (v.attendees || []).filter(function (a) { return a.customer_id !== id; });
+      return v;
+    }).filter(function (v) { return v.attendees.length > 0; });
+    write(K.visits, vs);
+    write(K.touches, read(K.touches, []).filter(function (t) { return t.customer_id !== id; }));
+    write(K.briefs, read(K.briefs, []).filter(function (b) { return b.customer_id !== id; }));
+    write(K.appointments, read(K.appointments, []).filter(function (a) { return a.customer_id !== id; }));
+  }
+
+  /**
+   * AIが抽出したプロフィール項目を、重複させずに足す。
+   * 記録するたびに顧客データベースが育つのがこのアプリの肝。
+   */
+  function enrichCustomer(id, add) {
+    var c = getCustomer(id);
+    if (!c || !add) return null;
+
+    function mergeList(cur, incoming) {
+      var out = (cur || []).slice();
+      (incoming || []).forEach(function (v) {
+        var s = String(v).trim();
+        if (s && out.indexOf(s) === -1) out.push(s);
+      });
+      return out;
+    }
+
+    var patch = {};
+    if (add.interests) patch.interests = mergeList(c.interests, add.interests);
+    if (add.ng_topics) patch.ng_topics = mergeList(c.ng_topics, add.ng_topics);
+
+    if (add.prefs) {
+      var prefs = Object.assign({}, c.prefs);
+      ['drinks', 'food', 'karaoke', 'likes', 'dislikes'].forEach(function (k) {
+        if (add.prefs[k]) prefs[k] = mergeList(prefs[k], add.prefs[k]);
+      });
+      if (add.prefs.smoke) prefs.smoke = add.prefs.smoke;
+      patch.prefs = prefs;
+    }
+
+    if (add.family && add.family.length) {
+      var fam = (c.family || []).slice();
+      add.family.forEach(function (f) {
+        if (!f || !f.relation) return;
+        var dup = fam.some(function (x) {
+          return x.relation === f.relation && (x.name || '') === (f.name || '');
+        });
+        if (!dup) fam.push({ relation: f.relation, name: f.name || '', note: f.note || '', birthday: f.birthday || '' });
+      });
+      patch.family = fam;
+    }
+
+    ['company', 'department', 'title', 'birthday'].forEach(function (k) {
+      if (add[k] && !c[k]) patch[k] = add[k];
+    });
+
+    if (Object.keys(patch).length === 0) return c;
+    return updateCustomer(id, patch);
+  }
+
+  /* ---------- Visit（来歴） ---------- */
+
+  function listVisits() {
+    var v = read(K.visits, []);
+    v.sort(function (a, b) {
+      if (a.date === b.date) return (b.created_at || '').localeCompare(a.created_at || '');
+      return b.date.localeCompare(a.date);
+    });
+    return v;
+  }
+
+  function getVisit(id) {
+    var all = read(K.visits, []);
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
+
+  function addVisit(f) {
+    var v = {
+      id: uid('v'),
+      date: f.date || today(),
+      attendees: f.attendees || [],
+      my_role: f.my_role || null,
+      douhan: !!f.douhan,
+      douhan_place: f.douhan_place || '',
+      set_count: typeof f.set_count === 'number' ? f.set_count : 0,
+      kirikaeshi: !!f.kirikaeshi,
+      nominaoshi: !!f.nominaoshi,
+      spend: typeof f.spend === 'number' ? f.spend : null,   // 会計の概算（円）
+      bottle: f.bottle || '',                                 // 入れてもらったボトル
+      topics: f.topics || [],
+      topic_detail: f.topic_detail || '',
+      drinks: f.drinks || [],
+      observation: f.observation || '',
+      raw_memo: f.raw_memo || '',
+      hooks: f.hooks || [],
+      next_visit_hint: f.next_visit_hint || {},
+      brief_id: f.brief_id || null,
+      ai_structured: !!f.ai_structured,
+      created_at: nowISO()
+    };
+    var all = read(K.visits, []);
+    all.push(v);
+    write(K.visits, all);
+
+    // 来ていただけた。誘いと予定に決着をつける（逆算の精度はここで決まる）
+    (v.attendees || []).forEach(function (a) {
+      if (!a.customer_id) return;
+      settleInvitesOnVisit(a.customer_id, v.date);
+      closeAppointmentsFor(a.customer_id, v.date);
+    });
+
+    return v;
+  }
+
+  function updateVisit(id, patch) {
+    var all = read(K.visits, []);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === id) {
+        all[i] = Object.assign(all[i], patch, { updated_at: nowISO() });
+        write(K.visits, all);
+        return all[i];
+      }
+    }
+    return null;
+  }
+
+  function deleteVisit(id) {
+    var all = read(K.visits, []);
+    var next = all.filter(function (v) { return v.id !== id; });
+    if (next.length === all.length) return false;
+    write(K.visits, next);
+    return true;
+  }
+
+  function visitsOf(customerId) {
+    return listVisits().filter(function (v) {
+      return (v.attendees || []).some(function (a) { return a.customer_id === customerId; });
+    });
+  }
+
+  /** よく一緒に来る人（共起回数順） */
+  function companionsOf(customerId) {
+    var count = {};
+    visitsOf(customerId).forEach(function (v) {
+      (v.attendees || []).forEach(function (a) {
+        if (a.customer_id === customerId) return;
+        count[a.customer_id] = (count[a.customer_id] || 0) + 1;
+      });
+    });
+    return Object.keys(count).map(function (id) {
+      return { customer: getCustomer(id), times: count[id] };
+    }).filter(function (x) { return x.customer; })
+      .sort(function (a, b) { return b.times - a.times; });
+  }
+
+  /** 来店間隔の平均（日）。2回以上来ている人だけ */
+  function averageInterval(customerId) {
+    var vs = visitsOf(customerId).map(function (v) { return v.date; }).sort();
+    if (vs.length < 2) return null;
+    var total = 0;
+    for (var i = 1; i < vs.length; i++) total += daysBetween(vs[i - 1], vs[i]);
+    return Math.round(total / (vs.length - 1));
+  }
+
+  /**
+   * お金の集計。
+   * 同席者が複数いる来店は、主客に寄せる（接待は主客が払うため）。
+   * 主客が分からない場合だけ頭割りにする。
+   */
+  function moneyOf(customerId) {
+    var total = 0, counted = 0, last = null;
+
+    visitsOf(customerId).forEach(function (v) {
+      if (typeof v.spend !== 'number' || v.spend <= 0) return;
+      var me = (v.attendees || []).filter(function (a) { return a.customer_id === customerId; })[0];
+      if (!me) return;
+
+      var shukyaku = (v.attendees || []).filter(function (a) { return a.role === 'shukyaku'; });
+      var share;
+      if (shukyaku.length > 0) {
+        share = me.role === 'shukyaku' ? v.spend / shukyaku.length : 0;
+      } else {
+        share = v.spend / (v.attendees.length || 1);
+      }
+      if (share > 0) {
+        total += share;
+        counted += 1;
+        if (!last || v.date > last) last = v.date;
+      }
+    });
+
+    return {
+      total: Math.round(total),
+      visits_with_amount: counted,
+      average: counted ? Math.round(total / counted) : null,
+      last_date: last
+    };
+  }
+
+  /** 全顧客の売上順。太客の判定に使う */
+  function rankByMoney() {
+    return activeCustomers().map(function (c) {
+      return { customer: c, money: moneyOf(c.id) };
+    }).filter(function (x) { return x.money.total > 0; })
+      .sort(function (a, b) { return b.money.total - a.money.total; });
+  }
+
+  /* ---------- Touch（接点） ---------- */
+
+  var TOUCH_KINDS = {
+    nenga:    '年賀状',
+    ochugen:  'お中元',
+    oseibo:   'お歳暮',
+    birthday: '誕生日',
+    gift:     '贈り物',
+    line:     'LINE',
+    phone:    '電話',
+    mail:     'メール',
+    letter:   '手紙・礼状',
+    other:    'その他'
+  };
+
+  function listTouches() {
+    return read(K.touches, []).sort(function (a, b) { return b.date.localeCompare(a.date); });
+  }
+
+  function touchesOf(customerId) {
+    return listTouches().filter(function (t) { return t.customer_id === customerId; });
+  }
+
+  /* 誘いの型。男性心理に沿って効き方が違うので、型ごとに成果を貯める */
+  var INVITE_STYLES = {
+    info:     'お知らせにする',
+    deadline: '期限をつける',
+    star:     '相手を主役に',
+    rely:     '教えを乞う',
+    match:    '会わせたい方がいる',
+    choice:   '二択で伺う',
+    meal:     'お食事に誘う',
+    report:   '近況をお伝えする'
+  };
+
+  function addTouch(f) {
+    var t = {
+      id: uid('t'),
+      customer_id: f.customer_id,
+      date: f.date || today(),
+      kind: f.kind || 'other',
+      direction: f.direction || 'sent',
+      title: f.title || '',
+      note: f.note || '',
+      response: f.response || null,
+      responded_at: f.responded_at || null,
+      // ここから下は「誘い」のときだけ使う
+      intent: f.intent || null,          // invite（お誘い）/ keep（関係の維持）/ null
+      style: f.style || '',              // INVITE_STYLES のキー
+      target_date: f.target_date || null, // 来ていただきたい日
+      result: f.result || null,          // came / missed / superseded
+      settled_at: null,
+      created_at: nowISO()
+    };
+    var all = read(K.touches, []);
+    all.push(t);
+    write(K.touches, all);
+    return t;
+  }
+
+  function updateTouch(id, patch) {
+    var all = read(K.touches, []);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === id) {
+        all[i] = Object.assign(all[i], patch);
+        write(K.touches, all);
+        return all[i];
+      }
+    }
+    return null;
+  }
+
+  function deleteTouch(id) {
+    write(K.touches, read(K.touches, []).filter(function (t) { return t.id !== id; }));
+  }
+
+  /** その年に、その種類を送ったか */
+  function sentIn(customerId, kind, year) {
+    return touchesOf(customerId).some(function (t) {
+      return t.kind === kind && t.direction === 'sent' && t.date.slice(0, 4) === String(year);
+    });
+  }
+
+  /* ---------- 誘いの決着 ----------
+   * 誘って来ていただけたのか、来ていただけなかったのか。
+   * ここが埋まらないと、リードタイムも「呼べば来てくださる率」も出ない。
+   * つまり逆算の精度は、この決着がすべて。だから自動でつける。
+   */
+
+  var INVITE_WINDOW = 21;   // 誘ってから何日以内の来店を「効いた」とみなすか
+
+  function openInvites(customerId) {
+    return touchesOf(customerId).filter(function (t) {
+      return t.intent === 'invite' && !t.result;
+    });
+  }
+
+  /** 来店が記録されたとき、その前の誘いを「効いた」にする */
+  function settleInvitesOnVisit(customerId, visitDate) {
+    var all = read(K.touches, []);
+    var mine = all.filter(function (t) {
+      if (t.customer_id !== customerId || t.intent !== 'invite') return false;
+      if (t.result === 'came' || t.result === 'superseded') return false;
+      var gap = daysBetween(t.date, visitDate);
+      return gap !== null && gap >= 0 && gap <= INVITE_WINDOW;
+    }).sort(function (a, b) { return b.date.localeCompare(a.date); });
+
+    if (!mine.length) return 0;
+
+    // 直近の1件が効いたとみなす。それより前の未決着は二重に数えない
+    mine.forEach(function (t, i) {
+      t.result = i === 0 ? 'came' : 'superseded';
+      t.came_date = i === 0 ? visitDate : null;
+      t.settled_at = nowISO();
+    });
+    write(K.touches, all);
+    return mine.length;
+  }
+
+  /** 期日を過ぎても来店が無かった誘いを閉じる。起動時に一度回す */
+  function settleOverdueInvites() {
+    var all = read(K.touches, []);
+    var t0 = today();
+    var changed = 0;
+    all.forEach(function (t) {
+      if (t.intent !== 'invite' || t.result) return;
+      var limit = t.target_date ? addDays(t.target_date, 3) : addDays(t.date, INVITE_WINDOW);
+      if (t0 > limit) { t.result = 'missed'; t.settled_at = nowISO(); changed += 1; }
+    });
+    if (changed) write(K.touches, all);
+    return changed;
+  }
+
+  /* ---------- Appointment（来店予定 ＝ 枠） ---------- */
+
+  var CONFIDENCE = { confirmed: '確定', verbal: 'お約束', aiming: '狙う' };
+  var CONFIDENCE_WEIGHT = { confirmed: 1, verbal: 0.6, aiming: 0.3 };
+
+  function listAppointments() {
+    return read(K.appointments, []).sort(function (a, b) { return a.date.localeCompare(b.date); });
+  }
+
+  function openAppointments() {
+    return listAppointments().filter(function (a) { return !a.closed; });
+  }
+
+  function appointmentsOn(date) {
+    return openAppointments().filter(function (a) { return a.date === date; });
+  }
+
+  function appointmentsOf(customerId) {
+    return listAppointments().filter(function (a) { return a.customer_id === customerId; });
+  }
+
+  function nextAppointmentOf(customerId) {
+    var t0 = today();
+    return appointmentsOf(customerId).filter(function (a) {
+      return !a.closed && a.date >= t0;
+    })[0] || null;
+  }
+
+  function addAppointment(f) {
+    var a = {
+      id: uid('a'),
+      date: f.date,
+      customer_id: f.customer_id || null,
+      kind: f.kind === 'douhan' ? 'douhan' : 'visit',
+      confidence: CONFIDENCE[f.confidence] ? f.confidence : 'verbal',
+      expected_spend: typeof f.expected_spend === 'number' ? f.expected_spend : null,
+      note: f.note || '',
+      source: f.source || 'manual',     // manual / voice / ai
+      closed: false,
+      result: null,                     // came / no / moved
+      created_at: nowISO()
+    };
+    var all = read(K.appointments, []);
+    all.push(a);
+    write(K.appointments, all);
+    return a;
+  }
+
+  function updateAppointment(id, patch) {
+    var all = read(K.appointments, []);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === id) {
+        all[i] = Object.assign(all[i], patch, { updated_at: nowISO() });
+        write(K.appointments, all);
+        return all[i];
+      }
+    }
+    return null;
+  }
+
+  function deleteAppointment(id) {
+    write(K.appointments, read(K.appointments, []).filter(function (a) { return a.id !== id; }));
+  }
+
+  /** 来店が記録されたら、その日の予定を閉じる */
+  function closeAppointmentsFor(customerId, date) {
+    var all = read(K.appointments, []);
+    var hit = 0;
+    all.forEach(function (a) {
+      if (a.closed || a.customer_id !== customerId) return;
+      var gap = daysBetween(a.date, date);
+      if (gap !== null && gap >= -1 && gap <= 2) {
+        a.closed = true; a.result = 'came'; a.closed_at = nowISO();
+        hit += 1;
+      }
+    });
+    if (hit) write(K.appointments, all);
+    return hit;
+  }
+
+  /** 過ぎた予定を片付ける */
+  function closeStaleAppointments() {
+    var all = read(K.appointments, []);
+    var t0 = today();
+    var changed = 0;
+    all.forEach(function (a) {
+      if (a.closed) return;
+      if (a.date < addDays(t0, -2)) { a.closed = true; a.result = 'no'; a.closed_at = nowISO(); changed += 1; }
+    });
+    if (changed) write(K.appointments, all);
+    return changed;
+  }
+
+  /* ---------- Goal（月の目標と締め日） ---------- */
+
+  /**
+   * 締め日から、その日が属する期間を出す。
+   * closing_day が 0 なら暦の月。20 なら「前月21日〜当月20日」。
+   */
+  function periodOf(iso) {
+    var p = getProfile();
+    var cd = parseInt(p.closing_day, 10) || 0;
+    var d = new Date((iso || today()) + 'T00:00:00');
+    var y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+
+    if (!cd) {
+      var start = new Date(y, m, 1);
+      var end = new Date(y, m + 1, 0);
+      return { start: toISO(start), end: toISO(end), key: toISO(start).slice(0, 7), label: (m + 1) + '月' };
+    }
+    // 締め日を含む月を、その期間の名前にする
+    var endMonth = day <= cd ? m : m + 1;
+    var e = new Date(y, endMonth, Math.min(cd, new Date(y, endMonth + 1, 0).getDate()));
+    var s = new Date(e.getFullYear(), e.getMonth() - 1, 1);
+    s = new Date(e.getFullYear(), e.getMonth() - 1,
+      Math.min(cd, new Date(e.getFullYear(), e.getMonth(), 0).getDate()));
+    s.setDate(s.getDate() + 1);
+    return {
+      start: toISO(s), end: toISO(e),
+      key: toISO(e).slice(0, 7),
+      label: (e.getMonth() + 1) + '月（' + cd + '日締め）'
+    };
+  }
+
+  function getGoal(key) {
+    var goals = read(K.goals, {});
+    var p = getProfile();
+    var g = goals[key] || {};
+    return {
+      key: key,
+      sales: typeof g.sales === 'number' ? g.sales : (parseInt(p.target_sales, 10) || 0),
+      douhan: typeof g.douhan === 'number' ? g.douhan : (parseInt(p.target_douhan, 10) || 0)
+    };
+  }
+
+  function saveGoal(key, patch) {
+    var goals = read(K.goals, {});
+    goals[key] = Object.assign(getGoal(key), patch);
+    delete goals[key].key;
+    write(K.goals, goals);
+    return getGoal(key);
+  }
+
+  /** 期間内の来店（売上の実績を出すため。個人配分ではなく総額で見る） */
+  function visitsBetween(startISO, endISO) {
+    return listVisits().filter(function (v) { return v.date >= startISO && v.date <= endISO; });
+  }
+
+  /* ---------- Brief（AI提案とその結果） ---------- */
+
+  function listBriefs() {
+    return read(K.briefs, []).sort(function (a, b) {
+      return (b.created_at || '').localeCompare(a.created_at || '');
+    });
+  }
+
+  function getBrief(id) {
+    var all = read(K.briefs, []);
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
+
+  function briefsOf(customerId) {
+    return listBriefs().filter(function (b) { return b.customer_id === customerId; });
+  }
+
+  function latestBrief(customerId) {
+    return briefsOf(customerId)[0] || null;
+  }
+
+  function addBrief(f) {
+    var b = {
+      id: uid('b'),
+      customer_id: f.customer_id,
+      created_at: nowISO(),
+      based_on_visits: f.based_on_visits || [],
+      summary: f.summary || '',
+      talk_points: f.talk_points || [],
+      confirm_points: f.confirm_points || [],
+      cautions: f.cautions || [],
+      hospitality: f.hospitality || [],       // その席でする手当て
+      trust_risks: f.trust_risks || [],       // 信を落としかねない点
+      seed_questions: f.seed_questions || [], // 次の口実になる質問
+      message_drafts: f.message_drafts || [],
+      timing: f.timing || '',
+      outcome: null            // 来店後に埋める
+    };
+    var all = read(K.briefs, []);
+    all.push(b);
+    write(K.briefs, all);
+    return b;
+  }
+
+  /** 提案がどう効いたかを記録する。ここがスパイラルの折り返し点 */
+  function recordOutcome(briefId, outcome) {
+    var all = read(K.briefs, []);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === briefId) {
+        all[i].outcome = Object.assign({
+          visited: false, used_points: [], missed_points: [], rating: null, note: ''
+        }, outcome, { recorded_at: nowISO() });
+        write(K.briefs, all);
+        return all[i];
+      }
+    }
+    return null;
+  }
+
+  /* ---------- 今日の一手（AIの返事を日付で持ち回す） ---------- */
+
+  function getDailyPlan() {
+    var p = read(NS + 'daily', null);
+    if (!p || p.date !== today()) return null;
+    return p;
+  }
+
+  function saveDailyPlan(data) {
+    write(NS + 'daily', { date: today(), created_at: nowISO(), data: data });
+  }
+
+  function clearDailyPlan() { localStorage.removeItem(NS + 'daily'); }
+
+  /* ---------- API設定 ---------- */
+
+  function getApiConfig() { return read(K.api, { gas_url: '', token: '' }); }
+  function saveApiConfig(c) {
+    write(K.api, { gas_url: (c.gas_url || '').trim(), token: (c.token || '').trim() });
+  }
+
+  /* ---------- メタ ---------- */
+
+  function getMeta() { return read(K.meta, { last_export_at: null, schema_version: SCHEMA_VERSION }); }
+  function markExported() {
+    var m = getMeta();
+    m.last_export_at = nowISO();
+    write(K.meta, m);
+  }
+
+  function exportOverdue() {
+    var m = getMeta();
+    if (listVisits().length === 0) return false;
+    if (!m.last_export_at) return true;
+    var days = (Date.now() - new Date(m.last_export_at).getTime()) / 86400000;
+    return days >= 7;
+  }
+
+  /* ---------- 書き出し / 読み込み ---------- */
+
+  function exportAll(withImages) {
+    var base = {
+      app: 'koza',
+      schema_version: SCHEMA_VERSION,
+      exported_at: nowISO(),
+      profile: getProfile(),
+      customers: listCustomers(),
+      visits: read(K.visits, []),
+      touches: read(K.touches, []),
+      briefs: read(K.briefs, []),
+      appointments: read(K.appointments, []),
+      goals: read(K.goals, {})
+    };
+    if (!withImages) return Promise.resolve(base);
+    return Blobs.exportAll().then(function (imgs) {
+      base.images = imgs;
+      return base;
+    });
+  }
+
+  function exportToFile(withImages) {
+    return exportAll(withImages).then(function (data) {
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'koza-' + today() + (withImages ? '-画像あり' : '') + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      markExported();
+      return data;
+    });
+  }
+
+  function importAll(data) {
+    if (!data || data.app !== 'koza') throw new Error('Kōzaの書き出しファイルではないようです');
+
+    var added = { customers: 0, visits: 0, touches: 0, briefs: 0, appointments: 0 };
+
+    function merge(key, incoming, label) {
+      var cur = read(key, []);
+      var seen = {};
+      cur.forEach(function (x) { seen[x.id] = true; });
+      (incoming || []).forEach(function (x) {
+        if (!x || !x.id || seen[x.id]) return;
+        cur.push(x); seen[x.id] = true; added[label] += 1;
+      });
+      write(key, cur);
+    }
+
+    merge(K.customers, data.customers, 'customers');
+    merge(K.visits, data.visits, 'visits');
+    merge(K.touches, data.touches, 'touches');
+    merge(K.briefs, data.briefs, 'briefs');
+    merge(K.appointments, data.appointments, 'appointments');
+
+    if (data.goals) write(K.goals, Object.assign(read(K.goals, {}), data.goals));
+
+    if (!getProfile().configured && data.profile) write(K.profile, data.profile);
+
+    if (data.images && data.images.length) Blobs.importAll(data.images);
+
+    return added;
+  }
+
+  /* ---------- 使用状況（中身を含まない） ---------- */
+
+  function usageStats() {
+    var visits = listVisits();
+    var days = {};
+    var ai = 0, recent = 0;
+    var weekAgo = Date.now() - 7 * 86400000;
+    visits.forEach(function (v) {
+      days[v.date] = true;
+      if (v.ai_structured) ai += 1;
+      if (v.created_at && new Date(v.created_at).getTime() >= weekAgo) recent += 1;
+    });
+    var dates = Object.keys(days).sort();
+    var briefs = listBriefs();
+    var invites = listTouches().filter(function (t) { return t.intent === 'invite'; });
+    return {
+      invite_count: invites.length,
+      invite_settled: invites.filter(function (t) { return t.result === 'came' || t.result === 'missed'; }).length,
+      invite_came: invites.filter(function (t) { return t.result === 'came'; }).length,
+      appointment_count: openAppointments().length,
+      visit_count: visits.length,
+      customer_count: activeCustomers().length,
+      touch_count: listTouches().length,
+      brief_count: briefs.length,
+      brief_used: briefs.filter(function (b) { return b.outcome; }).length,
+      recorded_days: dates.length,
+      recent_7days: recent,
+      ai_structured: ai,
+      first_date: dates[0] || null,
+      last_date: dates[dates.length - 1] || null,
+      last_export_at: getMeta().last_export_at
+    };
+  }
+
+  return {
+    uid: uid, today: today, daysBetween: daysBetween,
+    addDays: addDays, weekdayOf: weekdayOf, toISO: toISO,
+    TOUCH_KINDS: TOUCH_KINDS, INVITE_STYLES: INVITE_STYLES,
+    ACCOUNT_LABELS: ACCOUNT_LABELS, isMyAccount: isMyAccount,
+    canContactDirectly: canContactDirectly, accountLabel: accountLabel, isMyVisit: isMyVisit,
+    CONFIDENCE: CONFIDENCE, CONFIDENCE_WEIGHT: CONFIDENCE_WEIGHT,
+
+    listAppointments: listAppointments, openAppointments: openAppointments,
+    appointmentsOn: appointmentsOn, appointmentsOf: appointmentsOf,
+    nextAppointmentOf: nextAppointmentOf,
+    addAppointment: addAppointment, updateAppointment: updateAppointment,
+    deleteAppointment: deleteAppointment, closeStaleAppointments: closeStaleAppointments,
+
+    periodOf: periodOf, getGoal: getGoal, saveGoal: saveGoal, visitsBetween: visitsBetween,
+    openInvites: openInvites, settleOverdueInvites: settleOverdueInvites,
+
+    getProfile: getProfile, saveProfile: saveProfile,
+
+    listCustomers: listCustomers, activeCustomers: activeCustomers,
+    getCustomer: getCustomer, matchCustomer: matchCustomer, candidates: candidates,
+    createCustomer: createCustomer, updateCustomer: updateCustomer,
+    deleteCustomer: deleteCustomer, enrichCustomer: enrichCustomer,
+
+    listVisits: listVisits, getVisit: getVisit, addVisit: addVisit,
+    updateVisit: updateVisit, deleteVisit: deleteVisit,
+    visitsOf: visitsOf, companionsOf: companionsOf, averageInterval: averageInterval,
+    moneyOf: moneyOf, rankByMoney: rankByMoney,
+
+    listTouches: listTouches, touchesOf: touchesOf, addTouch: addTouch,
+    updateTouch: updateTouch, deleteTouch: deleteTouch, sentIn: sentIn,
+
+    listBriefs: listBriefs, getBrief: getBrief, briefsOf: briefsOf,
+    latestBrief: latestBrief, addBrief: addBrief, recordOutcome: recordOutcome,
+
+    getDailyPlan: getDailyPlan, saveDailyPlan: saveDailyPlan, clearDailyPlan: clearDailyPlan,
+    getApiConfig: getApiConfig, saveApiConfig: saveApiConfig,
+    getMeta: getMeta, markExported: markExported, exportOverdue: exportOverdue,
+    exportAll: exportAll, exportToFile: exportToFile, importAll: importAll,
+    usageStats: usageStats
+  };
+})();
