@@ -97,7 +97,9 @@ var Holiday = (function () {
   function closedReason(iso) {
     var p = Store.getProfile();
 
-    if ((p.closed_dates || []).indexOf(iso) >= 0) return '休み';
+    // 本人が出ない日が先。店が開いていても、本人が出なければ枠にならない
+    if ((p.off_days || []).indexOf(iso) >= 0) return 'お休み';
+    if ((p.closed_dates || []).indexOf(iso) >= 0) return '店休';
 
     var wd = new Date(iso + 'T00:00:00').getDay();
     var open = p.open_days || [1, 2, 3, 4, 5, 6];

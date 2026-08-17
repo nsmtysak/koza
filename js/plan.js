@@ -534,6 +534,124 @@ var Plan = (function () {
     return out.sort(function (a, b) { return a.days - b.days; });
   }
 
+  /**
+   * 同伴の逆算。
+   *
+   * 同伴は目標を数えているだけだった。「あと4本足りない」で終わっていて、
+   * 「では誰を誘うのか」が無かった。
+   * 同伴は単価も上がり、報酬も付き、しかも枠が1日1組しか取れない。
+   * 数えるだけなら、目標を持つ意味がない。
+   */
+  function douhanPlan() {
+    var p = progress();
+    var need = Math.max(0, p.douhan.target - p.douhan.done - Math.floor(p.douhan.booked));
+    if (!p.douhan.target) return { target: 0, need: 0, candidates: [] };
+
+    var t0 = Store.today();
+    var days = board(HORIZON);
+
+    // 同伴に応じてくださった実績のある方を先に。次に、よくお越しになる方
+    var list = Store.activeCustomers().filter(function (c) {
+      if (!Store.canContactDirectly(c)) return false;
+      if (Store.nextAppointmentOf(c.id)) return false;
+      return contactGuard(c.id).ok;
+    }).map(function (c) {
+      var visits = Store.visitsOf(c.id);
+      var douhans = visits.filter(function (v) { return v.douhan; }).length;
+      var lead = leadTime(c.id, 'douhan');
+      return {
+        customer: c,
+        douhan_count: douhans,
+        visit_count: visits.length,
+        lead: lead,
+        expected_spend: expectedSpend(c.id),
+        // 同伴の実績がある方は、また応じてくださる見込みが高い
+        score: douhans * 40 + Math.min(visits.length, 10) * 4 + (expectedSpend(c.id) / 50000)
+      };
+    }).filter(function (x) { return x.douhan_count > 0 || x.visit_count >= 3; });
+
+    list.sort(function (a, b) { return b.score - a.score; });
+
+    // 同伴の枠は1日1組。すでに同伴が入っている日は外す
+    var taken = {};
+    days.forEach(function (d) { if (d.douhan) taken[d.date] = true; });
+
+    list.slice(0, 8).forEach(function (x) {
+      var slot = null;
+      for (var i = 0; i < days.length; i++) {
+        var d = days[i];
+        if (!d.open || taken[d.date]) continue;
+        if (d.offset < x.lead.days) continue;
+        if (!d.in_period) break;          // 締めを過ぎると今月の本数にならない
+        slot = d; break;
+      }
+      if (slot) { taken[slot.date] = true; x.target_date = slot.date; x.target_weekday = slot.weekday; }
+      x.contact_by = slot ? Store.addDays(slot.date, -x.lead.days) : null;
+      x.urgency = !x.contact_by ? 'none'
+        : (x.contact_by < t0 ? 'late' : (x.contact_by === t0 ? 'today' : 'soon'));
+    });
+
+    return {
+      target: p.douhan.target,
+      done: p.douhan.done,
+      booked: p.douhan.booked,
+      need: need,
+      days_left: p.days_left,
+      candidates: list.slice(0, 6).filter(function (x) { return x.target_date; })
+    };
+  }
+
+  /**
+   * 締めまでの残り。
+   * 残り3日と残り20日で同じ手を出すのは、逆算とは言わない。
+   */
+  function phase() {
+    var p = progress();
+    var open = 0;
+    for (var i = 0; i < p.days_left; i++) {
+      if (isOpenDay(Store.addDays(Store.today(), i))) open += 1;
+    }
+    return {
+      days_left: p.days_left,
+      open_days_left: open,          // 出られる日は何日あるか
+      final: p.days_left <= 5,       // 追い込み
+      // いま声をかけて締めまでに間に合う最長のリードタイム
+      max_lead: Math.max(0, p.days_left - 1)
+    };
+  }
+
+  /**
+   * 場内でのご指名を狙える方。
+   *
+   * 新しい口座は、ここからしか生まれない。
+   * ヘルプで付いた席で気に入っていただき、場内指名になり、自分の口座に育つ。
+   * これまで文言があるだけで、実体が無かった。
+   */
+  function jonaiCandidates() {
+    var out = [];
+    Store.activeCustomers().forEach(function (c) {
+      // すでに自分の口座なら、育てる相手ではない
+      if (c.account_owner === 'self') return;
+
+      var visits = Store.visitsOf(c.id);
+      var withMe = visits.filter(function (v) { return v.my_role === 'help'; }).length;
+      if (withMe < 2) return;
+
+      var last = visits[0];
+      out.push({
+        customer: c,
+        times: withMe,
+        total: visits.length,
+        last_visit: last ? last.date : null,
+        last_topic: last ? last.topic_detail : '',
+        // フリーの方は直接お声がけもできる。ほかの方の口座は店内だけ
+        can_contact: Store.canContactDirectly(c),
+        account: Store.accountLabel(c)
+      });
+    });
+    return out.sort(function (a, b) { return b.times - a.times; });
+  }
+
   /** 今日お会いする方 */
   function todaysGuests() {
     return Store.appointmentsOn(Store.today()).map(function (a) {
@@ -575,6 +693,7 @@ var Plan = (function () {
     expectedSpend: expectedSpend, overallAverage: overallAverage,
     progress: progress, board: board, candidates: candidates, fillPlan: fillPlan,
     aftercare: aftercare, guestsOfOthers: guestsOfOthers,
+    douhanPlan: douhanPlan, phase: phase, jonaiCandidates: jonaiCandidates,
     contactGuard: contactGuard, sendTimeWarning: sendTimeWarning,
     clashOn: clashOn, heldBack: heldBack,
     todaysGuests: todaysGuests, upcomingGuests: upcomingGuests,

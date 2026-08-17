@@ -121,6 +121,10 @@ var Api = (function () {
         days_left: p.days_left,
         average_spend: p.average_spend,
         need_visits: p.need_visits,
+        open_days_left: Plan.phase().open_days_left,
+        final: Plan.phase().final,
+        max_lead: Plan.phase().max_lead,
+        douhan_need: Plan.douhanPlan().need,
         douhan_target: p.douhan.target,
         douhan_done: p.douhan.done,
         douhan_booked: p.douhan.booked
@@ -261,7 +265,9 @@ var Api = (function () {
         days_since: d.days_since,
         average_interval: d.average_interval,
         total_spend: d.money.total,
-        average_spend: d.money.average
+        average_spend: d.money.average,
+        max_spend: d.money.max,          // これまでに出された最高額
+        recent_spend: d.money.recent      // 直近の推移。落ちてきていれば手当てが要る
       },
       recent_visits: d.visits.slice(0, 6).map(function (v) {
         return {

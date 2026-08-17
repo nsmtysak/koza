@@ -229,12 +229,115 @@ var Board = (function () {
     return card;
   }
 
+  /**
+   * 同伴の逆算。数えるだけでは目標を持つ意味がない。
+   * 同伴は単価も上がり、報酬も付き、枠は1日1組しか取れない。
+   */
+  function renderDouhan() {
+    var host = document.getElementById('board-douhan');
+    var d = Plan.douhanPlan();
+    if (!d.target) { host.hidden = true; return; }
+
+    UI.clear(host);
+    host.appendChild(UI.el('h2', 'sect',
+      '同伴　' + d.done + ' / ' + d.target + ' 回' + (d.need ? '　あと' + d.need + '回' : '')));
+
+    if (!d.need) {
+      host.appendChild(UI.el('p', 'help', '目標に届いています。'));
+      host.hidden = false;
+      return;
+    }
+    if (!d.candidates.length) {
+      host.appendChild(UI.el('p', 'empty', '同伴でお誘いできる方が、いま見当たりません。'));
+      host.hidden = false;
+      return;
+    }
+
+    host.appendChild(UI.el('p', 'help',
+      '同伴の枠は1日1組です。すでに同伴が入っている日は外してあります。'));
+
+    var list = UI.el('div', 'cards');
+    d.candidates.forEach(function (x) {
+      var card = UI.el('div', 'card');
+      var top = UI.el('div', 'card-top');
+      top.appendChild(UI.avatar(x.customer));
+      top.appendChild(UI.el('div', 'card-name', x.customer.display_name));
+      if (x.urgency === 'today') top.appendChild(UI.chip('今日が締切', 'gold'));
+      else if (x.urgency === 'late') top.appendChild(UI.chip('締切を過ぎています', 'warn'));
+      card.appendChild(top);
+
+      card.appendChild(UI.el('p', 'card-reason',
+        UI.longDate(x.target_date) + 'の同伴を狙うなら、' +
+        (x.urgency === 'today' ? '今日' : UI.shortDate(x.contact_by) + 'まで') + 'にお声がけ'));
+
+      var meta = [];
+      meta.push(x.douhan_count ? '同伴 ' + x.douhan_count + '回' : '同伴の実績はまだ');
+      meta.push('ご来店 ' + x.visit_count + '回');
+      if (x.expected_spend) meta.push('見込み ' + UI.yen(x.expected_spend));
+      card.appendChild(UI.el('p', 'card-body', meta.join('　/　')));
+
+      var acts = UI.el('div', 'card-acts');
+      var inv = UI.el('button', 'primary small', '同伴のお誘いを作る');
+      inv.type = 'button';
+      inv.addEventListener('click', function () {
+        Invite.open(x.customer.id, { target_date: x.target_date, kind: 'douhan' });
+      });
+      acts.appendChild(inv);
+      card.appendChild(acts);
+      list.appendChild(card);
+    });
+    host.appendChild(list);
+    host.hidden = false;
+  }
+
+  /**
+   * 場内でのご指名を狙える方。
+   * 新しい口座は、ここからしか生まれない。
+   */
+  function renderJonai() {
+    var host = document.getElementById('board-jonai');
+    var list = Plan.jonaiCandidates();
+    if (!list.length) { host.hidden = true; return; }
+
+    UI.clear(host);
+    host.appendChild(UI.el('h2', 'sect', '場内でのご指名を狙える方'));
+    host.appendChild(UI.el('p', 'help',
+      'ヘルプでご一緒した回数が多い方です。**新しい口座は、ここからしか生まれません。**'.replace(/\*\*/g, '')));
+
+    var wrap = UI.el('div', 'cards');
+    list.slice(0, 6).forEach(function (x) {
+      var card = UI.el('button', 'card');
+      card.type = 'button';
+      var top = UI.el('div', 'card-top');
+      top.appendChild(UI.avatar(x.customer));
+      top.appendChild(UI.el('div', 'card-name', x.customer.display_name));
+      top.appendChild(UI.chip('ご一緒 ' + x.times + '回', 'gold'));
+      card.appendChild(top);
+
+      if (x.account) {
+        var a = UI.el('p', 'card-body');
+        a.style.color = x.can_contact ? 'var(--text-dim)' : '#e7b8ac';
+        a.textContent = x.account + (x.can_contact
+          ? '。ご連絡も差し上げられます'
+          : '。こちらからのご連絡はしません。店内でのお相手だけです');
+        card.appendChild(a);
+      }
+      if (x.last_topic) card.appendChild(UI.el('p', 'card-body', '前回：' + x.last_topic));
+      card.addEventListener('click', function () { People.openPerson(x.customer.id, 'brief'); });
+      wrap.appendChild(card);
+    });
+    host.appendChild(wrap);
+    host.hidden = false;
+  }
+
   function render() {
     Store.closeStaleAppointments();
     Store.settleOverdueInvites();
     renderProgress();
     renderDays();
     renderCandidates();
+    renderDouhan();
+    renderJonai();
   }
 
   /* ---------- その日 ----------
@@ -257,14 +360,14 @@ var Board = (function () {
     var date = dayDate;
     var closed = Holiday.closedReason(date);
     var apts = Store.appointmentsOn(date);
-    var isTemp = (Store.getProfile().closed_dates || []).indexOf(date) >= 0;
 
     if (closed) {
       var b = UI.el('div', 'banner-warn');
-      b.appendChild(UI.el('h3', null, closed === '休み' ? '臨時の休みにしています' : closed));
-      b.appendChild(UI.el('p', null, closed === '休み'
-        ? 'この日は枠として数えていません。'
-        : 'この日は枠として数えていません。設定の「お店の休み」で変えられます。'));
+      b.appendChild(UI.el('h3', null,
+        closed === 'お休み' ? '自分が出ない日にしています'
+          : closed === '店休' ? 'お店の臨時休業にしています' : closed));
+      b.appendChild(UI.el('p', null, '**この日は枠として数えていません。**'.replace(/\*\*/g, '') +
+        '下のボタンで戻せます。'));
       body.appendChild(b);
     }
 
@@ -300,24 +403,36 @@ var Board = (function () {
     add.addEventListener('click', function () { openAppt({ date: date }); });
     act.appendChild(add);
 
-    // 臨時の休み。盤面を見ながら決められるように、ここに置いてある
-    var toggle = UI.el('button', 'ghost', isTemp ? '営業日に戻す' : 'この日を臨時の休みにする');
-    toggle.type = 'button';
-    toggle.addEventListener('click', function () {
-      var cur = (Store.getProfile().closed_dates || []).slice();
-      if (isTemp) {
-        cur = cur.filter(function (v) { return v !== date; });
-      } else {
-        if (apts.length && !UI.confirmAsk(
-          'この日には' + apts.length + '組の予定が入っています。\n休みにしても予定は消えませんが、枠としては数えなくなります。\n\nよろしいですか。')) return;
-        cur.push(date);
-      }
-      Store.saveProfile({ closed_dates: cur });
-      Store.clearDailyPlan();
-      UI.toast(isTemp ? '営業日に戻しました' : '臨時の休みにしました');
-      renderDay();
-    });
-    act.appendChild(toggle);
+    /* 休みは2種類ある。
+     * 自分が出ない日と、店が閉まる日。
+     * 店が開いていても自分が出なければ枠にはならない。ここを混ぜると逆算がずれる。 */
+    function dayToggle(label, key, offLabel, onLabel) {
+      var list = (Store.getProfile()[key] || []).slice();
+      var on = list.indexOf(date) >= 0;
+      var b = UI.el('button', 'ghost', on ? offLabel : onLabel);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        var cur = (Store.getProfile()[key] || []).slice();
+        if (on) {
+          cur = cur.filter(function (v) { return v !== date; });
+        } else {
+          if (apts.length && !UI.confirmAsk(
+            'この日には' + apts.length + '組の予定が入っています。\n' +
+            '休みにしても予定は消えませんが、枠としては数えなくなります。\n\nよろしいですか。')) return;
+          cur.push(date);
+        }
+        var patch = {};
+        patch[key] = cur;
+        Store.saveProfile(patch);
+        Store.clearDailyPlan();
+        UI.toast(on ? '戻しました' : '休みにしました');
+        renderDay();
+      });
+      return b;
+    }
+
+    act.appendChild(dayToggle('自分', 'off_days', '出勤に戻す', 'この日は自分が出ない'));
+    act.appendChild(dayToggle('店', 'closed_dates', '店を営業に戻す', 'この日は店が休み'));
 
     body.appendChild(act);
   }

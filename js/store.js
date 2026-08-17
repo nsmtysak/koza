@@ -113,7 +113,12 @@ var Store = (function () {
     newyear_from: '12-29', newyear_to: '01-03',
     closed_obon: true,
     obon_from: '08-13', obon_to: '08-16',
-    closed_dates: [],        // 臨時の休み（YYYY-MM-DD）
+    closed_dates: [],        // 店の臨時の休み（YYYY-MM-DD）
+
+    /* 本人が出ない日。店が開いていても、本人が出なければ枠にならない。
+     * ここが無いと「埋められる日」を数え間違える。逆算の土台。 */
+    off_days: [],            // 自分の休み（YYYY-MM-DD）
+    workdays_per_month: 0,   // ひと月に出られる日数の目安
 
     /* お店のきまり */
     douhan_deadline: '',     // 同伴の入店締め時刻。例 21:00
@@ -605,7 +610,8 @@ var Store = (function () {
    * 主客が分からない場合だけ頭割りにする。
    */
   function moneyOf(customerId) {
-    var total = 0, counted = 0, last = null;
+    var total = 0, counted = 0, last = null, max = 0;
+    var recent = [];
 
     visitsOf(customerId).forEach(function (v) {
       if (typeof v.spend !== 'number' || v.spend <= 0) return;
@@ -622,14 +628,19 @@ var Store = (function () {
       if (share > 0) {
         total += share;
         counted += 1;
+        if (share > max) max = share;
+        recent.push({ date: v.date, amount: Math.round(share) });
         if (!last || v.date > last) last = v.date;
       }
     });
 
+    recent.sort(function (a, b) { return b.date.localeCompare(a.date); });
     return {
       total: Math.round(total),
       visits_with_amount: counted,
       average: counted ? Math.round(total / counted) : null,
+      max: Math.round(max),                 // これまでに出された最高額。単価の上限の目安
+      recent: recent.slice(0, 5),           // 直近の推移。落ちてきているかが分かる
       last_date: last
     };
   }
@@ -994,6 +1005,7 @@ var Store = (function () {
       confirm_points: f.confirm_points || [],
       cautions: f.cautions || [],
       hospitality: f.hospitality || [],       // その席でする手当て
+      offer: f.offer || [],                   // さりげなくお勧めできるもの（単価）
       trust_risks: f.trust_risks || [],       // 信を落としかねない点
       seed_questions: f.seed_questions || [], // 次の口実になる質問
       message_drafts: f.message_drafts || [],

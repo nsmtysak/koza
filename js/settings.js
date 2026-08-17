@@ -42,6 +42,8 @@ var Settings = (function () {
       patch.douhan_reward_type = answers.douhan_reward_type;
       if (answers.douhan_reward_type === 'fixed') patch.douhan_reward_value = 3000;
     }
+    var wd = parseInt(answers.workdays, 10) || 0;
+    if (wd) patch.workdays_per_month = wd;
     var goalNow = parseInt(answers.target_sales, 10) || 0;
     if (goalNow) patch.target_sales = goalNow;
     Store.saveProfile(patch);

@@ -471,6 +471,25 @@ function handleBrief(req) {
     '「丁寧に接する」のような、誰にでも当てはまることは書きません。',
     'この方の記録から導ける手当てだけを書きます。2〜4件。',
     '',
+    '# offer（さりげなくお勧めできるもの）',
+    '売上は「何組お迎えするか」と「一組あたりいくらか」の掛け算です。',
+    '組数だけ追っても届きません。**その席で自然にお勧めできるものを1つ**出します。',
+    '',
+    '判断の材料は渡してあります。',
+    '  - stats.average_spend … いつものお会計',
+    '  - stats.max_spend … これまでに出された最高額（この方の上限の目安）',
+    '  - stats.recent_spend … 直近の推移。落ちてきていれば、無理に上げない',
+    '  - customer.prefs … お好みのお酒・食べ物',
+    '  - customer.bottles … お預かりしているボトルと残量',
+    '',
+    '**押し売りは絶対にしません。** 次を守れないなら、offer は空にしてください。',
+    '- お好みに沿っていること。飲まれないものを勧めない',
+    '- いつものお会計から大きく外れないこと。max_spend を超える提案はしない',
+    '- 直近が落ちてきている方には出さない（懐が厳しいことがあります）',
+    '- お祝いごと・記念日・ボトルが空くなど、**理由のあるときだけ**',
+    '- 言い方は「お勧めする」ではなく「ご用意できます」「入りました」',
+    'why に、なぜ今この方にこれなのかを1文で。理由が書けないなら出さないでください。',
+    '',
     '# trust_risks（信を落としかねない点）',
     'やらかすと口座が離れる、という具体的な危うさを書きます。',
     '  「前回◯◯をお約束しています。こちらから触れないと、軽く見られます」',
@@ -545,7 +564,7 @@ function handleBrief(req) {
       }
     },
     required: ['summary', 'talk_points', 'confirm_points', 'cautions',
-      'hospitality', 'trust_risks', 'seed_questions', 'timing', 'message_drafts'],
+      'hospitality', 'offer', 'trust_risks', 'seed_questions', 'timing', 'message_drafts'],
     additionalProperties: false
   };
 
@@ -601,8 +620,18 @@ function handlePlan(req) {
     } else {
       money.push('- 着地は目標を上回る見込みです。ここから先は積み増しと、来月に効く仕込みです。');
     }
+    if (p.open_days_left !== undefined) {
+      money.push('- 出られる日は残り ' + p.open_days_left + '日です（休みを除いた数）。');
+    }
+    if (p.final) {
+      money.push('- **締めまで残りわずかです。**');
+      money.push('  いま声をかけて間に合うのは、お越しになるまで ' + p.max_lead + '日以内の方だけです。');
+      money.push('  それより時間のかかる方に今日動いても、今月の数字にはなりません。');
+      money.push('  **間に合う方に絞ってください。** 間に合わない方は soon に回します。');
+    }
     if (p.douhan_target) {
-      money.push('- 同伴は目標' + p.douhan_target + '本に対して' + p.douhan_done + '本（予定分 ' + p.douhan_booked + '）。');
+      money.push('- 同伴は目標' + p.douhan_target + '回に対して' + p.douhan_done + '回（予定分 ' + p.douhan_booked + '）。'
+        + (p.douhan_need ? ' **あと' + p.douhan_need + '回。** 同伴は単価も上がり、枠は1日1組しか取れません。' : ''));
     }
     money.push('');
   }

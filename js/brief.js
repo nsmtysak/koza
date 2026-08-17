@@ -26,6 +26,7 @@ var Brief = (function () {
         confirm_points: d.confirm_points || [],
         cautions: d.cautions || [],
         hospitality: d.hospitality || [],
+        offer: d.offer || [],
         trust_risks: d.trust_risks || [],
         seed_questions: d.seed_questions || [],
         message_drafts: d.message_drafts || [],
@@ -64,6 +65,7 @@ var Brief = (function () {
 
     // 今日その席でする手当て。次があるかは、ここで決まる
     section(body, '今日して差し上げること', b.hospitality, 'hosp');
+    renderOffer(body, b);
     section(body, '話せること', b.talk_points);
     section(body, '確かめたいこと', b.confirm_points);
     renderSeeds(body, b);
@@ -136,6 +138,40 @@ var Brief = (function () {
         small.style.marginTop = '7px';
         small.textContent = '← ' + why;
         li.appendChild(small);
+      }
+      ul.appendChild(li);
+    });
+    s.appendChild(ul);
+    parent.appendChild(s);
+  }
+
+  /**
+   * さりげなくお勧めできるもの。
+   * 売上は組数×単価。組数だけ追っても届かない。
+   * ただし押し売りにした瞬間に口座が離れるので、理由が書けないものは出さない。
+   */
+  function renderOffer(parent, b) {
+    var items = b.offer || [];
+    if (!items.length) return;
+
+    var s = UI.el('div', 'brief-sec');
+    s.appendChild(UI.el('h3', null, 'ご用意できるもの'));
+    s.appendChild(UI.el('p', 'help', 'お好みと、これまでのお会計から出しています。無理にお勧めするものではありません。'));
+
+    var ul = UI.el('ul', 'brief-list');
+    items.forEach(function (o) {
+      var li = UI.el('li', 'offer');
+      li.appendChild(UI.el('div', 'seed-q', o.what || ''));
+      if (o.how) {
+        var h = UI.el('p', 'seed-why');
+        h.textContent = '言い方：' + o.how;
+        li.appendChild(h);
+      }
+      if (o.why) {
+        var w = UI.el('p', 'help');
+        w.style.marginTop = '6px';
+        w.textContent = '← ' + o.why;
+        li.appendChild(w);
       }
       ul.appendChild(li);
     });
