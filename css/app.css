@@ -56,6 +56,7 @@ body{
 
 .block{margin-bottom:32px}
 .sect{font-size:.88rem;font-weight:600;letter-spacing:.12em;color:var(--text-dim);margin:0 0 12px}
+.sect-sm{font-size:.82rem;font-weight:600;letter-spacing:.12em;color:var(--text-faint);margin:26px 0 10px}
 
 .back{width:var(--tap);height:var(--tap);flex:0 0 var(--tap);background:none;border:none;
   color:var(--text-dim);font-size:1.5rem;cursor:pointer;margin-left:-14px}

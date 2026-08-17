@@ -983,7 +983,8 @@ function callAndParse(body) {
   if (!res.ok) return res;
   var parsed = parseJsonText(res.text);
   if (!parsed) return { ok: false, error: 'AIの返事を読み取れませんでした' };
-  return { ok: true, data: parsed };
+  // 使った量は本文と別に返す。data に混ぜると各画面の読み取りに紛れ込む
+  return { ok: true, data: parsed, usage: res.usage || null };
 }
 
 function callClaude(body) {
@@ -1030,7 +1031,17 @@ function callClaude(body) {
   (data.content || []).forEach(function (b) { if (b.type === 'text') text += b.text; });
   if (!text) return { ok: false, error: 'AIから中身が返りませんでした' };
 
-  return { ok: true, text: text };
+  // 何トークン使ったかを持ち帰る。クレジットの減りは、推測ではなく実測で見せる
+  var u = data.usage || {};
+  return {
+    ok: true,
+    text: text,
+    usage: {
+      model: body.model || '',
+      in: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
+      out: u.output_tokens || 0
+    }
+  };
 }
 
 /* ============================================================

@@ -43,6 +43,7 @@ var Api = (function () {
       if (!json.ok) throw new Error(json.error || '処理に失敗しました');
       // 次に待たせるときの目安に使う。失敗した回は数えない
       Store.recordTiming(payload.mode, Date.now() - t0);
+      if (json.usage) Store.recordUsage(payload.mode, json.usage);
       return json.data;
     }).catch(function (err) {
       if (timer) clearTimeout(timer);

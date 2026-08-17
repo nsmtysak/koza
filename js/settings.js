@@ -203,6 +203,53 @@ var Settings = (function () {
     if (s.first_date) {
       cell('記録している期間', UI.shortDate(s.first_date) + ' 〜 ' + UI.shortDate(s.last_date), '', true);
     }
+    renderAiUsage();
+  }
+
+  /** AIをどれだけ使ったか。クレジットの減りは推測ではなく実測で見せる */
+  var AI_LABEL = {
+    structure: '整理', card: '名刺', brief: '会う前の準備',
+    plan: '今日の段取り', drafts: '送る文', invite: 'お誘いの文', ping: '接続の確認'
+  };
+
+  function renderAiUsage() {
+    var wrap = document.getElementById('ai-usage');
+    if (!wrap) return;
+    UI.clear(wrap);
+
+    var u = Store.usageThisMonth();
+    if (!u) {
+      wrap.appendChild(UI.el('p', 'help', '今月はまだAIを使っていません。'));
+      return;
+    }
+
+    var head = UI.el('p', null,
+      u.calls + '回　' + fmt(u.in + u.out) + 'トークン　およそ' + u.yen.toLocaleString('ja-JP') + '円');
+    head.style.fontSize = '1.02rem';
+    wrap.appendChild(head);
+
+    var rows = Object.keys(u.by).sort(function (a, b) { return u.by[b].calls - u.by[a].calls; });
+    var ul = UI.el('div', 'cards');
+    rows.forEach(function (k) {
+      var b = u.by[k];
+      var row = UI.el('div', 'gift-row');
+      var t = UI.el('span', 'gname',
+        (AI_LABEL[k] || k) + '　' + b.calls + '回　' + fmt(b.in) + '→' + fmt(b.out));
+      t.style.fontSize = '.9rem';
+      t.style.color = 'var(--text-dim)';
+      row.appendChild(t);
+      ul.appendChild(row);
+    });
+    wrap.appendChild(ul);
+
+    wrap.appendChild(UI.el('p', 'help',
+      '「送った量→返ってきた量」です。費用は1ドル155円で見た概算で、実際の請求はAnthropicの管理画面が正です。'));
+  }
+
+  function fmt(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return Math.round(n / 1000) + 'k';
+    return String(n);
   }
 
   function testApi() {

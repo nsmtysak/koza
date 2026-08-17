@@ -1076,6 +1076,59 @@ var Store = (function () {
     return a[Math.floor(a.length / 2)];
   }
 
+  /* ---------- AIをどれだけ使ったか ----------
+   * クレジットの減り方は、推測ではなく実測で見せる。
+   * 「思ったより早くなくなる」がいちばん困るので、月ごとに積んでおく。
+   */
+
+  // 1Mトークンあたりの単価（米ドル）。2026年8月時点。変わったらここだけ直す
+  var PRICE = {
+    'claude-sonnet-5':   { in: 3, out: 15 },
+    'claude-haiku-4-5':  { in: 1, out: 5 }
+  };
+  var PRICE_DEFAULT = { in: 3, out: 15 };   // 分からない型番は高いほうで見積もる
+
+  function usageMonth(iso) { return (iso || today()).slice(0, 7); }
+
+  function recordUsage(mode, u) {
+    if (!u || (!u.in && !u.out)) return;
+    var all = read(NS + 'usage', {});
+    var m = usageMonth();
+    var mon = all[m] || { calls: 0, in: 0, out: 0, by: {} };
+    mon.calls += 1;
+    mon.in += (u.in || 0);
+    mon.out += (u.out || 0);
+    var b = mon.by[mode] || { calls: 0, in: 0, out: 0 };
+    b.calls += 1; b.in += (u.in || 0); b.out += (u.out || 0);
+    mon.by[mode] = b;
+    mon.model = u.model || mon.model || '';
+    all[m] = mon;
+
+    // 3か月ぶんだけ残す。それ以上は見返さない
+    Object.keys(all).sort().slice(0, -3).forEach(function (k) { delete all[k]; });
+    write(NS + 'usage', all);
+  }
+
+  /** 今月ぶんの利用量と、おおよその費用（円） */
+  function usageThisMonth(yenPerUsd) {
+    var mon = read(NS + 'usage', {})[usageMonth()];
+    if (!mon) return null;
+    var rate = yenPerUsd || 155;
+
+    var usd = 0;
+    Object.keys(mon.by).forEach(function (k) {
+      // 用途ごとに使う型番が違う。整理と名刺は安いほう
+      var p = (k === 'structure' || k === 'card') ? PRICE['claude-haiku-4-5'] : PRICE['claude-sonnet-5'];
+      p = p || PRICE_DEFAULT;
+      usd += (mon.by[k].in / 1e6) * p.in + (mon.by[k].out / 1e6) * p.out;
+    });
+
+    return {
+      month: usageMonth(), calls: mon.calls, in: mon.in, out: mon.out,
+      by: mon.by, usd: usd, yen: Math.round(usd * rate)
+    };
+  }
+
   /* ---------- メタ ---------- */
 
   function getMeta() { return read(K.meta, { last_export_at: null, schema_version: SCHEMA_VERSION }); }
@@ -1240,6 +1293,7 @@ var Store = (function () {
     getDailyPlan: getDailyPlan, saveDailyPlan: saveDailyPlan, clearDailyPlan: clearDailyPlan,
     getApiConfig: getApiConfig, saveApiConfig: saveApiConfig,
     recordTiming: recordTiming, estimateMs: estimateMs,
+    recordUsage: recordUsage, usageThisMonth: usageThisMonth,
     getMeta: getMeta, markExported: markExported, exportOverdue: exportOverdue,
     exportAll: exportAll, exportToFile: exportToFile, importAll: importAll,
     usageStats: usageStats
