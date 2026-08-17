@@ -194,18 +194,16 @@ var Invite = (function () {
       }
 
       var acts = UI.el('div', 'card-acts');
-      var use = UI.el('button', 'primary small', 'この文でお送りする');
-      use.type = 'button';
-      use.addEventListener('click', function () {
-        copy(dr.text);
-        recordInvite(dr.text, dr.style);
-      });
-      acts.appendChild(use);
-
-      var justCopy = UI.el('button', 'ghost small', '文だけ写す');
+      // 写すことと、送ったことにすることは別。押した時点では、まだ送っていない
+      var justCopy = UI.el('button', 'ghost small', '文を写す');
       justCopy.type = 'button';
       justCopy.addEventListener('click', function () { copy(dr.text); });
       acts.appendChild(justCopy);
+
+      var use = UI.el('button', 'primary small', '送りました');
+      use.type = 'button';
+      use.addEventListener('click', function () { recordInvite(dr.text, dr.style); });
+      acts.appendChild(use);
 
       card.appendChild(acts);
       block.appendChild(card);
@@ -226,7 +224,7 @@ var Invite = (function () {
   function copy(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
-        UI.toast('写しました');
+        UI.toast('写しました。LINEに貼ってお送りください');
       }).catch(function () { UI.toast('長押しでコピーしてください', true); });
     } else {
       UI.toast('長押しでコピーしてください', true);

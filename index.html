@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=12">
+<link rel="stylesheet" href="css/app.css?v=13">
 </head>
 <body>
 
@@ -71,12 +71,11 @@
 
     <div class="q" data-step="2" hidden>
       <p class="qnum">3 / 4</p>
-      <h2>同伴の報酬は？</h2>
-      <div class="opts" data-field="douhan_reward_type">
-        <button class="opt" data-value="fixed">定額バック</button>
-        <button class="opt" data-value="percent">小計連動</button>
-        <button class="opt" data-value="prize">同伴賞（月◯回で賞金）</button>
-        <button class="opt" data-value="none">なし</button>
+      <h2>ひと月に何日くらい出られますか？</h2>
+      <div class="opts" data-field="workdays">
+        <button class="opt" data-value="26">ほぼ毎日<small>店が開いている日は出る</small></button>
+        <button class="opt" data-value="22">週5日くらい</button>
+        <button class="opt" data-value="18">週4日くらい</button>
       </div>
     </div>
 
@@ -105,6 +104,9 @@
   </header>
 
   <div id="home-goal" class="goalbar"></div>
+
+  <div id="home-account" class="banner-warn" hidden></div>
+  <div id="home-asking" class="banner-warn" hidden></div>
 
   <div id="home-gift" class="banner" hidden></div>
 
@@ -515,22 +517,6 @@
       </select>
     </label>
 
-    <div class="grid2">
-      <label class="f">
-        <span>同伴の報酬</span>
-        <select id="s-douhan-type">
-          <option value="fixed">定額バック</option>
-          <option value="percent">小計連動</option>
-          <option value="prize">同伴賞</option>
-          <option value="none">なし</option>
-        </select>
-      </label>
-      <label class="f">
-        <span>額（円 / %）</span>
-        <input type="number" id="s-douhan-value" min="0" inputmode="numeric">
-      </label>
-    </div>
-
     <label class="f">
       <span>同伴のタイムアウト（分・0＝なし）</span>
       <input type="number" id="s-douhan-timeout" min="0" step="5" inputmode="numeric">
@@ -542,16 +528,10 @@
       <input type="number" id="s-douhan-quota" min="0" inputmode="numeric">
     </label>
 
-    <div class="grid2">
-      <label class="f">
-        <span>同伴の入店締め</span>
-        <input type="time" id="s-douhan-deadline">
-      </label>
-      <label class="f">
-        <span>開店</span>
-        <input type="time" id="s-open-time">
-      </label>
-    </div>
+    <label class="f">
+      <span>同伴の入店締め</span>
+      <input type="time" id="s-douhan-deadline">
+    </label>
 
     <div class="grid2">
     </div>
@@ -615,9 +595,11 @@
       <textarea id="setup-link" rows="3" readonly hidden></textarea>
     </div>
 
-    <h2 class="sect">使用状況</h2>
-    <p class="help">件数だけです。お客様のお名前や会話の中身は出ません。</p>
-    <div id="usage" class="usage"></div>
+    <details class="raw">
+      <summary>使っている量（確認用）</summary>
+      <p class="help">件数だけです。お客様のお名前や会話の中身は出ません。</p>
+      <div id="usage" class="usage"></div>
+    </details>
 
     <h2 class="sect">暗証番号</h2>
     <p class="help">お客様のお名前とご連絡先が入っています。<strong>人に見られると迷惑がかかるのはお客様のほうです。</strong>開くときに4桁の番号を求めます。</p>
@@ -682,24 +664,24 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=12"></script>
-<script src="js/store.js?v=12"></script>
-<script src="js/holiday.js?v=12"></script>
-<script src="js/insight.js?v=12"></script>
-<script src="js/plan.js?v=12"></script>
-<script src="js/api.js?v=12"></script>
-<script src="js/ui.js?v=12"></script>
-<script src="js/lock.js?v=12"></script>
-<script src="js/record.js?v=12"></script>
-<script src="js/scan.js?v=12"></script>
-<script src="js/people.js?v=12"></script>
-<script src="js/brief.js?v=12"></script>
-<script src="js/gifts.js?v=12"></script>
-<script src="js/board.js?v=12"></script>
-<script src="js/invite.js?v=12"></script>
-<script src="js/home.js?v=12"></script>
-<script src="js/seed.js?v=12"></script>
-<script src="js/settings.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/db.js?v=13"></script>
+<script src="js/store.js?v=13"></script>
+<script src="js/holiday.js?v=13"></script>
+<script src="js/insight.js?v=13"></script>
+<script src="js/plan.js?v=13"></script>
+<script src="js/api.js?v=13"></script>
+<script src="js/ui.js?v=13"></script>
+<script src="js/lock.js?v=13"></script>
+<script src="js/record.js?v=13"></script>
+<script src="js/scan.js?v=13"></script>
+<script src="js/people.js?v=13"></script>
+<script src="js/brief.js?v=13"></script>
+<script src="js/gifts.js?v=13"></script>
+<script src="js/board.js?v=13"></script>
+<script src="js/invite.js?v=13"></script>
+<script src="js/home.js?v=13"></script>
+<script src="js/seed.js?v=13"></script>
+<script src="js/settings.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>

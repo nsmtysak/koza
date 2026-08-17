@@ -197,36 +197,61 @@ var Store = (function () {
     free: 'フリー'
   };
 
-  /** 自分の口座か。未設定は自分のものとして扱う（従来の記録を壊さないため） */
+  /**
+   * 自分の口座か。
+   *
+   * **未設定は「自分」ではない。**
+   * 音声・名刺・同席者から自動で作られた方は、口座が分かっていない。
+   * それを「自分の口座」として扱うと、ママや先輩のお客様に
+   * こちらからご連絡してしまう。永久指名制の店では、それで店にいられなくなる。
+   * 分からないものは、分からないまま止める。
+   */
   function isMyAccount(c) {
-    return !!c && (!c.account_owner || c.account_owner === 'self');
+    return !!c && c.account_owner === 'self';
+  }
+
+  /** 口座がまだ決まっていない方。声かけの対象にしてはいけない */
+  function isAccountUnknown(c) {
+    return !!c && !c.account_owner;
   }
 
   /**
    * こちらから直接ご連絡してよい方か。
-   * ほかの方の口座には、こちらから誘いをかけてはいけない。
-   * できるのは、ご来店くださったときに店内で丁寧にお相手することだけ。
+   * 自分の口座とフリーだけ。**未設定は含めない。**
    */
   function canContactDirectly(c) {
-    return isMyAccount(c) || (c && c.account_owner === 'free');
+    return !!c && (c.account_owner === 'self' || c.account_owner === 'free');
   }
 
   function accountLabel(c) {
     if (!c) return '';
-    if (!c.account_owner) return '';
+    if (!c.account_owner) return '口座が未設定';
     if (c.account_owner === 'other' && c.account_owner_name) {
       return c.account_owner_name + 'さんの口座';
     }
     return ACCOUNT_LABELS[c.account_owner] || '';
   }
 
-  /** その来店が自分の売上になるか。主客の口座で決まる */
+  /** 口座を決めていただきたい方 */
+  function unknownAccountCustomers() {
+    return activeCustomers().filter(isAccountUnknown);
+  }
+
+  /**
+   * その来店が自分の売上になるか。
+   * ほかの方・ママの口座の席は自分の売上ではない。
+   * 未設定は、記録した本人の卓として数える（実績が消えるほうが実害が大きい）。
+   */
   function isMyVisit(v) {
     var att = v.attendees || [];
     if (!att.length) return true;
     var shukyaku = att.filter(function (a) { return a.role === 'shukyaku'; });
     var target = shukyaku.length ? shukyaku : att;
-    return target.some(function (a) { return isMyAccount(getCustomer(a.customer_id)); });
+    return target.some(function (a) {
+      var c = getCustomer(a.customer_id);
+      if (!c) return true;
+      return c.account_owner !== 'mama' && c.account_owner !== 'other';
+    });
   }
 
   /** 表記ゆれに強めの突合。完全一致 → 姓一致＋会社一致 の順 */
@@ -637,6 +662,7 @@ var Store = (function () {
     var mine = all.filter(function (t) {
       if (t.customer_id !== customerId || t.intent !== 'invite') return false;
       if (t.result === 'came' || t.result === 'superseded') return false;
+      // 確認待ちのものも、来店が入れば「効いた」に戻す（遅れて記録されただけ）
       var gap = daysBetween(t.date, visitDate);
       return gap !== null && gap >= 0 && gap <= INVITE_WINDOW;
     }).sort(function (a, b) { return b.date.localeCompare(a.date); });
@@ -653,7 +679,18 @@ var Store = (function () {
     return mine.length;
   }
 
-  /** 期日を過ぎても来店が無かった誘いを閉じる。起動時に一度回す */
+  /**
+   * 期日を過ぎた誘いを閉じる。
+   *
+   * **勝手に「来なかった」にはしない。**
+   * 記録は3日分まとめて入ることがある。その途中で自動的に missed にすると、
+   * 来てくださった方が「来なかった」として残り、
+   * 「この方は誘っても来ない」という間違った数字が根拠になってしまう。
+   * 間違ったまま確信を持って間違い続けるのが、いちばん質が悪い。
+   *
+   * だから、期日を過ぎたものは 'asking'（確認待ち）にして本人に聞く。
+   * 数えるのは、本人が答えたものだけ。
+   */
   function settleOverdueInvites() {
     var all = read(K.touches, []);
     var t0 = today();
@@ -661,10 +698,26 @@ var Store = (function () {
     all.forEach(function (t) {
       if (t.intent !== 'invite' || t.result) return;
       var limit = t.target_date ? addDays(t.target_date, 3) : addDays(t.date, INVITE_WINDOW);
-      if (t0 > limit) { t.result = 'missed'; t.settled_at = nowISO(); changed += 1; }
+      if (t0 > limit) { t.result = 'asking'; t.settled_at = nowISO(); changed += 1; }
     });
     if (changed) write(K.touches, all);
     return changed;
+  }
+
+  /** 確認待ちのお誘い。本人に「お越しになりましたか」と聞く */
+  function invitesAwaitingAnswer() {
+    return listTouches().filter(function (t) {
+      return t.intent === 'invite' && t.result === 'asking';
+    });
+  }
+
+  /** 本人の答えで決着させる */
+  function answerInvite(touchId, came) {
+    return updateTouch(touchId, {
+      result: came ? 'came' : 'missed',
+      came_date: came ? today() : null,
+      settled_at: nowISO()
+    });
   }
 
   /* ---------- Appointment（来店予定 ＝ 枠） ---------- */
@@ -747,14 +800,20 @@ var Store = (function () {
     return hit;
   }
 
-  /** 過ぎた予定を片付ける */
+  /**
+   * 過ぎた予定を片付ける。
+   * こちらも勝手に「来なかった」にはしない。記録が遅れているだけかもしれない。
+   * 7日過ぎたものだけ、盤面から下ろす（結果は unknown のまま残す）。
+   */
   function closeStaleAppointments() {
     var all = read(K.appointments, []);
     var t0 = today();
     var changed = 0;
     all.forEach(function (a) {
       if (a.closed) return;
-      if (a.date < addDays(t0, -2)) { a.closed = true; a.result = 'no'; a.closed_at = nowISO(); changed += 1; }
+      if (a.date < addDays(t0, -7)) {
+        a.closed = true; a.result = 'unknown'; a.closed_at = nowISO(); changed += 1;
+      }
     });
     if (changed) write(K.appointments, all);
     return changed;
@@ -1021,6 +1080,7 @@ var Store = (function () {
     addDays: addDays, weekdayOf: weekdayOf, toISO: toISO,
     TOUCH_KINDS: TOUCH_KINDS, INVITE_STYLES: INVITE_STYLES,
     ACCOUNT_LABELS: ACCOUNT_LABELS, isMyAccount: isMyAccount,
+    isAccountUnknown: isAccountUnknown, unknownAccountCustomers: unknownAccountCustomers,
     canContactDirectly: canContactDirectly, accountLabel: accountLabel, isMyVisit: isMyVisit,
     CONFIDENCE: CONFIDENCE, CONFIDENCE_WEIGHT: CONFIDENCE_WEIGHT,
 
@@ -1032,6 +1092,7 @@ var Store = (function () {
 
     periodOf: periodOf, getGoal: getGoal, saveGoal: saveGoal, visitsBetween: visitsBetween,
     openInvites: openInvites, settleOverdueInvites: settleOverdueInvites,
+    invitesAwaitingAnswer: invitesAwaitingAnswer, answerInvite: answerInvite,
 
     getProfile: getProfile, saveProfile: saveProfile,
 

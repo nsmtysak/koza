@@ -118,6 +118,7 @@ var Plan = (function () {
     var inv = Store.touchesOf(customerId).filter(function (t) { return t.intent === 'invite'; });
     var came = inv.filter(function (t) { return t.result === 'came'; }).length;
     var missed = inv.filter(function (t) { return t.result === 'missed'; }).length;
+    // 'asking'（確認待ち）は数えない。本人が答えたものだけを根拠にする
     var n = came + missed;
     // 標本が少ないうちは 0% や 100% と言い切らない
     return { rate: (came + 1) / (n + 2), came: came, missed: missed, samples: n };
@@ -195,10 +196,18 @@ var Plan = (function () {
     });
 
     // これから先の予定を、確度で割り引いて見込みに入れる
-    var booked = 0, bookedCount = 0, douhanBooked = 0;
+    var booked = 0, bookedCount = 0, douhanBooked = 0, aiming = 0;
     Store.openAppointments().forEach(function (a) {
       if (a.date < t0 || a.date > period.end) return;
-      if (a.customer_id && !Store.isMyAccount(Store.getCustomer(a.customer_id))) return;
+      var ac = a.customer_id ? Store.getCustomer(a.customer_id) : null;
+      if (ac && (ac.account_owner === 'mama' || ac.account_owner === 'other')) return;
+
+      /* 「狙う」は見込みに入れない。
+       * こちらが誘っただけの予定を見込みに積むと、20人に声をかけただけで
+       * 20人分が売上に乗る。画面では届いているのに、締めてみたら足りない。
+       * 店に「今月いけます」と言ってしまってからでは遅い。 */
+      if (a.confidence === 'aiming') { aiming += 1; return; }
+
       var w = Store.CONFIDENCE_WEIGHT[a.confidence] || 0.5;
       var amt = typeof a.expected_spend === 'number' && a.expected_spend > 0
         ? a.expected_spend
@@ -222,6 +231,7 @@ var Plan = (function () {
       help_visits: helpVisits,
       booked: booked,
       booked_count: bookedCount,
+      aiming_count: aiming,   // 狙っているだけの数。見込みには入れていない
       forecast: forecast,
       gap: gap,
       pace: goal.sales ? Math.round(forecast / goal.sales * 100) : null,

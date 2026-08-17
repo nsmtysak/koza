@@ -19,12 +19,76 @@ var Home = (function () {
     Store.settleOverdueInvites();
 
     Board.renderProgress(document.getElementById('home-goal'));
+    renderAccountTodo();
+    renderAskingInvites();
     renderGiftBanner();
     renderGuests();
     renderPlan();
     renderCallList();
     renderRecent();
     renderNag();
+  }
+
+  /* ---------- 口座が決まっていない方 ----------
+   * 音声・名刺・同席者から自動で作られた方は、口座が分かっていない。
+   * 分かるまでは、声かけにも段取りにも一切出さない。
+   * ただし黙って隠すと存在ごと忘れられるので、ここで催促する。
+   */
+  function renderAccountTodo() {
+    var host = document.getElementById('home-account');
+    var list = Store.unknownAccountCustomers();
+    if (!list.length) { host.hidden = true; return; }
+
+    UI.clear(host);
+    host.appendChild(UI.el('h3', null, '口座を決めてください（' + list.length + '名）'));
+    host.appendChild(UI.el('p', null,
+      'どなたの口座か分かるまで、この方々はお声がけの候補に出しません。' +
+      'ほかの方のお客様にこちらからご連絡してしまう事故を防ぐためです。'));
+
+    var row = UI.el('div', 'card-tags');
+    list.slice(0, 8).forEach(function (c) {
+      var b = UI.el('button', 'chip warn', c.display_name);
+      b.type = 'button';
+      b.addEventListener('click', function () { People.openPerson(c.id, 'profile'); });
+      row.appendChild(b);
+    });
+    if (list.length > 8) row.appendChild(UI.el('span', 'chip', 'ほか' + (list.length - 8) + '名'));
+    host.appendChild(row);
+    host.hidden = false;
+  }
+
+  /* ---------- お返事の確認 ----------
+   * 期日が過ぎたお誘いを、勝手に「来なかった」にはしない。
+   * 記録が遅れているだけかもしれない。本人に聞いてから数える。
+   */
+  function renderAskingInvites() {
+    var host = document.getElementById('home-asking');
+    var list = Store.invitesAwaitingAnswer();
+    if (!list.length) { host.hidden = true; return; }
+
+    UI.clear(host);
+    host.appendChild(UI.el('h3', null, 'お越しになりましたか（' + list.length + '件）'));
+    host.appendChild(UI.el('p', null, 'ここが埋まると、お声がけの効き方が分かるようになります。'));
+
+    var wrap = UI.el('div', 'cards');
+    wrap.style.marginTop = '12px';
+    list.slice(0, 5).forEach(function (t) {
+      var c = Store.getCustomer(t.customer_id);
+      if (!c) return;
+      var row = UI.el('div', 'gift-row');
+      row.appendChild(UI.el('span', 'gname',
+        c.display_name + '　' + UI.shortDate(t.date) + 'のお誘い'));
+      var yes = UI.el('button', 'ghost small', 'お越しになった');
+      yes.type = 'button';
+      yes.addEventListener('click', function () { Store.answerInvite(t.id, true); refresh(); });
+      var no = UI.el('button', 'ghost small', 'いいえ');
+      no.type = 'button';
+      no.addEventListener('click', function () { Store.answerInvite(t.id, false); refresh(); });
+      row.appendChild(yes); row.appendChild(no);
+      wrap.appendChild(row);
+    });
+    host.appendChild(wrap);
+    host.hidden = false;
   }
 
   /* ---------- 今日お会いする方 ---------- */
@@ -202,16 +266,31 @@ var Home = (function () {
       card.appendChild(w);
     }
 
+    /* 文を写すことと、送ったことにすることは別。
+     * 押した瞬間に「送った」ことにすると、LINEに貼る前に気が変わっても
+     * 記録は「送った」まま残り、その方は10日間候補から外れる。
+     * 送っていない人が、送ったことにされて放置される。 */
     if (it.draft) {
       var d = UI.el('div', 'draft');
       d.appendChild(UI.el('div', 'txt', it.draft));
-      var copy = UI.el('button', 'ghost small copy', 'この文を写して、送ったことにする');
+
+      var row = UI.el('div', 'card-acts');
+      var copy = UI.el('button', 'ghost small copy', '文を写す');
       copy.type = 'button';
       copy.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        sendDraft(c, it);
+        copyText(it.draft);
       });
-      d.appendChild(copy);
+      row.appendChild(copy);
+
+      var sent = UI.el('button', 'primary small', '送りました');
+      sent.type = 'button';
+      sent.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        recordSent(c, it);
+      });
+      row.appendChild(sent);
+      d.appendChild(row);
       card.appendChild(d);
     }
 
@@ -233,46 +312,41 @@ var Home = (function () {
     return card;
   }
 
-  /**
-   * 文を写したら、送ったこととして残す。
-   * 誘いなら「狙う」で枠にも立てる。ここが埋まらないと次の逆算ができない。
-   */
-  function sendDraft(c, it) {
-    function done() {
-      var isInvite = it.action === 'line' || it.action === 'douhan';
-      Store.addTouch({
-        customer_id: c.id,
-        kind: 'line',
-        direction: 'sent',
-        intent: isInvite ? 'invite' : null,
-        style: it.style || '',
-        target_date: isInvite ? (it.target_date || null) : null,
-        title: it.action === 'thanks' ? 'お礼' : (it.action === 'douhan' ? '同伴のお誘い' : 'お誘い'),
-        note: it.draft
-      });
-
-      if (isInvite && it.target_date &&
-          !Store.appointmentsOn(it.target_date).some(function (a) { return a.customer_id === c.id; })) {
-        Store.addAppointment({
-          date: it.target_date, customer_id: c.id,
-          kind: it.action === 'douhan' ? 'douhan' : 'visit',
-          confidence: 'aiming', source: 'ai', note: 'お誘いを差し上げた'
-        });
-      }
-
-      UI.toast(isInvite && it.target_date
-        ? '写しました。' + UI.shortDate(it.target_date) + 'の枠に「狙う」で立てています'
-        : '写しました。送ったこととして残しました');
-      refresh();
-    }
-
+  function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(it.draft).then(done).catch(function () {
-        UI.toast('長押しでコピーしてください', true);
-      });
+      navigator.clipboard.writeText(text)
+        .then(function () { UI.toast('写しました。LINEに貼ってお送りください'); })
+        .catch(function () { UI.toast('長押しでコピーしてください', true); });
     } else {
       UI.toast('長押しでコピーしてください', true);
     }
+  }
+
+  /** 実際に送ってから押していただく。ここが埋まらないと次の逆算ができない */
+  function recordSent(c, it) {
+    var isInvite = it.action === 'line' || it.action === 'douhan';
+    Store.addTouch({
+      customer_id: c.id,
+      kind: 'line',
+      direction: 'sent',
+      intent: isInvite ? 'invite' : null,
+      style: it.style || '',
+      target_date: isInvite ? (it.target_date || null) : null,
+      title: it.action === 'thanks' ? 'お礼' : (it.action === 'douhan' ? '同伴のお誘い' : 'お誘い'),
+      note: it.draft
+    });
+
+    if (isInvite && it.target_date &&
+        !Store.appointmentsOn(it.target_date).some(function (a) { return a.customer_id === c.id; })) {
+      Store.addAppointment({
+        date: it.target_date, customer_id: c.id,
+        kind: it.action === 'douhan' ? 'douhan' : 'visit',
+        confidence: 'aiming', source: 'ai', note: 'お誘いを差し上げた'
+      });
+    }
+
+    UI.toast('記録しました');
+    refresh();
   }
 
   function soonRow(it) {
