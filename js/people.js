@@ -375,6 +375,7 @@ var People = (function () {
     g2.appendChild(text('phone', '電話', 'tel'));
     form.appendChild(g2);
 
+    form.appendChild(text('line', 'LINEの表示名', 'text', '相手を探すときの手がかり'));
     form.appendChild(text('email', 'メール', 'email'));
     form.appendChild(text('address', 'ご住所'));
     form.appendChild(text('birthday', 'お誕生日', 'text', '例）08-16 もしくは 1972-08-16'));

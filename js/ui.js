@@ -2,7 +2,7 @@
 var UI = (function () {
   'use strict';
 
-  var VIEWS = ['lock', 'setup', 'home', 'board', 'day', 'appt', 'invite', 'people', 'person',
+  var VIEWS = ['lock', 'setup', 'home', 'board', 'day', 'appt', 'invite', 'people', 'person', 'night',
     'record', 'confirm', 'scan', 'gifts', 'settings', 'brief'];
   var current = 'home';
   var stack = [];
@@ -28,7 +28,7 @@ var UI = (function () {
     current = name;
 
     var nav = document.getElementById('nav');
-    nav.hidden = ['lock', 'setup', 'record', 'confirm', 'scan', 'brief', 'person',
+    nav.hidden = ['lock', 'setup', 'record', 'confirm', 'scan', 'brief', 'person', 'night',
       'day', 'appt', 'invite'].indexOf(name) >= 0;
 
     document.querySelectorAll('.navbtn').forEach(function (b) {

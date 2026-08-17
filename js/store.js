@@ -146,7 +146,8 @@ var Store = (function () {
     display_name: '',        // 呼び方「田中様」
     kana: '',
     company: '', department: '', title: '',
-    phone: '', mobile: '', email: '', address: '', website: '',
+    phone: '', mobile: '', email: '', address: '',
+    line: '',                // LINEの表示名。実際に毎日使う連絡手段はこれ
     card_image_id: null,
     photo_id: null,          // 顔写真。端末の中（IndexedDB）にのみ置く
     first_met: null,

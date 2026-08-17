@@ -31,6 +31,7 @@
     Store.closeStaleAppointments();
 
     Record.init();
+    Night.init();
     Scan.init();
     People.init();
     Brief.init();
@@ -44,7 +45,7 @@
       b.addEventListener('click', function () { goto(b.dataset.go); });
     });
 
-    document.getElementById('fab').addEventListener('click', function () { Record.open(); });
+    document.getElementById('fab').addEventListener('click', function () { Night.refreshNames(); Night.open(); });
 
     var cameFromLink = Api.consumeSetupLink();
 

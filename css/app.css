@@ -459,3 +459,27 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
 .brief-list li.hookrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .hookrow .hooktext{flex:1;min-width:60%}
 .hookrow .help{width:100%;margin:0;order:3}
+
+/* ---------- 今夜の分 ----------
+ * 深夜1時、片手、5分。ここは速さが全て */
+.nrows{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.nrow{background:var(--ink-1);border:1px solid var(--ink-3);border-radius:var(--radius);padding:12px 13px}
+.nrow.is-open{border-color:var(--accent-deep)}
+.nrow-head{display:flex;align-items:center;gap:9px}
+.nrow-no{width:26px;height:26px;flex:0 0 26px;border-radius:50%;background:var(--ink-2);
+  color:var(--text-faint);font-size:.82rem;display:flex;align-items:center;justify-content:center}
+.nrow-name{flex:1;min-width:0;min-height:48px;padding:10px 12px}
+.nrow-spend{width:104px;flex:0 0 104px;min-height:48px;padding:10px 12px;text-align:right}
+.nrow-x{width:36px;height:36px;flex:0 0 36px;background:none;border:none;
+  color:var(--text-faint);font-size:1.2rem;cursor:pointer}
+.nrow-hint{font-size:.8rem;color:var(--text-faint);min-height:1em;padding:2px 0 0 35px}
+.nrow-hint.ok{color:var(--accent)}
+.nrow-memo{margin-top:8px;min-height:64px;font-size:1rem}
+.nrow-toggles{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;align-items:center}
+.ntog{min-height:40px;padding:0 16px;border-radius:999px;background:var(--ink-2);
+  border:1px solid var(--ink-3);color:var(--text-dim);font-family:inherit;font-size:.9rem;cursor:pointer}
+.ntog.is-on{background:var(--accent-soft);border-color:var(--accent-deep);color:var(--accent)}
+.nrow-more{margin-left:auto;background:none;border:none;color:var(--text-faint);
+  font-family:inherit;font-size:.85rem;cursor:pointer;min-height:40px;padding:0 6px}
+.nrow-detail{margin-top:11px;padding-top:11px;border-top:1px solid var(--ink-3);
+  display:flex;flex-direction:column;gap:12px}

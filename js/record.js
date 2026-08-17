@@ -240,7 +240,6 @@ var Record = (function () {
     document.getElementById('f-drinks').value = (draft.drinks || []).map(function (d) {
       return d.count > 1 ? d.item + ' ×' + d.count : d.item;
     }).join('、');
-    document.getElementById('f-observation').value = draft.observation;
     document.getElementById('f-next').value = (draft.next_visit_hint && draft.next_visit_hint.timing) || '';
     document.getElementById('f-raw').textContent = rawMemo || '（音声・文章の記録はありません）';
 
@@ -482,7 +481,7 @@ var Record = (function () {
       topics: draft.topics,
       topic_detail: document.getElementById('f-topicdetail').value.trim(),
       drinks: drinks,
-      observation: document.getElementById('f-observation').value.trim(),
+      observation: draft.observation || '',   // 欄は廃止。古い記録のために残すだけ
       raw_memo: rawMemo,
       hooks: (draft.hooks || []).map(function (h) {
         return { text: h.text, type: h.type, status: h.status || 'open' };
@@ -509,6 +508,10 @@ var Record = (function () {
 
     var was = !!editingId;
     reset();
+
+    // 整理の途中なら、そのまま次の卓へ。画面を往復させない
+    if (queue.length) { nextInQueue(); return; }
+
     UI.show('home', { replace: true });
     Home.refresh();
     UI.toast(was ? '直しました' : '残しました');
@@ -586,6 +589,84 @@ var Record = (function () {
     Home.refresh();
   }
 
+  /* ---------- 翌日の整理 ----------
+   * 深夜に入れた「今夜の分」を、朝にまとめて片づける。
+   * 深夜にAIを待たせないための折り返し地点。
+   */
+
+  var queue = [];
+
+  function pending() {
+    return Store.listVisits().filter(function (v) {
+      return !v.ai_structured && (v.raw_memo || '').trim();
+    });
+  }
+
+  function tidy() {
+    queue = pending();
+    if (!queue.length) { UI.toast('整理するものはありません'); return; }
+    if (!Api.isConfigured()) { UI.toast('AIの接続が必要です', true); return; }
+    nextInQueue();
+  }
+
+  function nextInQueue() {
+    if (!queue.length) {
+      UI.show('home', { replace: true });
+      Home.refresh();
+      UI.toast('整理が終わりました');
+      return;
+    }
+    var v = queue.shift();
+    UI.busy(true, 'あと' + (queue.length + 1) + '卓、整理しています…');
+
+    Api.structure(v.raw_memo).then(function (data) {
+      UI.busy(false);
+      openTidy(v, data);
+    }).catch(function (err) {
+      UI.busy(false);
+      UI.toast(err.message, true);
+      openTidy(v, null);
+    });
+  }
+
+  /** 整理の結果を、その来歴に当てる。中身は本人が確認してから残る */
+  function openTidy(v, data) {
+    editingId = v.id;
+    briefIdForVisit = v.brief_id || null;
+    rawMemo = v.raw_memo || '';
+
+    var d = normalize(data || {});
+    draft = {
+      visit_date: v.date,
+      // 深夜に入れた事実（金額・同伴・ボトル）は、AIの読み取りより本人の入力を優先する
+      customers: (v.attendees || []).length
+        ? (v.attendees || []).map(function (a) {
+            var c = Store.getCustomer(a.customer_id);
+            return { name: c ? c.display_name : '', role: a.role || 'shukyaku', customer_id: a.customer_id };
+          })
+        : d.customers,
+      my_role: v.my_role || d.my_role,
+      douhan: v.douhan, kirikaeshi: v.kirikaeshi, nominaoshi: v.nominaoshi,
+      set_count: v.set_count || d.set_count,
+      spend: typeof v.spend === 'number' ? v.spend : d.spend,
+      bottle: v.bottle || d.bottle,
+      topics: d.topics,
+      topic_detail: d.topic_detail || v.topic_detail || '',
+      drinks: d.drinks,
+      observation: '',
+      hooks: d.hooks,
+      next_visit_hint: d.next_visit_hint,
+      appointments: d.appointments,
+      profile_updates: d.profile_updates,
+      _offline: !data
+    };
+
+    renderConfirm(data
+      ? '整理しました。違うところだけ直してください。（残り' + queue.length + '卓）'
+      : '整理できませんでした。手で直せます。（残り' + queue.length + '卓）');
+    UI.show('confirm');
+  }
+
   function init() {
     document.getElementById('btn-structure').addEventListener('click', submit);
     document.getElementById('record-back').addEventListener('click', function () { UI.back('home'); });
@@ -601,5 +682,5 @@ var Record = (function () {
     });
   }
 
-  return { init: init, open: open, openEdit: openEdit };
+  return { init: init, open: open, openEdit: openEdit, tidy: tidy, pending: pending };
 })();

@@ -19,6 +19,7 @@ var Home = (function () {
     Store.settleOverdueInvites();
 
     Board.renderProgress(document.getElementById('home-goal'));
+    renderTidy();
     renderAccountTodo();
     renderAskingInvites();
     renderGiftBanner();
@@ -27,6 +28,32 @@ var Home = (function () {
     renderCallList();
     renderRecent();
     renderNag();
+  }
+
+  /* ---------- 昨夜の整理 ----------
+   * 深夜に入れた卓を、朝にまとめて片づける。
+   * 深夜の5分にAIを待たせないための折り返し。
+   */
+  function renderTidy() {
+    var host = document.getElementById('home-tidy');
+    var list = Record.pending();
+    if (!list.length) { host.hidden = true; return; }
+
+    UI.clear(host);
+    host.appendChild(UI.el('h3', null, 'まだ整理していない記録（' + list.length + '卓）'));
+    host.appendChild(UI.el('p', null,
+      Api.isConfigured()
+        ? 'AIが中身を組み立てて、ご家族や趣味の書き足し、次のご来店の予定まで拾います。'
+        : 'AIの接続を入れると、中身の組み立てまでできます。このままでも記録は残っています。'));
+
+    if (Api.isConfigured()) {
+      var b = UI.el('button', 'primary full', 'まとめて整理する（' + list.length + '卓）');
+      b.type = 'button';
+      b.style.marginTop = '12px';
+      b.addEventListener('click', function () { Record.tidy(); });
+      host.appendChild(b);
+    }
+    host.hidden = false;
   }
 
   /* ---------- 口座が決まっていない方 ----------
