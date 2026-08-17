@@ -2,7 +2,7 @@
 var UI = (function () {
   'use strict';
 
-  var VIEWS = ['lock', 'setup', 'home', 'board', 'appt', 'invite', 'people', 'person',
+  var VIEWS = ['lock', 'setup', 'home', 'board', 'day', 'appt', 'invite', 'people', 'person',
     'record', 'confirm', 'scan', 'gifts', 'settings', 'brief'];
   var current = 'home';
   var stack = [];
@@ -28,7 +28,8 @@ var UI = (function () {
     current = name;
 
     var nav = document.getElementById('nav');
-    nav.hidden = ['lock', 'setup', 'record', 'confirm', 'scan', 'brief', 'person', 'appt', 'invite'].indexOf(name) >= 0;
+    nav.hidden = ['lock', 'setup', 'record', 'confirm', 'scan', 'brief', 'person',
+      'day', 'appt', 'invite'].indexOf(name) >= 0;
 
     document.querySelectorAll('.navbtn').forEach(function (b) {
       b.classList.toggle('is-on', b.dataset.go === name);
@@ -145,10 +146,24 @@ var UI = (function () {
   }
 
   /** 顔写真の代わりに頭文字を出す */
+  /**
+   * 顔写真があればそれを、無ければ頭文字を出す。
+   * 写真は端末の中（IndexedDB）にしか無いので、読み込みは非同期。
+   * 先に頭文字を描いてから差し替える（一覧がガタつかないように）。
+   */
   function avatar(customer, size) {
     var a = el('span', 'avatar' + (size ? ' ' + size : ''));
     var base = customer.display_name || customer.name || '？';
     a.textContent = base.replace(/(様|さん)$/, '').slice(0, 1);
+
+    if (customer.photo_id && window.Blobs) {
+      Blobs.get(customer.photo_id).then(function (src) {
+        if (!src) return;
+        a.textContent = '';
+        a.classList.add('has-photo');
+        a.style.backgroundImage = 'url(' + src + ')';
+      }).catch(function () { /* 無ければ頭文字のまま */ });
+    }
     return a;
   }
 

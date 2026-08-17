@@ -289,17 +289,12 @@ var Api = (function () {
   function contextForAi() {
     var p = Store.getProfile();
     return {
-      store_name: p.store_name,
       my_role: p.my_role,
-      jonai_label: p.jonai_label,
-      set_duration_min: p.set_duration_min,
       douhan_timeout_min: p.douhan_timeout_min,
       douhan_deadline: p.douhan_deadline,
       douhan_reward_type: p.douhan_reward_type,
       douhan_quota_monthly: p.douhan_quota_monthly,
       shimei_system: p.shimei_system,
-      kakari_label: p.kakari_label,
-      help_label: p.help_label,
       quiet_from: p.quiet_from,
       quiet_to: p.quiet_to
     };

@@ -115,7 +115,8 @@ var Board = (function () {
       if (d.expected) right.appendChild(UI.el('span', 'bd-yen', UI.yen(d.expected)));
       row.appendChild(right);
 
-      row.addEventListener('click', function () { openAppt({ date: d.date }); });
+      // 日をタップしたら、その日に何があるかを見せる。いきなり入力画面にしない
+      row.addEventListener('click', function () { openDay(d.date); });
       wrap.appendChild(row);
     });
   }
@@ -236,6 +237,157 @@ var Board = (function () {
     renderCandidates();
   }
 
+  /* ---------- その日 ----------
+   * 盤面の日をタップしたときに開く。
+   * 「その日に誰がお見えになるか」を見るのが主で、予定を足すのは従。
+   * 臨時の休みもここで決める（設定画面に置くと、盤面を見ながら決められない）。
+   */
+
+  var dayDate = null;
+
+  function openDay(date) {
+    dayDate = date;
+    document.getElementById('day-title').textContent = UI.longDate(date);
+    UI.show('day');
+    renderDay();
+  }
+
+  function renderDay() {
+    var body = UI.clear(document.getElementById('day-body'));
+    var date = dayDate;
+    var closed = Holiday.closedReason(date);
+    var apts = Store.appointmentsOn(date);
+    var isTemp = (Store.getProfile().closed_dates || []).indexOf(date) >= 0;
+
+    if (closed) {
+      var b = UI.el('div', 'banner-warn');
+      b.appendChild(UI.el('h3', null, closed === '休み' ? '臨時の休みにしています' : closed));
+      b.appendChild(UI.el('p', null, closed === '休み'
+        ? 'この日は枠として数えていません。'
+        : 'この日は枠として数えていません。設定の「お店の休み」で変えられます。'));
+      body.appendChild(b);
+    }
+
+    /* お見えになる方。複数でも全部並べる */
+    var sec = UI.el('div', 'brief-sec');
+    sec.appendChild(UI.el('h3', null, apts.length
+      ? 'この日にお見えになる方（' + apts.length + '組）'
+      : 'この日の予定'));
+
+    if (!apts.length) {
+      sec.appendChild(UI.el('p', 'empty', 'まだ予定がありません。'));
+    } else {
+      var list = UI.el('div', 'cards');
+      apts.forEach(function (a) {
+        list.appendChild(dayCard(a));
+      });
+      sec.appendChild(list);
+    }
+    body.appendChild(sec);
+
+    /* この日の見込み */
+    if (apts.length) {
+      var day = Plan.board(Plan.HORIZON).filter(function (d) { return d.date === date; })[0];
+      if (day && day.expected) {
+        body.appendChild(UI.el('p', 'help', 'この日の見込み ' + UI.yen(day.expected) + '（確からしさで割り引いた額）'));
+      }
+    }
+
+    var act = UI.el('div', 'actions col');
+
+    var add = UI.el('button', 'primary', 'この日に予定を入れる');
+    add.type = 'button';
+    add.addEventListener('click', function () { openAppt({ date: date }); });
+    act.appendChild(add);
+
+    // 臨時の休み。盤面を見ながら決められるように、ここに置いてある
+    var toggle = UI.el('button', 'ghost', isTemp ? '営業日に戻す' : 'この日を臨時の休みにする');
+    toggle.type = 'button';
+    toggle.addEventListener('click', function () {
+      var cur = (Store.getProfile().closed_dates || []).slice();
+      if (isTemp) {
+        cur = cur.filter(function (v) { return v !== date; });
+      } else {
+        if (apts.length && !UI.confirmAsk(
+          'この日には' + apts.length + '組の予定が入っています。\n休みにしても予定は消えませんが、枠としては数えなくなります。\n\nよろしいですか。')) return;
+        cur.push(date);
+      }
+      Store.saveProfile({ closed_dates: cur });
+      Store.clearDailyPlan();
+      UI.toast(isTemp ? '営業日に戻しました' : '臨時の休みにしました');
+      renderDay();
+    });
+    act.appendChild(toggle);
+
+    body.appendChild(act);
+  }
+
+  function dayCard(a) {
+    var c = a.customer_id ? Store.getCustomer(a.customer_id) : null;
+    var card = UI.el('div', 'card');
+
+    var top = UI.el('div', 'card-top');
+    if (c) top.appendChild(UI.avatar(c));
+    top.appendChild(UI.el('div', 'card-name', c ? c.display_name : '（お名前未定）'));
+    top.appendChild(UI.chip(Store.CONFIDENCE[a.confidence] || '',
+      a.confidence === 'confirmed' ? 'gold' : ''));
+    if (a.kind === 'douhan') top.appendChild(UI.chip('同伴', 'gold'));
+    card.appendChild(top);
+
+    if (c) {
+      var sub = [];
+      if (c.company) sub.push(c.company + (c.title ? ' ' + c.title : ''));
+      var m = Store.moneyOf(c.id);
+      if (m.average) sub.push('平均 ' + UI.yen(m.average));
+      var vs = Store.visitsOf(c.id);
+      if (vs.length) sub.push(vs.length + '回目');
+      if (sub.length) card.appendChild(UI.el('p', 'card-body', sub.join('　/　')));
+
+      if (!Store.isMyAccount(c)) {
+        var w = UI.el('p', 'card-body warn-text');
+        w.textContent = Store.accountLabel(c) + '。係の方を立てて、店内でのお相手に徹します。';
+        card.appendChild(w);
+      }
+
+      var last = vs[0];
+      if (last && last.topic_detail) {
+        card.appendChild(UI.el('p', 'talk', '前回：' + last.topic_detail));
+      }
+
+      var hooks = Insight.digest(c.id).open_hooks;
+      if (hooks.length) {
+        var hb = UI.el('div', 'hook-box');
+        hb.appendChild(UI.el('div', 'hook-h', '触れられること'));
+        hooks.slice(0, 3).forEach(function (h) {
+          hb.appendChild(UI.el('div', 'hook-i', '・' + h.text));
+        });
+        card.appendChild(hb);
+      }
+    }
+
+    if (a.note) card.appendChild(UI.el('p', 'card-body', a.note));
+
+    var acts = UI.el('div', 'card-acts');
+    if (c) {
+      var prep = UI.el('button', 'primary small', '会う前の準備');
+      prep.type = 'button';
+      prep.addEventListener('click', function () { People.openPerson(c.id, 'brief'); });
+      acts.appendChild(prep);
+
+      var hist = UI.el('button', 'ghost small', 'これまでの流れ');
+      hist.type = 'button';
+      hist.addEventListener('click', function () { People.openPerson(c.id, 'history'); });
+      acts.appendChild(hist);
+    }
+    var ed = UI.el('button', 'ghost small', '予定を直す');
+    ed.type = 'button';
+    ed.addEventListener('click', function () { openAppt({ id: a.id }); });
+    acts.appendChild(ed);
+    card.appendChild(acts);
+
+    return card;
+  }
+
   /* ---------- 予定の追加・編集 ---------- */
 
   function openAppt(opts) {
@@ -319,11 +471,14 @@ var Board = (function () {
     Store.clearDailyPlan();   // 盤面が変われば段取りも変わる
     editing = null;
     UI.back('board');
-    render();
+    if (UI.current === 'day') renderDay(); else render();
   }
 
   function init() {
     document.getElementById('board-add').addEventListener('click', function () { openAppt({}); });
+    document.getElementById('day-back').addEventListener('click', function () {
+      UI.back('board'); Board.render();
+    });
     document.getElementById('appt-back').addEventListener('click', function () { UI.back('board'); });
     document.getElementById('appt-cancel').addEventListener('click', function () { UI.back('board'); });
     document.getElementById('appt-save').addEventListener('click', saveAppt);
@@ -335,9 +490,10 @@ var Board = (function () {
       editing = null;
       UI.toast('消しました');
       UI.back('board');
-      render();
+      if (UI.current === 'day') renderDay(); else render();
     });
   }
 
-  return { init: init, render: render, renderProgress: renderProgress, openAppt: openAppt };
+  return { init: init, render: render, renderProgress: renderProgress,
+           openAppt: openAppt, openDay: openDay };
 })();

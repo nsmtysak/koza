@@ -40,7 +40,10 @@ var Insight = (function () {
 
     var hasShukyaku = attendees.some(function (a) { return a.role === 'shukyaku'; });
 
-    return (visit.hooks || []).filter(function (h) {
+    // どの来歴の何番目かを持たせる。「済み」にするときに要る
+    return (visit.hooks || []).map(function (h, i) {
+      return Object.assign({}, h, { visit_id: visit.id, index: i });
+    }).filter(function (h) {
       if (h.customer_id) return h.customer_id === customerId;   // AIが特定できた場合
       if (!hasShukyaku) return true;                            // 主客が分からなければ全員
       return mine.role === 'shukyaku';                          // 既定は主客のもの

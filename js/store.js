@@ -90,17 +90,13 @@ var Store = (function () {
   /* ---------- StoreProfile ---------- */
 
   var DEFAULT_PROFILE = {
-    store_name: '',
     shimei_system: null,
-    jonai_label: '場内指名',
     douhan_reward_type: null,
     douhan_reward_value: 0,
     douhan_reward_condition_sets: 0,
     douhan_timeout_min: 0,
     douhan_quota_monthly: 0,
-    set_duration_min: 60,
     my_role: null,
-    my_name: '',
     /* 暗証番号。生のまま持たない（記録と同じ場所に置くと意味がないため）。
      * { salt, hash, algo } を入れる。null なら未設定。 */
     lock: null,
@@ -122,7 +118,6 @@ var Store = (function () {
     /* お店のきまり */
     douhan_deadline: '',     // 同伴の入店締め時刻。例 21:00
     open_time: '', close_time: '',
-    kakari_label: '係', help_label: 'ヘルプ',
 
     /* お客様への配慮。ここは店ではなく相手に合わせて動かす */
     quiet_from: 23,          // この時刻から翌 quiet_to 時までは送らない
@@ -153,6 +148,7 @@ var Store = (function () {
     company: '', department: '', title: '',
     phone: '', mobile: '', email: '', address: '', website: '',
     card_image_id: null,
+    photo_id: null,          // 顔写真。端末の中（IndexedDB）にのみ置く
     first_met: null,
     intro_by: null,          // 紹介してくれた顧客のid
     relation_type: null,     // kakari | help | other
@@ -306,6 +302,7 @@ var Store = (function () {
   function deleteCustomer(id) {
     var c = getCustomer(id);
     if (c && c.card_image_id) Blobs.remove(c.card_image_id);
+    if (c && c.photo_id) Blobs.remove(c.photo_id);
     write(K.customers, listCustomers().filter(function (x) { return x.id !== id; }));
     // 来歴からも外す
     var vs = read(K.visits, []).map(function (v) {
@@ -441,6 +438,27 @@ var Store = (function () {
     if (next.length === all.length) return false;
     write(K.visits, next);
     return true;
+  }
+
+  /**
+   * 口実を「済み」にする。
+   *
+   * 口実は来歴の中にある。記録を直せば中身も変わる（固定ではない）。
+   * ただし一度使った口実が出続けると、同じ話を何度も振ることになる。
+   * だから使い終わったものは閉じられるようにしてある。
+   */
+  function setHookStatus(visitId, index, status) {
+    var all = read(K.visits, []);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id !== visitId) continue;
+      var h = (all[i].hooks || [])[index];
+      if (!h) return null;
+      h.status = status;
+      h.closed_at = status === 'closed' ? nowISO() : null;
+      write(K.visits, all);
+      return h;
+    }
+    return null;
   }
 
   function visitsOf(customerId) {
@@ -1024,6 +1042,7 @@ var Store = (function () {
 
     listVisits: listVisits, getVisit: getVisit, addVisit: addVisit,
     updateVisit: updateVisit, deleteVisit: deleteVisit,
+    setHookStatus: setHookStatus,
     visitsOf: visitsOf, companionsOf: companionsOf, averageInterval: averageInterval,
     moneyOf: moneyOf, rankByMoney: rankByMoney,
 

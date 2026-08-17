@@ -69,13 +69,6 @@ function doPost(e) {
 function industryPrimer(ctx) {
   ctx = ctx || {};
   var extra = [];
-  if (ctx.kakari_label && ctx.kakari_label !== '係') {
-    extra.push('- この店では係を「' + ctx.kakari_label + '」と呼びます。文中ではその呼び方を使います。');
-  }
-  if (ctx.help_label && ctx.help_label !== 'ヘルプ') {
-    extra.push('- この店ではヘルプを「' + ctx.help_label + '」と呼びます。');
-  }
-  if (ctx.jonai_label) extra.push('- この店では場内指名を「' + ctx.jonai_label + '」と呼びます。');
   if (ctx.shimei_system === 'jiyu') {
     extra.push('- この店は自由指名制です。口座は固定されず、ご来店ごとに指名が変わりえます。');
   }
@@ -85,7 +78,6 @@ function industryPrimer(ctx) {
   if (ctx.douhan_timeout_min) {
     extra.push('- 同伴のタイムアウトは' + ctx.douhan_timeout_min + '分です。超えると切り返しになり、伝票が2枚になります。');
   }
-  if (ctx.set_duration_min) extra.push('- セットは' + ctx.set_duration_min + '分です。');
 
   return [
     '# この仕事の前提',
@@ -234,7 +226,6 @@ function handleStructure(req) {
     '# 登録済みのお客様',
     knownText,
     '',
-    ctx.jonai_label ? '# この店では場内指名を「' + ctx.jonai_label + '」と呼びます' : ''
   ].filter(String).join('\n');
 
   var schema = {
@@ -491,7 +482,6 @@ function handleBrief(req) {
     '  同じ提案を出すときは、前回と違う角度から書いてください。',
     '',
     ctx.douhan_timeout_min ? '- この店の同伴タイムアウトは' + ctx.douhan_timeout_min + '分です。超えると切り返しになります。' : '',
-    ctx.set_duration_min ? '- セットは' + ctx.set_duration_min + '分です。' : '',
     '',
     '# 文体',
     'ホステス本人が読みます。要点から先に、短く。敬語は自然な範囲で。'

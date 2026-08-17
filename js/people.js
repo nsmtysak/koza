@@ -10,7 +10,7 @@ var People = (function () {
   var SORTS = [
     { key: 'recent', label: '最近お会いした順' },
     { key: 'stale',  label: 'ご無沙汰な順' },
-    { key: 'money',  label: 'お使いいただいた順' },
+    { key: 'money',  label: '売上の多い順' },
     { key: 'name',   label: 'お名前順' }
   ];
 
@@ -120,11 +120,49 @@ var People = (function () {
 
   function renderHead(c) {
     var head = UI.clear(document.getElementById('person-head'));
-    head.appendChild(UI.avatar(c, 'lg'));
+
+    /* 写真。頭文字より顔のほうが早く見つかる。
+     * 画像は端末の中だけに置く（名刺と同じ扱い）。 */
+    var av = UI.avatar(c, 'lg');
+    av.classList.add('tappable');
+    var file = UI.el('input');
+    file.type = 'file';
+    file.accept = 'image/*';
+    file.hidden = true;
+    file.addEventListener('change', function () {
+      if (!file.files || !file.files[0]) return;
+      UI.busy(true, '写真を取り込んでいます…');
+      Blobs.square(file.files[0], 320).then(function (dataUrl) {
+        var id = c.photo_id || Store.uid('ph');
+        return Blobs.put(id, dataUrl).then(function () {
+          Store.updateCustomer(c.id, { photo_id: id });
+          UI.busy(false);
+          renderHead(Store.getCustomer(c.id));
+          UI.toast('写真を登録しました');
+        });
+      }).catch(function (e) {
+        UI.busy(false);
+        UI.toast(e.message || '取り込めませんでした', true);
+      });
+      file.value = '';
+    });
+    av.addEventListener('click', function () {
+      if (!c.photo_id) { file.click(); return; }
+      if (UI.confirmAsk('写真を差し替えますか。\n\n「キャンセル」を押すと、写真を外します。')) file.click();
+      else {
+        Blobs.remove(c.photo_id);
+        Store.updateCustomer(c.id, { photo_id: null });
+        renderHead(Store.getCustomer(c.id));
+        UI.toast('写真を外しました');
+      }
+    });
+    head.appendChild(av);
+    head.appendChild(file);
     var pi = UI.el('div', 'pi');
     pi.appendChild(UI.el('h2', null, c.display_name));
     var line = [c.company, c.department, c.title].filter(Boolean).join(' ');
     pi.appendChild(UI.el('p', null, line || (c.name || '')));
+    if (!c.photo_id) pi.appendChild(UI.el('p', 'help', '丸をタップすると写真を入れられます'));
     // 誰の口座かは、開いてすぐ分かるところに出す。ここを見落とすと事故になる
     var acc = Store.accountLabel(c);
     if (acc) {
@@ -211,13 +249,31 @@ var People = (function () {
     stat('同伴', String(d.visits.filter(function (v) { return v.douhan; }).length) + '回');
     body.appendChild(stats);
 
-    // 未回収の口実
+    /* 未回収の口実。
+     * 中身は来歴から毎回組み直している。記録を直せばここも変わる。
+     * 使い終わったものは「済み」にして、次から出ないようにする。 */
     if (d.open_hooks.length) {
       var s = UI.el('div', 'brief-sec');
       s.appendChild(UI.el('h3', null, '声をかけるきっかけ'));
+      s.appendChild(UI.el('p', 'help', '来歴から組み直しています。使い終わったものは「済み」にすると、次から出ません。'));
       var ul = UI.el('ul', 'brief-list');
-      d.open_hooks.slice(0, 6).forEach(function (h) {
-        var li = UI.el('li', null, h.text);
+      d.open_hooks.slice(0, 8).forEach(function (h) {
+        var li = UI.el('li', 'hookrow');
+        li.appendChild(UI.el('span', 'hooktext', h.text));
+        var sub = UI.el('p', 'help');
+        sub.textContent = UI.shortDate(
+          (Store.getVisit(h.visit_id) || {}).date || '') + 'の記録から';
+        li.appendChild(sub);
+
+        var done = UI.el('button', 'ghost small', '済み');
+        done.type = 'button';
+        done.addEventListener('click', function () {
+          Store.setHookStatus(h.visit_id, h.index, 'closed');
+          Store.clearDailyPlan();
+          UI.toast('済みにしました');
+          renderBody();
+        });
+        li.appendChild(done);
         ul.appendChild(li);
       });
       s.appendChild(ul);

@@ -177,7 +177,7 @@ localStorage（名前空間 `koza2.`）に 6 つの実体。画像だけ Indexed
 `index.html` の `?v=N`、`sw.js` の `SHELL` と `VERSION` を必ず揃える。
 ずれると古い JS がキャッシュから配られる（実際に2度踏んだ）。
 
-現在：**v11**
+現在：**v12**
 
 ---
 

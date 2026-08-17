@@ -445,3 +445,17 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
 .hook-i{font-size:.9rem;line-height:1.7;color:var(--text-dim)}
 .hook-i.done{text-decoration:line-through;opacity:.5}
 .card.touch-row{background:transparent;border-style:dashed}
+
+/* 今日のヘッダーは、名前を左・日付を右に */
+.home-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.home-head .today{margin:0}
+
+/* 顔写真。頭文字より顔のほうが早く見つかる */
+.avatar.has-photo{background-size:cover;background-position:center;border-color:var(--accent-deep)}
+.avatar.tappable{cursor:pointer}
+.avatar.tappable:active{border-color:var(--accent)}
+
+/* 口実の行。右端に「済み」 */
+.brief-list li.hookrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hookrow .hooktext{flex:1;min-width:60%}
+.hookrow .help{width:100%;margin:0;order:3}

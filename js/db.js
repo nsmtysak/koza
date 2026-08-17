@@ -87,6 +87,27 @@ var Blobs = (function () {
    * 画像を縮小する。名刺は横1400pxあれば文字が読める。
    * そのまま送るとAPIの費用が跳ねるので、必ず通す。
    */
+  /** 顔写真は正方形に切って小さくする。一覧に何十枚も並ぶため */
+  function square(file, size) {
+    size = size || 320;
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        var side = Math.min(img.width, img.height);
+        var sx = (img.width - side) / 2;
+        var sy = (img.height - side) / 2;
+        var cv = document.createElement('canvas');
+        cv.width = size; cv.height = size;
+        cv.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('画像を読めませんでした')); };
+      img.src = url;
+    });
+  }
+
   function shrink(file, maxEdge, quality) {
     maxEdge = maxEdge || 1400;
     quality = quality || 0.82;
@@ -123,6 +144,6 @@ var Blobs = (function () {
   return {
     put: put, get: get, remove: remove, keys: keys,
     exportAll: exportAll, importAll: importAll,
-    shrink: shrink
+    shrink: shrink, square: square
   };
 })();

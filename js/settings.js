@@ -42,10 +42,10 @@ var Settings = (function () {
       patch.douhan_reward_type = answers.douhan_reward_type;
       if (answers.douhan_reward_type === 'fixed') patch.douhan_reward_value = 3000;
     }
-    if (answers.set_duration_min !== undefined) {
-      patch.set_duration_min = parseInt(answers.set_duration_min, 10) || 0;
-    }
+    var goalNow = parseInt(answers.target_sales, 10) || 0;
+    if (goalNow) patch.target_sales = goalNow;
     Store.saveProfile(patch);
+    if (goalNow) Store.saveGoal(Store.periodOf(Store.today()).key, { sales: goalNow });
     if (onDone) onDone();
   }
 
@@ -69,12 +69,9 @@ var Settings = (function () {
     val('s-newyear-to', p.newyear_to || '01-03');
     val('s-obon-from', p.obon_from || '08-13');
     val('s-obon-to', p.obon_to || '08-16');
-    renderClosedDates();
 
     val('s-douhan-deadline', p.douhan_deadline || '');
     val('s-open-time', p.open_time || '');
-    val('s-kakari-label', p.kakari_label || '係');
-    val('s-help-label', p.help_label || 'ヘルプ');
 
     val('s-cooldown-contact', typeof p.cooldown_contact === 'number' ? p.cooldown_contact : 3);
     val('s-cooldown-invite', typeof p.cooldown_invite === 'number' ? p.cooldown_invite : 10);
@@ -83,15 +80,11 @@ var Settings = (function () {
     val('s-lead-visit', typeof p.lead_default_visit === 'number' ? p.lead_default_visit : 4);
     val('s-lead-douhan', typeof p.lead_default_douhan === 'number' ? p.lead_default_douhan : 5);
 
-    val('s-store-name', p.store_name);
-    val('s-my-name', p.my_name);
     val('s-myrole', p.my_role || 'both');
     val('s-shimei', p.shimei_system || 'eikyu');
-    val('s-jonai-label', p.jonai_label);
     val('s-douhan-type', p.douhan_reward_type || 'none');
     val('s-douhan-value', p.douhan_reward_value || 0);
     val('s-douhan-timeout', p.douhan_timeout_min || 0);
-    val('s-set-duration', p.set_duration_min || 60);
     val('s-douhan-quota', p.douhan_quota_monthly || 0);
     val('s-gas-url', a.gas_url);
     val('s-gas-token', a.token);
@@ -116,28 +109,6 @@ var Settings = (function () {
   function str(id) { return document.getElementById(id).value.trim(); }
   function chk(id, v) { var el = document.getElementById(id); if (el) el.checked = !!v; }
   function on(id) { var el = document.getElementById(id); return !!(el && el.checked); }
-
-  /** 臨時の休み。お盆や年末年始と別に、店の都合で閉まる日 */
-  function renderClosedDates() {
-    var list = UI.clear(document.getElementById('s-closed-dates'));
-    var dates = (Store.getProfile().closed_dates || []).slice().sort();
-    if (!dates.length) {
-      list.appendChild(UI.el('span', 'help', 'まだありません'));
-      return;
-    }
-    dates.forEach(function (d) {
-      var t = UI.el('span', 'chip removable', UI.longDate(d));
-      var x = UI.el('button', 'chip-x', '×');
-      x.type = 'button';
-      x.addEventListener('click', function () {
-        Store.saveProfile({ closed_dates: dates.filter(function (v) { return v !== d; }) });
-        Store.clearDailyPlan();
-        renderClosedDates();
-      });
-      t.appendChild(x);
-      list.appendChild(t);
-    });
-  }
 
   var openDays = [0, 1, 2, 3, 4, 5, 6];
 
@@ -176,22 +147,16 @@ var Settings = (function () {
     Store.saveGoal(period.key, { sales: UI.getMoney('s-target-sales'), douhan: num('s-target-douhan') });
 
     Store.saveProfile({
-      store_name: str('s-store-name'),
-      my_name: str('s-my-name'),
       my_role: document.getElementById('s-myrole').value,
       shimei_system: document.getElementById('s-shimei').value,
-      jonai_label: str('s-jonai-label') || '場内指名',
       douhan_reward_type: document.getElementById('s-douhan-type').value,
       douhan_reward_value: num('s-douhan-value'),
       douhan_timeout_min: num('s-douhan-timeout'),
-      set_duration_min: num('s-set-duration') || 60,
       douhan_quota_monthly: num('s-douhan-quota'),
       lock_after_min: Math.max(0, Math.min(120, num('s-lock-after'))),
 
       douhan_deadline: str('s-douhan-deadline'),
       open_time: str('s-open-time'),
-      kakari_label: str('s-kakari-label') || '係',
-      help_label: str('s-help-label') || 'ヘルプ',
 
       cooldown_contact: Math.max(0, Math.min(30, num('s-cooldown-contact'))),
       cooldown_invite: Math.max(0, Math.min(60, num('s-cooldown-invite'))),
@@ -297,18 +262,6 @@ var Settings = (function () {
     document.getElementById('btn-setup-link').addEventListener('click', makeSetupLink);
     document.getElementById('btn-lock-set').addEventListener('click', function () {
       Lock.startSetting();
-    });
-    document.getElementById('btn-add-closed').addEventListener('click', function () {
-      var el = document.getElementById('s-closed-date-new');
-      var d = el.value;
-      if (!d) { UI.toast('日にちを選んでください', true); return; }
-      var cur = (Store.getProfile().closed_dates || []).slice();
-      if (cur.indexOf(d) < 0) cur.push(d);
-      Store.saveProfile({ closed_dates: cur });
-      Store.clearDailyPlan();
-      el.value = '';
-      renderClosedDates();
-      UI.toast('休みにしました');
     });
 
     document.getElementById('btn-export').addEventListener('click', function () {

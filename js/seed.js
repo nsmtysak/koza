@@ -136,7 +136,6 @@ var Seed = (function () {
 
     Store.saveProfile({
       configured: true,
-      store_name: '',
       my_role: 'kakari',
       shimei_system: 'eikyu',
       closing_day: 0,
@@ -145,7 +144,6 @@ var Seed = (function () {
       target_sales: 8000000,
       target_douhan: 10,
       douhan_quota_monthly: 10,
-      set_duration_min: 60,
       douhan_timeout_min: 30,
       open_days: [1, 2, 3, 4, 5, 6],
       closed_on_holidays: true

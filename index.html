@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#100f0d">
 <title>Kōza</title>
 <link rel="manifest" href="manifest.json">
@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=11">
+<link rel="stylesheet" href="css/app.css?v=12">
 </head>
 <body>
 
@@ -82,11 +82,12 @@
 
     <div class="q" data-step="3" hidden>
       <p class="qnum">4 / 4</p>
-      <h2>セットは何分ですか？</h2>
-      <div class="opts" data-field="set_duration_min">
-        <button class="opt" data-value="60">60分</button>
-        <button class="opt" data-value="90">90分</button>
-        <button class="opt" data-value="0">決まっていない</button>
+      <h2>月の目標は？</h2>
+      <div class="opts" data-field="target_sales">
+        <button class="opt" data-value="3000000">300万円</button>
+        <button class="opt" data-value="5000000">500万円</button>
+        <button class="opt" data-value="8000000">800万円</button>
+        <button class="opt" data-value="0">あとで決める<small>設定からいつでも入れられます</small></button>
       </div>
     </div>
 
@@ -98,9 +99,9 @@
 
 <!-- ========== 今日 ========== -->
 <section id="v-home" class="view" hidden>
-  <header class="vhead">
-    <p class="today" id="home-today"></p>
+  <header class="vhead home-head">
     <h1 class="brand">Kōza</h1>
+    <p class="today" id="home-today"></p>
   </header>
 
   <div id="home-goal" class="goalbar"></div>
@@ -156,6 +157,15 @@
     <p class="help">狙う日と、声をかける締切です。締切は「その方が誘われてからお越しになるまでの日数」から逆算しています。</p>
     <div id="board-candidates" class="cards"></div>
   </section>
+</section>
+
+<!-- ========== その日（枠の日付をタップ） ========== -->
+<section id="v-day" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="day-back" aria-label="戻る">←</button>
+    <h1 id="day-title">日</h1>
+  </header>
+  <div id="day-body"></div>
 </section>
 
 <!-- ========== 予定を入れる ========== -->
@@ -486,26 +496,7 @@
       </label>
     </div>
 
-    <div class="f">
-      <span>臨時の休み</span>
-      <div id="s-closed-dates" class="tag-list"></div>
-      <div class="tag-input">
-        <input type="date" id="s-closed-date-new">
-        <button class="ghost small" id="btn-add-closed" type="button">休みにする</button>
-      </div>
-    </div>
-
     <h2 class="sect">お店のこと</h2>
-
-    <label class="f">
-      <span>お店の呼び名</span>
-      <input type="text" id="s-store-name">
-    </label>
-
-    <label class="f">
-      <span>源氏名</span>
-      <input type="text" id="s-my-name" placeholder="記録には出ません">
-    </label>
 
     <label class="f">
       <span>自分の立場</span>
@@ -524,11 +515,6 @@
       </select>
     </label>
 
-    <label class="f">
-      <span>場内指名の呼び方</span>
-      <input type="text" id="s-jonai-label" placeholder="場内指名 / リクエスト">
-    </label>
-
     <div class="grid2">
       <label class="f">
         <span>同伴の報酬</span>
@@ -545,16 +531,11 @@
       </label>
     </div>
 
-    <div class="grid2">
-      <label class="f">
-        <span>同伴タイムアウト（分）</span>
-        <input type="number" id="s-douhan-timeout" min="0" step="5" inputmode="numeric">
-      </label>
-      <label class="f">
-        <span>セット（分）</span>
-        <input type="number" id="s-set-duration" min="0" step="5" inputmode="numeric">
-      </label>
-    </div>
+    <label class="f">
+      <span>同伴のタイムアウト（分・0＝なし）</span>
+      <input type="number" id="s-douhan-timeout" min="0" step="5" inputmode="numeric">
+      <span class="help">超えると切り返しになり、お客様の伝票が2枚になります。お誘いの文に時間の目安を入れるために使います。</span>
+    </label>
 
     <label class="f">
       <span>同伴の月間ノルマ（回数・0＝なし）</span>
@@ -573,14 +554,6 @@
     </div>
 
     <div class="grid2">
-      <label class="f">
-        <span>「係」の呼び方</span>
-        <input type="text" id="s-kakari-label" placeholder="係">
-      </label>
-      <label class="f">
-        <span>「ヘルプ」の呼び方</span>
-        <input type="text" id="s-help-label" placeholder="ヘルプ">
-      </label>
     </div>
 
     <h2 class="sect">お客様への配慮</h2>
@@ -709,24 +682,24 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=11"></script>
-<script src="js/store.js?v=11"></script>
-<script src="js/holiday.js?v=11"></script>
-<script src="js/insight.js?v=11"></script>
-<script src="js/plan.js?v=11"></script>
-<script src="js/api.js?v=11"></script>
-<script src="js/ui.js?v=11"></script>
-<script src="js/lock.js?v=11"></script>
-<script src="js/record.js?v=11"></script>
-<script src="js/scan.js?v=11"></script>
-<script src="js/people.js?v=11"></script>
-<script src="js/brief.js?v=11"></script>
-<script src="js/gifts.js?v=11"></script>
-<script src="js/board.js?v=11"></script>
-<script src="js/invite.js?v=11"></script>
-<script src="js/home.js?v=11"></script>
-<script src="js/seed.js?v=11"></script>
-<script src="js/settings.js?v=11"></script>
-<script src="js/app.js?v=11"></script>
+<script src="js/db.js?v=12"></script>
+<script src="js/store.js?v=12"></script>
+<script src="js/holiday.js?v=12"></script>
+<script src="js/insight.js?v=12"></script>
+<script src="js/plan.js?v=12"></script>
+<script src="js/api.js?v=12"></script>
+<script src="js/ui.js?v=12"></script>
+<script src="js/lock.js?v=12"></script>
+<script src="js/record.js?v=12"></script>
+<script src="js/scan.js?v=12"></script>
+<script src="js/people.js?v=12"></script>
+<script src="js/brief.js?v=12"></script>
+<script src="js/gifts.js?v=12"></script>
+<script src="js/board.js?v=12"></script>
+<script src="js/invite.js?v=12"></script>
+<script src="js/home.js?v=12"></script>
+<script src="js/seed.js?v=12"></script>
+<script src="js/settings.js?v=12"></script>
+<script src="js/app.js?v=12"></script>
 </body>
 </html>
