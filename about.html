@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#100f0d">
+<title>Kōza — このアプリについて</title>
+<style>
+:root{
+  --ink-0:#100f0d; --ink-1:#191714; --ink-2:#22201c; --ink-3:#2e2b26;
+  --text:#ece7de; --text-dim:#9a9187; --text-faint:#6d665e;
+  --accent:#b08d4f; --accent-deep:#8a6f3e; --accent-soft:rgba(176,141,79,.13);
+  --danger:#a8624f; --ok:#7d9469;
+  --font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
+  --display: "Hiragino Mincho ProN", "Yu Mincho", serif;
+}
+*{box-sizing:border-box;-webkit-text-size-adjust:100%}
+html,body{margin:0;padding:0}
+body{background:var(--ink-0);color:var(--text);font-family:var(--font);
+  font-size:16.5px;line-height:1.85;letter-spacing:.01em}
+.wrap{max-width:620px;margin:0 auto;padding:0 22px 90px}
+
+header.top{padding:56px 0 34px;text-align:center;border-bottom:1px solid var(--ink-3)}
+.brand{font-family:var(--display);font-size:2.9rem;letter-spacing:.14em;
+  color:var(--accent);margin:0 0 6px}
+.brand-sub{color:var(--text-faint);font-size:.8rem;letter-spacing:.3em;margin:0 0 20px}
+.lede{color:var(--text-dim);font-size:1rem;margin:0}
+
+h2{font-family:var(--display);font-size:1.32rem;letter-spacing:.06em;
+  margin:52px 0 4px;padding-top:8px}
+h2 .num{display:block;font-family:var(--font);font-size:.72rem;letter-spacing:.24em;
+  color:var(--accent);margin-bottom:9px}
+h3{font-size:1.02rem;margin:30px 0 8px;color:var(--text)}
+p{margin:14px 0}
+.dim{color:var(--text-dim)}
+.faint{color:var(--text-faint);font-size:.9rem}
+strong{color:var(--accent);font-weight:600}
+
+.pull{font-family:var(--display);font-size:1.24rem;line-height:1.9;
+  border-left:2px solid var(--accent);padding:4px 0 4px 18px;margin:26px 0;color:var(--text)}
+
+.card{background:var(--ink-1);border:1px solid var(--ink-3);border-radius:14px;
+  padding:18px 20px;margin:14px 0}
+.card h4{margin:0 0 6px;font-size:1rem}
+.card p{margin:6px 0 0;font-size:.94rem;color:var(--text-dim)}
+.card .tag{display:inline-block;font-size:.72rem;letter-spacing:.1em;color:var(--accent);
+  border:1px solid var(--accent-deep);border-radius:999px;padding:2px 10px;margin-bottom:9px}
+
+ul{padding-left:1.15em;margin:12px 0}
+li{margin:9px 0}
+li::marker{color:var(--accent-deep)}
+
+.flow{counter-reset:f;margin:22px 0;padding:0;list-style:none}
+.flow li{counter-increment:f;position:relative;padding-left:52px;margin:0 0 22px}
+.flow li::before{content:counter(f);position:absolute;left:0;top:2px;
+  width:34px;height:34px;border-radius:50%;background:var(--accent-soft);
+  border:1px solid var(--accent-deep);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-size:.9rem}
+.flow b{display:block;font-size:1.02rem;margin-bottom:2px}
+.flow span{color:var(--text-dim);font-size:.93rem}
+.flow .when{color:var(--accent);font-size:.78rem;letter-spacing:.08em}
+
+table{width:100%;border-collapse:collapse;margin:18px 0;font-size:.9rem}
+th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--ink-3);vertical-align:top}
+th{color:var(--text-faint);font-weight:400;font-size:.78rem;letter-spacing:.08em}
+td:first-child{color:var(--text-dim);width:34%}
+.scroll{overflow-x:auto}
+
+.no li::marker{color:var(--danger)}
+.msg{background:var(--ink-2);border:1px solid var(--ink-3);border-left:2px solid var(--accent);
+  border-radius:10px;padding:13px 16px;margin:12px 0;font-size:.94rem;line-height:1.85}
+.msg .who{display:block;color:var(--text-faint);font-size:.76rem;letter-spacing:.08em;margin-bottom:5px}
+
+footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--ink-3);
+  color:var(--text-faint);font-size:.84rem;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1 class="brand">Kōza</h1>
+  <p class="brand-sub">こ う ざ</p>
+  <p class="lede">お客様を記録するためのアプリではありません。<br><strong>次にお越しいただくために、今日動くための</strong>アプリです。</p>
+</header>
+
+<h2><span class="num">はじめに</span>このアプリの考え方</h2>
+
+<p>顧客管理のアプリはたくさんあります。そのほとんどは、<span class="dim">「誰が、いつ、いくら使ったか」を残すもの</span>です。残すことはできても、<strong>明日どう動けばいいかは教えてくれません。</strong></p>
+
+<p>けれど、売上をつくっているのは記録ではありません。</p>
+
+<p class="pull">今日お迎えするお客様は、<br>今日つくったのではありません。<br>数日前の一手の結果です。</p>
+
+<p>金曜日に来ていただくには、火曜日には声をかけていないと間に合わない。その方が「誘われてから実際にお越しになるまで」何日かかる方なのかは、人によって違います。</p>
+
+<p>Kōza がやっているのは、そこの逆算です。</p>
+
+<div class="card">
+  <span class="tag">逆算のしかた</span>
+  <h4>月の目標 − 今の実績 − 予定分の見込み ＝ 不足</h4>
+  <p>不足を平均単価で割ると、あと何組お迎えすればいいかが出ます。空いている日に割り振り、その日から「その方のリードタイム」を引くと、<strong>今日声をかけるべき方</strong>が決まります。</p>
+</div>
+
+<p class="faint">この計算はすべて端末の中で行っています。AIの気分ではなく、実際の記録から出た数字です。だから「なぜこの方なのか」を数字で言えます。</p>
+
+<h2><span class="num">1日の流れ</span>3分と、1タップと、出勤前</h2>
+
+<ol class="flow">
+  <li>
+    <span class="when">閉店後・帰りの車の中</span>
+    <b>今夜の分を残す（3分）</b>
+    <span>1画面、卓ごとに1行。お名前・お会計・ひと言だけ。同伴とヘルプはボタン1つ。それ以上は求めません。疲れている時間に長い入力はできないからです。</span>
+  </li>
+  <li>
+    <span class="when">翌日・起きたとき</span>
+    <b>整理する（1タップ）</b>
+    <span>昨夜の記録をAIがまとめ直します。ご家族の話、お好み、次のご来店の約束などを拾って、お客様の記録に書き足します。<strong>「全部これでよい」を1回押すだけ</strong>です。</span>
+  </li>
+  <li>
+    <span class="when">出勤前</span>
+    <b>今日の段取りを受け取る</b>
+    <span>誰に、何を、なぜ今日なのか。締め日から逆算した順番で並びます。送る文まで用意されています。</span>
+  </li>
+  <li>
+    <span class="when">お店で</span>
+    <b>会う前の準備を読む</b>
+    <span>前回の話の続き、触れてはいけない話題、席で伺っておくとよいこと。お会いする直前に開きます。</span>
+  </li>
+  <li>
+    <span class="when">そしてまた夜</span>
+    <b>結果が次の精度になる</b>
+    <span>お誘いした方が実際にお越しになったか。その積み重ねで、リードタイムも、効く誘い方も、その方専用に変わっていきます。</span>
+  </li>
+</ol>
+
+<h2><span class="num">できること</span>備わっている機能</h2>
+
+<div class="card">
+  <h4>枠 ── これから2週間の盤面</h4>
+  <p>どの日が埋まっていて、どの日が空いているか。定休日・お店の休み・ご自分のお休みも入ります。日付を押すと、その日にお越しになる方の詳細と、その方の前回の話が出ます。</p>
+</div>
+
+<div class="card">
+  <h4>今日の段取り ── 逆算した行動</h4>
+  <p>今日連絡すべき方が、優先順に並びます。「◯日に来ていただくため」という目的つきです。今日でなくてよい方は「動かなくてよい方」として理由つきでたたみます。<strong>迷う時間を消すのが目的</strong>です。</p>
+</div>
+
+<div class="card">
+  <h4>お誘いの文 ── 型を変えて3案</h4>
+  <p>そのまま LINE に貼れる文が出ます。前回その席で出た話を起点にします。「お元気ですか」から始まる文は書きません。</p>
+</div>
+
+<div class="card">
+  <h4>会う前の準備 ── お会いする直前に</h4>
+  <p>これまでの来歴から、話せること／確かめたいこと／気をつけること／今日して差し上げること／ご用意できるもの／席で伺っておくことを出します。</p>
+</div>
+
+<div class="card">
+  <h4>口座の管理 ── いちばん大事なところ</h4>
+  <p>そのお客様がどなたの口座か（ご自分／ママ／ほかの方／フリー／未確認）を持ちます。<strong>ご自分以外の口座の方には、こちらから連絡を促す提案を一切しません。</strong>未確認の方も同じ扱いです。越境は信を失う行為だからです。</p>
+</div>
+
+<div class="card">
+  <h4>記念日・ボトル・同伴</h4>
+  <p>お誕生日（ご本人・ご家族）、初めてお会いした日からの周年、お中元お歳暮の時期。お預かりしているボトルの残量。同伴の月間の進み具合と、あと何回必要か。</p>
+</div>
+
+<div class="card">
+  <h4>暗証番号</h4>
+  <p>4桁の暗証番号でロックします。しばらく触らないと自動でかかります。お客様の情報を預かるアプリだからです。</p>
+</div>
+
+<h2><span class="num">AIの役目</span>AIは何を提案するのか</h2>
+
+<p>Kōza の AI は、記録係ではありません。<strong>判断と、言葉づかいを担当します。</strong></p>
+
+<h3>1. 誰に、いつ、なぜ</h3>
+<div class="msg">
+  <span class="who">今日の段取り より</span>
+  ◯◯様　連絡する　<span class="dim">出勤前</span><br>
+  <span class="dim">いつも21日ほどの間隔が、今日で41日。</span><br>
+  <span class="dim">金曜にお越しいただくには、今日お声がけしないと間に合いません。</span>
+</div>
+<p class="faint">「ご無沙汰だから」ではなく、必ず数字で理由を言います。</p>
+
+<h3>2. 男性の側から見た、断りにくい誘い方</h3>
+<p>お誘いには型があります。相手と、そのとき手元にある事実によって、効く型が違います。</p>
+<div class="scroll"><table>
+<tr><th>型</th><th>どういうものか</th></tr>
+<tr><td>お知らせにする</td><td>お願いにしない。事実だけ伝えて、行くかどうかは相手に委ねる</td></tr>
+<tr><td>期限をつける</td><td>今でないと無くなる事実を添える（ボトルの残り、季節のもの）</td></tr>
+<tr><td>相手を主役にする</td><td>前回の話の続きを聞かせてほしい、という形</td></tr>
+<tr><td>教えを乞う</td><td>頼られること自体が来る理由になる</td></tr>
+<tr><td>会わせたい方がいる</td><td>ほかのお客様と引き合わせる。日が決まる分、動きやすい</td></tr>
+<tr><td>二択で伺う</td><td>「いつでも」は返事を先送りさせる。日を2つ出す</td></tr>
+<tr><td>お食事に誘う</td><td>同伴は店の話ではなく食事の話にする</td></tr>
+<tr><td>ご報告する</td><td>言われたことをやりました、という形</td></tr>
+</table></div>
+<p class="faint">どの型が効いたかは、実際の結果から学びます。その方に過去に効いた型を優先するようになります。</p>
+
+<h3>3. 席で伺っておくこと（仕込む質問）</h3>
+<p>次のご来店をつくれるのは、お会いしている今この時だけです。今日聞いておかなかったことは、次にご連絡するときの「手ぶら」になって返ってきます。</p>
+<div class="msg">
+  <span class="who">会う前の準備 より</span>
+  「来月のご出張、何日ごろのご予定ですか」<br>
+  <span class="dim">→ 日付が分かれば、その前日にお声がけする口実になります</span>
+</div>
+
+<h3>4. ご用意できるもの（単価のこと）</h3>
+<p>売上は組数だけでは届きません。これまでのお会計とお好みから、さりげなくお勧めできるものと、その言い方を出します。<strong>理由が言えないものは出しません。</strong>押し売りになった瞬間に口座は離れるからです。</p>
+
+<h3>5. 信を落としかねないこと</h3>
+<p>前回のお約束で果たしていないもの、間隔が空きすぎていること、触れてはいけない話題。<strong>売上より先に、信頼のほうを守ります。</strong>来ていただいた翌日のお礼は、逆算より上に置いています。</p>
+
+<h2><span class="num">違い</span>ほかのアプリとどこが違うか</h2>
+
+<div class="scroll"><table>
+<tr><th></th><th>よくある顧客管理</th><th>Kōza</th></tr>
+<tr><td>画面の中心</td><td>お客様の一覧</td><td>これから2週間の空き枠</td></tr>
+<tr><td>入力すると</td><td>記録が残る</td><td>明日以降の行動が変わる</td></tr>
+<tr><td>いつ開くか</td><td>調べたいとき</td><td>毎晩と、出勤前</td></tr>
+<tr><td>AIの役目</td><td>要約・検索</td><td>誰に・いつ・なぜ・なんと言うか</td></tr>
+<tr><td>目標</td><td>入れる欄がある</td><td>そこから毎日が逆算される</td></tr>
+<tr><td>口座</td><td>担当者の欄</td><td>提案そのものを止める仕組み</td></tr>
+</table></div>
+
+<h2><span class="num">正直なところ</span>できないこと</h2>
+
+<ul class="no">
+  <li><b>会計システムではありません。</b>売上の集計はしますが、伝票やレジの代わりにはなりません。掛売り・未収の管理は入っていません。</li>
+  <li><b>LINEを勝手に送りません。</b>文は用意しますが、送るのはご本人です。「送りました」を押していただいて初めて記録になります。<span class="faint">押す前に気が変わることがあるからです。</span></li>
+  <li><b>ほかの端末とつながりません。</b>データはその端末の中だけにあります。機種変更のときは書き出して移します。<span class="faint">お客様の情報を人の手が届くところに置かないための選択です。</span></li>
+  <li><b>圏外ではAIが動きません。</b>記録と閲覧はできます。整理と提案は電波のあるところで。</li>
+  <li><b>予測は当たらないこともあります。</b>リードタイムも来ていただける率も、記録が少ないうちは目安です。記録が2件たまると、その方の実績に置き換わります。</li>
+  <li><b>お店ごとのきまりは、まだ入っていません。</b>指名の制度や同伴の時間などは、設定から変えられるようにしてあります。</li>
+</ul>
+
+<h2><span class="num">安全</span>お客様の情報の置き場所</h2>
+
+<ul>
+  <li>お客様の情報は<strong>その端末の中だけ</strong>にあります。どこかのサーバーに集まることはありません。</li>
+  <li>AIに送るのは、そのとき必要な分だけです。<strong>送った内容は保存も記録もされません。</strong></li>
+  <li>アプリは4桁の暗証番号でロックできます。しばらく触らないと自動でかかります。</li>
+  <li>書き出したデータには実名とご連絡先が入ります。取り扱いにはご注意ください。</li>
+</ul>
+
+<h2><span class="num">最後に</span>このアプリが目指していること</h2>
+
+<p class="pull">今日のお客様づくりは、<br>今日するのではありません。<br><br>今日という日を迎えるために、<br>いつ、どんな仕事をするのか。</p>
+
+<p>記録することが目的になった瞬間に、このアプリは意味を失います。記録は<strong>次の一手を決めるためだけ</strong>にあります。</p>
+
+<p class="dim">夜3分。朝1タップ。出勤前に段取りを受け取る。<br>これだけ回れば、あとは数字がついてきます。</p>
+
+<footer>
+  Kōza — 高級クラブのホステスのための行動アプリ<br>
+  <span style="opacity:.6">この説明書は端末に保存できます</span>
+</footer>
+
+</div>
+</body>
+</html>

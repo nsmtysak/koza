@@ -214,11 +214,63 @@ var Home = (function () {
     body.appendChild(b);
   }
 
+  var draftsPending = false;
+
   function fetchPlan() {
-    UI.busy(true, '締め日から逆算しています…');
+    UI.busy(true, '締め日から逆算しています…', {
+      // 前に何秒かかったかを覚えている。2回目からはその人の実測が目安になる
+      estimate: Store.estimateMs('plan', 32000),
+      steps: [
+        'これから2週間の埋まり方を見ています…',
+        '締め日までの不足を数えています…',
+        'どなたに、いつお声がけするかを決めています…',
+        '順番を整えています…'
+      ]
+    });
     Api.weekPlan().then(function (d) {
       UI.busy(false);
       Store.saveDailyPlan(d);
+      fetchDrafts(d);      // 文面はうしろで用意する。読んでいる間に埋まる
+      renderPlan();
+    }).catch(function (e) {
+      UI.busy(false);
+      UI.toast(e.message, true);
+    });
+  }
+
+  /** 送る文だけを、あとから埋める。待たせないための分割 */
+  function fetchDrafts(plan) {
+    var items = (plan.today || []).filter(function (it) {
+      return !it.draft && (it.action === 'line' || it.action === 'douhan' || it.action === 'thanks');
+    });
+    if (!items.length) return;
+
+    draftsPending = true;
+    Api.planDrafts(items).then(function (r) {
+      var map = {};
+      (r.drafts || []).forEach(function (x) { if (x.text) map[x.id] = x.text; });
+      (plan.today || []).forEach(function (it) { if (map[it.id]) it.draft = map[it.id]; });
+      Store.saveDailyPlan(plan);
+    }).catch(function () {
+      // 文が来なくても段取りは使える。作り直しは各カードのボタンから
+    }).then(function () {
+      draftsPending = false;
+      if (document.getElementById('plan-body')) renderPlan();
+    });
+  }
+
+  /** 1名ぶんだけ作り直す。まとめて取れなかったときの逃げ道 */
+  function makeOneDraft(it, card) {
+    UI.busy(true, '文を考えています…', { estimate: Store.estimateMs('drafts', 14000) });
+    Api.planDrafts([it]).then(function (r) {
+      UI.busy(false);
+      var d = (r.drafts || [])[0];
+      if (!d || !d.text) { UI.toast('文を作れませんでした', true); return; }
+      var cached = Store.getDailyPlan();
+      if (cached && cached.data) {
+        (cached.data.today || []).forEach(function (x) { if (x.id === it.id) x.draft = d.text; });
+        Store.saveDailyPlan(cached.data);
+      }
       renderPlan();
     }).catch(function (e) {
       UI.busy(false);
@@ -341,6 +393,24 @@ var Home = (function () {
       row.appendChild(sent);
       d.appendChild(row);
       card.appendChild(d);
+    } else if (it.action === 'line' || it.action === 'douhan' || it.action === 'thanks') {
+      // 段取りは出ている。文だけがまだ。ここで待たせない
+      var pend = UI.el('div', 'draft');
+      if (draftsPending) {
+        pend.appendChild(UI.el('div', 'txt pending', 'お送りする文を用意しています…'));
+      } else {
+        pend.appendChild(UI.el('div', 'txt pending', '文はまだできていません。'));
+        var mk = UI.el('button', 'ghost small', '文を作る');
+        mk.type = 'button';
+        mk.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          makeOneDraft(it, card);
+        });
+        var mr = UI.el('div', 'card-acts');
+        mr.appendChild(mk);
+        pend.appendChild(mr);
+      }
+      card.appendChild(pend);
     }
 
     var acts = UI.el('div', 'card-acts');

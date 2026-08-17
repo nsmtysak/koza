@@ -10,7 +10,16 @@
  *   ANTHROPIC_API_KEY   Anthropic の APIキー
  *   TOKEN               アプリと共有する合言葉
  *   MODEL_FAST          省略可。既定 claude-haiku-4-5   （整理・名刺）
- *   MODEL_THINK         省略可。既定 claude-sonnet-5    （会う前の準備）
+ *   MODEL_THINK         省略可。既定 claude-sonnet-5    （準備・段取り・文面）
+ *
+ * ■ 受け付ける依頼（mode）
+ *   ping       つながるかの確認
+ *   structure  話し言葉 → 来歴（haiku）
+ *   card       名刺の画像 → 顧客情報（haiku）
+ *   brief      これまでの履歴 → 会う前の準備（sonnet）
+ *   plan       目標・不足・盤面 → 今日の段取り（sonnet）
+ *   drafts     段取り → 送る文だけ（sonnet／plan と分けて待ち時間を半分にしている）
+ *   invite     お誘いの文を型ごとに3案（sonnet）
  *
  * ■ デプロイ
  *   ウェブアプリ / 実行：自分 / アクセス：全員
@@ -53,6 +62,7 @@ function doPost(e) {
       case 'brief':     return json(handleBrief(req));
       case 'plan':      return json(handlePlan(req));
       case 'invite':    return json(handleInvite(req));
+      case 'drafts':    return json(handleDrafts(req));
       case 'daily':     return json(handlePlan(req));   // 旧名。互換のため残す
       default:          return json({ ok: false, error: '不明な依頼です: ' + req.mode });
     }
@@ -604,6 +614,10 @@ function handlePlan(req) {
   var ctx = req.context || {};
   var gift = req.gift_season;
 
+  /* 文面をここで書くと、返事が出そろうまで1分近くかかる。出勤前にそれは待てない。
+   * 誰に・何を・なぜ今日か、までを先に返して、文面は mode:'drafts' で別に取る。 */
+  var wantDraft = req.want_draft !== false;
+
   if (!cands.length && !guests.length && !aftercare.length) {
     return { ok: true, data: { headline: '', gap_comment: '', today: [], soon: [], skip: [], note: '' } };
   }
@@ -681,17 +695,23 @@ function handlePlan(req) {
     '  本日お会いする方がいれば、その方も store として today に入れます。',
     '- soon には、締切がまだ先の方を入れます。**do_on にいつ動くかの日付を必ず入れます。**',
     '  「そのうち」は書きません。日付で書きます。多くて4件。',
-    '- skip は、候補にはあるが今は動かなくてよい方。理由を書きます。多くて4件。',
+    '- skip は、候補にはあるが今は動かなくてよい方。理由を書きます。多くて3件。',
     '- reason は **渡された数字を使って** 1文で。',
     '  「ご無沙汰だから」ではなく「いつも21日ほどの間隔が、今日で41日」のように。',
     '- why_now は「なぜ今日なのか」を、target_date と結びつけて書きます。',
     '  例「金曜にお越しいただくには、今日お声がけしないと間に合いません」',
     '- action は thanks＝お礼／line＝連絡／douhan＝同伴のお誘い／store＝ご来店時に話す／gift＝ご挨拶を出す。',
-    '- draft は thanks・line・douhan のときだけ、そのまま送れる2〜3文。ほかは空文字。',
-    '  thanks の文には、その席で実際に話した中身を必ず入れます。定型のお礼は書きません。',
-    '  **best_style が渡されている方には、その型を優先します。** 過去に効いた型だからです。',
-    '  hooks（前回の会話から拾った事実）があれば、必ずそこを起点にします。',
-    '  会話の記録から始まる誘いは、どなたにでも送れる文とは別物です。ここを手抜きしないでください。',
+    wantDraft ? [
+      '- draft は thanks・line・douhan のときだけ、そのまま送れる2〜3文。ほかは空文字。',
+      '  thanks の文には、その席で実際に話した中身を必ず入れます。定型のお礼は書きません。',
+      '  **best_style が渡されている方には、その型を優先します。** 過去に効いた型だからです。',
+      '  hooks（前回の会話から拾った事実）があれば、必ずそこを起点にします。',
+      '  会話の記録から始まる誘いは、どなたにでも送れる文とは別物です。ここを手抜きしないでください。'
+    ].join('\n') : [
+      '- **draft はすべて空文字にしてください。** 送る文は別のお願いで作ります。',
+      '  ここでのあなたの仕事は「誰に・何を・なぜ今日か」を決めきることです。',
+      '  style（誘いの型）は選びます。文は書きません。'
+    ].join('\n'),
     '- ng_topics に挙がっている話題には触れません。',
     '- headline は本日の方針を1文で。**数字を必ず1つ入れます。**',
     '- gap_comment は、不足に対する見立てを2文以内で。届きそうなら、そう言い切ります。',
@@ -719,7 +739,10 @@ function handlePlan(req) {
       reason: { type: 'string', description: '数字を使って1文' },
       why_now: { type: 'string', description: 'なぜ今日なのか。target_date と結びつけて1文' },
       style: { type: 'string', enum: STYLES, description: 'line/douhan のときの誘いの型。ほかは空文字' },
-      draft: { type: 'string', description: 'line/douhan のときだけ。ほかは空文字' }
+      draft: {
+        type: 'string',
+        description: wantDraft ? 'line/douhan のときだけ。ほかは空文字' : '必ず空文字。文面は別で作る'
+      }
     },
     required: ['id', 'action', 'when', 'target_date', 'reason', 'why_now', 'style', 'draft'],
     additionalProperties: false
@@ -748,7 +771,7 @@ function handlePlan(req) {
       soon: { type: 'array', description: '数日以内に動くこと。多くて4件', items: soonItem },
       skip: {
         type: 'array',
-        description: '今は動かなくてよい方。多くて4件',
+        description: '今は動かなくてよい方。多くて3件',
         items: {
           type: 'object',
           properties: {
@@ -774,6 +797,82 @@ function handlePlan(req) {
       content: JSON.stringify({ candidates: cands, today_guests: guests, aftercare: aftercare })
     }],
     output_config: { effort: 'medium', format: { type: 'json_schema', schema: schema } }
+  });
+}
+
+/* ============================================================
+ * 4-b. 段取りの文面だけを、あとから
+ *
+ * 段取り（誰に・何を・なぜ今日か）と文面を1回でまとめると、
+ * 出そろうまで1分近くかかる。出勤前にそれは待てない。
+ * 判断は先に返し、文面はうしろで用意する。読んでいる間に埋まる。
+ * ============================================================ */
+
+function handleDrafts(req) {
+  var people = req.people || [];
+  var ctx = req.context || {};
+  if (!people.length) return { ok: true, data: { drafts: [] } };
+
+  var system = [
+    industryPrimer(ctx),
+    '# あなたの仕事',
+    'ホステス本人がこれから送る文を書きます。段取り（誰に・何を・なぜ）はすでに決まっています。',
+    'あなたが書くのは文だけです。判断はやり直さないでください。',
+    '',
+    '# 渡されるもの',
+    '- action：thanks＝お礼／line＝ご連絡（お誘い）／douhan＝同伴のお誘い',
+    '- style：選ばれたお誘いの型。thanks のときは空です',
+    '- hooks：前回その席で実際に出た事実。**ここが文の起点です**',
+    '- last_topic：前回のお話',
+    '- target_date／target_weekday：お越しいただきたい日',
+    '- thanks：お礼の場合、何日前にご来店で、同伴だったか',
+    '- ng_topics：触れてはいけない話題',
+    '',
+    inviteStyles(),
+    '# 書き方',
+    '- そのまま LINE に貼って送れる形にします。2〜3文。前置きも署名も要りません。',
+    '- **hooks か last_topic を必ず起点にします。** どなたにでも送れる文は書きません。',
+    '  「お元気ですか」から始まる文は、送られた側にとって何の意味もありません。',
+    '- お願いにしないでください。相手に判断の余地を残します。追いつめる文は口座を離します。',
+    '- thanks は、その席で実際に話した中身に触れます。定型のお礼は書きません。',
+    '  お礼にお誘いを混ぜないでください。お礼はお礼で終わります。下心が透けた時点で薄くなります。',
+    '- douhan は、店ではなくお食事の話にします。日・お店・待ち合わせの時刻がそろって成立します。',
+    '  お店に心当たりがなければ「お店は探しておきます」と書きます。作った店名は書きません。',
+    '- 記録にないことを書いてはいけません。ボトルの残量も、催しも、渡されたものだけです。',
+    '- ng_topics には触れません。',
+    '- 絵文字は使いません。相手は年配の男性が多く、軽く見られます。',
+    '',
+    '# 文体',
+    '敬語。丁寧だが、よそよそしくない。短い。'
+  ].filter(String).join('\n');
+
+  var schema = {
+    type: 'object',
+    properties: {
+      drafts: {
+        type: 'array',
+        description: '渡された人数ぶん、同じ id で返す',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: '渡された id をそのまま' },
+            text: { type: 'string', description: 'そのまま送れる文。2〜3文' }
+          },
+          required: ['id', 'text'],
+          additionalProperties: false
+        }
+      }
+    },
+    required: ['drafts'],
+    additionalProperties: false
+  };
+
+  return callAndParse({
+    model: model('think'),
+    max_tokens: 4000,
+    system: system,
+    messages: [{ role: 'user', content: JSON.stringify({ today: req.today, people: people }) }],
+    output_config: { effort: 'low', format: { type: 'json_schema', schema: schema } }
   });
 }
 

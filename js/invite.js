@@ -151,7 +151,10 @@ var Invite = (function () {
   }
 
   function generate() {
-    UI.busy(true, 'お誘いの文を考えています…');
+    UI.busy(true, 'お誘いの文を考えています…', {
+      estimate: Store.estimateMs('invite', 24000),
+      steps: ['前回のお話を拾っています…', '型を選んでいます…', '言い回しを整えています…']
+    });
     Api.invite(cur.customer.id, { target_date: cur.target_date, kind: cur.kind })
       .then(function (d) {
         UI.busy(false);

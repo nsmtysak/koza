@@ -168,6 +168,7 @@ input::placeholder,textarea::placeholder{color:var(--text-faint)}
 .primary:active{background:var(--accent)}
 .ghost{background:transparent;border:1px solid var(--ink-3);color:var(--text-dim)}
 .ghost.small{min-height:44px;font-size:.93rem;padding:0 15px}
+a.linkbtn{display:flex;align-items:center;justify-content:center;text-decoration:none;width:100%}
 .ghost.full,.primary.full{width:100%}
 .danger{width:100%;background:transparent;border:1px solid var(--danger);color:var(--danger)}
 .danger[hidden]{display:none}
@@ -245,6 +246,8 @@ input::placeholder,textarea::placeholder{color:var(--text-faint)}
 .draft .tone{font-size:.78rem;color:var(--accent);margin-bottom:6px}
 .draft .txt{white-space:pre-wrap;font-size:.97rem;line-height:1.8}
 .draft .copy{margin-top:10px}
+.draft .txt.pending{color:var(--text-faint);font-size:.9rem;animation:fade 1.6s ease-in-out infinite}
+@keyframes fade{0%,100%{opacity:.45}50%{opacity:.9}}
 
 /* ---------- 名刺 ---------- */
 .drop{
@@ -321,7 +324,17 @@ input::placeholder,textarea::placeholder{color:var(--text-faint)}
 .busy p{color:var(--text-dim);font-size:.97rem;margin:0}
 .spinner{width:36px;height:36px;border-radius:50%;border:2px solid var(--ink-3);
   border-top-color:var(--accent);animation:spin 1s linear infinite}
+.spinner[hidden]{display:none}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* 待たせるなら、あとどれくらいかは出す */
+.busy-gauge{width:min(78vw,320px)}
+.busy-gauge[hidden]{display:none}
+.busy-bar{height:6px;border-radius:999px;background:var(--ink-3);overflow:hidden}
+.busy-bar>div{height:100%;width:0;border-radius:999px;background:var(--accent);
+  transition:width .45s cubic-bezier(.22,.61,.36,1)}
+.busy-foot{display:flex;justify-content:space-between;margin-top:9px;
+  font-size:.82rem;color:var(--text-faint);font-variant-numeric:tabular-nums}
 
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);
   max-width:88vw;background:var(--ink-2);border:1px solid var(--ink-3);border-radius:999px;

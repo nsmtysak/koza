@@ -14,7 +14,15 @@ var Brief = (function () {
       UI.toast('AIの接続が必要です。設定から入れてください', true);
       return;
     }
-    UI.busy(true, purpose === 'contact' ? '連絡の言葉を考えています…' : '前回までを読み返しています…');
+    UI.busy(true, purpose === 'contact' ? '連絡の言葉を考えています…' : '前回までを読み返しています…', {
+      estimate: Store.estimateMs('brief', 26000),
+      steps: [
+        'これまでの来歴を読み返しています…',
+        'お好みと、お会計の運びを見ています…',
+        '席で伺っておくことを考えています…',
+        'まとめています…'
+      ]
+    });
 
     Api.brief(customerId, purpose).then(function (d) {
       UI.busy(false);

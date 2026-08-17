@@ -1,11 +1,12 @@
 /* Kōza v2 — GASプロキシ経由でClaude APIを呼ぶ
  * APIキーはGASのスクリプトプロパティにのみ置く。ここが知るのはURLと合言葉だけ。
  *
- * 5つの用途がある。
+ * 6つの用途がある。
  *   structure  話し言葉 → 来歴＋プロフィール追記＋来店予定の候補
  *   card       名刺の画像 → 顧客情報
  *   brief      これまでの履歴 → 会う前の準備と、次の口実を作る質問
  *   plan       目標・不足・盤面 → 今日と数日先にやること（逆算）
+ *   drafts     その段取りで送る文だけ。plan と分けて待ち時間を半分にしている
  *   invite     会話の記録 → お誘いの文面を型ごとに3案
  */
 var Api = (function () {
@@ -22,6 +23,7 @@ var Api = (function () {
 
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs || 90000) : null;
+    var t0 = Date.now();
 
     return fetch(cfg.gas_url, {
       method: 'POST',
@@ -39,6 +41,8 @@ var Api = (function () {
       try { json = JSON.parse(text); }
       catch (e) { throw new Error('返事の形式が想定と違います。URLと公開設定をご確認ください'); }
       if (!json.ok) throw new Error(json.error || '処理に失敗しました');
+      // 次に待たせるときの目安に使う。失敗した回は数えない
+      Store.recordTiming(payload.mode, Date.now() - t0);
       return json.data;
     }).catch(function (err) {
       if (timer) clearTimeout(timer);
@@ -104,6 +108,7 @@ var Api = (function () {
 
     var payload = {
       mode: 'plan',
+      want_draft: false,   // 文面は planDrafts で別に取る。先に段取りを見せたい
       today: Store.today(),
       weekday: Store.weekdayOf(Store.today()),
       context: contextForAi(),
@@ -183,6 +188,61 @@ var Api = (function () {
     };
 
     return post(payload, 180000);
+  }
+
+  /* ---------- 送る文だけを、あとから ----------
+   *
+   * 段取りと文面をひとつのお願いにまとめると、返事が出そろうまで1分近く待たされる。
+   * 出勤前に1分も画面を見つめる人はいない。
+   *
+   * だから分けた。
+   *   誰に・何を・なぜ今日か  ← 先に出す。判断はここで足りる
+   *   送る文                  ← 読んでいる間に、うしろで用意する
+   * 段取りの見出しが出るまでが半分になる。文はその20秒後に埋まる。
+   */
+  function planDrafts(items) {
+    var want = (items || []).filter(function (it) {
+      return it.action === 'line' || it.action === 'douhan' || it.action === 'thanks';
+    });
+    if (!want.length) return Promise.resolve({ drafts: [] });
+
+    var byId = {};
+    Plan.fillPlan().chosen.forEach(function (x) { byId[x.customer.id] = x; });
+    var afterById = {};
+    Plan.aftercare().forEach(function (a) { afterById[a.customer.id] = a; });
+
+    var people = want.map(function (it) {
+      var c = Store.getCustomer(it.id);
+      if (!c) return null;
+      var x = byId[it.id], a = afterById[it.id];
+      return {
+        id: c.id,
+        name: c.display_name,
+        action: it.action,
+        style: it.style || '',
+        target_date: it.target_date || '',
+        target_weekday: it.target_date ? Store.weekdayOf(it.target_date) : '',
+        why_now: it.why_now || '',
+        reason: it.reason || '',
+        best_style: (x && x.best_style) ? x.best_style.style : '',
+        hooks: x ? x.hooks : [],
+        last_topic: x ? x.last_topic : (a ? a.topic : ''),
+        days_since: x ? x.days_since : null,
+        visit_count: x ? x.visit_count : null,
+        interests: (c.interests || []).slice(0, 5),
+        ng_topics: (c.ng_topics || []).slice(0, 5),
+        thanks: a ? { days: a.days, douhan: a.douhan, bottle: a.bottle, visit_date: a.visit.date } : null
+      };
+    }).filter(Boolean);
+
+    if (!people.length) return Promise.resolve({ drafts: [] });
+
+    return post({
+      mode: 'drafts',
+      today: Store.today(),
+      context: contextForAi(),
+      people: people
+    }, 120000);
   }
 
   /* ---------- お誘いの文面 ----------
@@ -366,6 +426,7 @@ var Api = (function () {
     readCard: readCard,
     brief: brief,
     weekPlan: weekPlan,
+    planDrafts: planDrafts,
     invite: invite,
     offlineStructure: offlineStructure,
     buildSetupLink: buildSetupLink,

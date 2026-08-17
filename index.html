@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=17">
+<link rel="stylesheet" href="css/app.css?v=18">
 </head>
 <body>
 
@@ -623,6 +623,12 @@
     </div>
     <p class="help">この2つは、記録がまだ少ない方に使う目安です。記録が2件たまると、その方の実績で置き換わります。</p>
 
+    <h2 class="sect">このアプリについて</h2>
+    <div class="actions col">
+      <a class="ghost linkbtn" href="about.html">できること・できないこと</a>
+    </div>
+    <p class="help">何のためのアプリか、AIが何を提案するのかをまとめています。</p>
+
     <h2 class="sect">AI接続</h2>
     <p class="help">入れておくと、話した言葉の整理と、会う前の準備をAIが手伝います。空でも記録は残せます。</p>
 
@@ -708,32 +714,39 @@
 </button>
 
 <div id="busy" class="busy" hidden>
-  <div class="spinner" aria-hidden="true"></div>
+  <div id="busy-spin" class="spinner" aria-hidden="true"></div>
   <p id="busy-msg">整理しています…</p>
+  <div id="busy-gauge" class="busy-gauge" hidden>
+    <div class="busy-bar"><div id="busy-fill"></div></div>
+    <div class="busy-foot">
+      <span id="busy-pct">0%</span>
+      <span id="busy-left"></span>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=17"></script>
-<script src="js/store.js?v=17"></script>
-<script src="js/holiday.js?v=17"></script>
-<script src="js/insight.js?v=17"></script>
-<script src="js/plan.js?v=17"></script>
-<script src="js/api.js?v=17"></script>
-<script src="js/ui.js?v=17"></script>
-<script src="js/lock.js?v=17"></script>
-<script src="js/night.js?v=17"></script>
-<script src="js/record.js?v=17"></script>
-<script src="js/tidy.js?v=17"></script>
-<script src="js/scan.js?v=17"></script>
-<script src="js/people.js?v=17"></script>
-<script src="js/brief.js?v=17"></script>
-<script src="js/gifts.js?v=17"></script>
-<script src="js/board.js?v=17"></script>
-<script src="js/invite.js?v=17"></script>
-<script src="js/home.js?v=17"></script>
-<script src="js/seed.js?v=17"></script>
-<script src="js/settings.js?v=17"></script>
-<script src="js/app.js?v=17"></script>
+<script src="js/db.js?v=18"></script>
+<script src="js/store.js?v=18"></script>
+<script src="js/holiday.js?v=18"></script>
+<script src="js/insight.js?v=18"></script>
+<script src="js/plan.js?v=18"></script>
+<script src="js/api.js?v=18"></script>
+<script src="js/ui.js?v=18"></script>
+<script src="js/lock.js?v=18"></script>
+<script src="js/night.js?v=18"></script>
+<script src="js/record.js?v=18"></script>
+<script src="js/tidy.js?v=18"></script>
+<script src="js/scan.js?v=18"></script>
+<script src="js/people.js?v=18"></script>
+<script src="js/brief.js?v=18"></script>
+<script src="js/gifts.js?v=18"></script>
+<script src="js/board.js?v=18"></script>
+<script src="js/invite.js?v=18"></script>
+<script src="js/home.js?v=18"></script>
+<script src="js/seed.js?v=18"></script>
+<script src="js/settings.js?v=18"></script>
+<script src="js/app.js?v=18"></script>
 </body>
 </html>

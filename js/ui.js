@@ -43,10 +43,80 @@ var UI = (function () {
     show(prev || fallback || 'home', { replace: true });
   }
 
-  function busy(on, msg) {
+  /* ---------- 待たせるときの見せ方 ----------
+   *
+   * AIの返事は途中経過が取れない。だからこの％は実測にもとづく目安で、
+   * 「どこまで進んだか」ではなく「あとどれくらいか」を出している。
+   * それでも、いつ終わるか分からないクルクルよりはるかにましだと判断した。
+   *
+   * 決め打ちの秒数は使わない。使うたびに実測を残して、次からその中央値を目安にする。
+   * 端末も回線も人によって違うので、本人の実測のほうが当たる。
+   */
+
+  var busyTimer = null, busyStart = 0, busyEst = 0, busySteps = null, busyPct = 0;
+
+  function busy(on, msg, opts) {
     var b = document.getElementById('busy');
+    var gauge = document.getElementById('busy-gauge');
+    var spin = document.getElementById('busy-spin');
+
+    if (busyTimer) { clearInterval(busyTimer); busyTimer = null; }
+
+    if (!on) {
+      // 終わったことは見せる。一瞬でも満ちてから消えるほうが、終わった感じがする
+      if (busyEst) {
+        paint(1, '');
+        setTimeout(function () { b.hidden = true; gauge.hidden = true; spin.hidden = false; }, 220);
+      } else {
+        b.hidden = true; gauge.hidden = true; spin.hidden = false;
+      }
+      busyEst = 0; busySteps = null; busyPct = 0;
+      return;
+    }
+
     if (msg) document.getElementById('busy-msg').textContent = msg;
-    b.hidden = !on;
+    b.hidden = false;
+
+    var est = opts && opts.estimate;
+    if (!est) { gauge.hidden = true; spin.hidden = false; busyEst = 0; return; }
+
+    busyStart = Date.now();
+    busyEst = est;
+    busySteps = (opts.steps && opts.steps.length) ? opts.steps : null;
+    busyPct = 0;
+    spin.hidden = true;      // バーが出るならクルクルは要らない
+    gauge.hidden = false;
+    paint(0, '');
+    tick();
+    busyTimer = setInterval(tick, 400);
+  }
+
+  function tick() {
+    var el = (Date.now() - busyStart) / busyEst;
+    var pct;
+    if (el < 1) {
+      pct = el * 0.9;                       // 見込みの範囲は素直に進める
+    } else {
+      pct = 0.9 + 0.08 * (1 - Math.exp(-(el - 1) * 1.2));  // 越えたら詰めながら粘る
+    }
+    if (pct < busyPct) pct = busyPct;       // 後ろには戻さない
+    busyPct = pct;
+
+    var leftMs = busyEst - (Date.now() - busyStart);
+    var left = leftMs > 1500 ? 'あと約' + Math.ceil(leftMs / 1000) + '秒'
+      : (leftMs > -8000 ? 'まもなくです' : 'もう少しかかっています');
+
+    if (busySteps) {
+      var i = Math.min(busySteps.length - 1, Math.floor(pct / (0.9 / busySteps.length)));
+      document.getElementById('busy-msg').textContent = busySteps[i];
+    }
+    paint(pct, left);
+  }
+
+  function paint(pct, left) {
+    document.getElementById('busy-fill').style.width = Math.round(pct * 100) + '%';
+    document.getElementById('busy-pct').textContent = Math.round(pct * 100) + '%';
+    document.getElementById('busy-left').textContent = left || '';
   }
 
   function toast(msg, isError) {

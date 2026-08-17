@@ -144,7 +144,10 @@ var Record = (function () {
       return;
     }
 
-    UI.busy(true, '整理しています…');
+    UI.busy(true, '整理しています…', {
+      estimate: Store.estimateMs('structure', 22000),
+      steps: ['どなたのお話か見ています…', '中身を組み立てています…', '次のご来店の話を拾っています…']
+    });
     Api.structure(rawMemo).then(function (data) {
       UI.busy(false);
       draft = normalize(data);

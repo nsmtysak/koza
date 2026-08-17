@@ -1054,6 +1054,28 @@ var Store = (function () {
     write(K.api, { gas_url: (c.gas_url || '').trim(), token: (c.token || '').trim() });
   }
 
+  /* ---------- かかった時間 ----------
+   * AIの返事は端からは進み具合が見えない。せめて「あとどれくらいか」は出したい。
+   * 実測を残しておいて、次からはその中央値を目安に使う。
+   * 端末も回線も人によって違うので、決め打ちの秒数より本人の実測のほうが当たる。
+   */
+
+  function recordTiming(kind, ms) {
+    if (!ms || ms < 300 || ms > 300000) return;
+    var t = read(NS + 'timing', {});
+    var a = t[kind] || [];
+    a.push(Math.round(ms));
+    t[kind] = a.slice(-7);
+    write(NS + 'timing', t);
+  }
+
+  /** その処理にかかる見込み（ミリ秒）。実測が2件たまるまでは既定値 */
+  function estimateMs(kind, fallback) {
+    var a = (read(NS + 'timing', {})[kind] || []).slice().sort(function (x, y) { return x - y; });
+    if (a.length < 2) return fallback || 30000;
+    return a[Math.floor(a.length / 2)];
+  }
+
   /* ---------- メタ ---------- */
 
   function getMeta() { return read(K.meta, { last_export_at: null, schema_version: SCHEMA_VERSION }); }
@@ -1217,6 +1239,7 @@ var Store = (function () {
 
     getDailyPlan: getDailyPlan, saveDailyPlan: saveDailyPlan, clearDailyPlan: clearDailyPlan,
     getApiConfig: getApiConfig, saveApiConfig: saveApiConfig,
+    recordTiming: recordTiming, estimateMs: estimateMs,
     getMeta: getMeta, markExported: markExported, exportOverdue: exportOverdue,
     exportAll: exportAll, exportToFile: exportToFile, importAll: importAll,
     usageStats: usageStats
