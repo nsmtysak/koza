@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=14">
+<link rel="stylesheet" href="css/app.css?v=15">
 </head>
 <body>
 
@@ -105,6 +105,7 @@
 
   <div id="home-goal" class="goalbar"></div>
 
+  <div id="home-draft" class="banner-warn" hidden></div>
   <div id="home-tidy" class="banner" hidden></div>
   <div id="home-account" class="banner-warn" hidden></div>
   <div id="home-asking" class="banner-warn" hidden></div>
@@ -281,6 +282,7 @@
   <p class="lede-sm">卓ごとに1行。お名前と金額と一言だけで構いません。<strong>整理は明日で構いません。</strong></p>
 
   <datalist id="night-names"></datalist>
+  <div id="night-old" class="banner-warn" hidden></div>
   <div id="night-rows" class="nrows"></div>
 
   <button class="ghost full" id="night-add" type="button">＋ 卓を足す</button>
@@ -290,6 +292,17 @@
     <p class="help" id="night-count"></p>
     <button class="ghost small" id="night-clear" type="button">入力中の内容を捨てる</button>
   </div>
+</section>
+
+<!-- ========== 整理（一覧で見て、まとめて取り込む） ========== -->
+<section id="v-tidy" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="tidy-back" aria-label="戻る">←</button>
+    <h1>整理</h1>
+  </header>
+  <p class="lede-sm">AIが組み立てた中身です。<strong>おかしいものだけ直して、あとはまとめて取り込めます。</strong></p>
+  <p class="help" id="tidy-progress" hidden></p>
+  <div id="tidy-body"></div>
 </section>
 
 <!-- ========== 記録（1卓ずつ・整理用） ========== -->
@@ -684,25 +697,26 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=14"></script>
-<script src="js/store.js?v=14"></script>
-<script src="js/holiday.js?v=14"></script>
-<script src="js/insight.js?v=14"></script>
-<script src="js/plan.js?v=14"></script>
-<script src="js/api.js?v=14"></script>
-<script src="js/ui.js?v=14"></script>
-<script src="js/lock.js?v=14"></script>
-<script src="js/night.js?v=14"></script>
-<script src="js/record.js?v=14"></script>
-<script src="js/scan.js?v=14"></script>
-<script src="js/people.js?v=14"></script>
-<script src="js/brief.js?v=14"></script>
-<script src="js/gifts.js?v=14"></script>
-<script src="js/board.js?v=14"></script>
-<script src="js/invite.js?v=14"></script>
-<script src="js/home.js?v=14"></script>
-<script src="js/seed.js?v=14"></script>
-<script src="js/settings.js?v=14"></script>
-<script src="js/app.js?v=14"></script>
+<script src="js/db.js?v=15"></script>
+<script src="js/store.js?v=15"></script>
+<script src="js/holiday.js?v=15"></script>
+<script src="js/insight.js?v=15"></script>
+<script src="js/plan.js?v=15"></script>
+<script src="js/api.js?v=15"></script>
+<script src="js/ui.js?v=15"></script>
+<script src="js/lock.js?v=15"></script>
+<script src="js/night.js?v=15"></script>
+<script src="js/record.js?v=15"></script>
+<script src="js/tidy.js?v=15"></script>
+<script src="js/scan.js?v=15"></script>
+<script src="js/people.js?v=15"></script>
+<script src="js/brief.js?v=15"></script>
+<script src="js/gifts.js?v=15"></script>
+<script src="js/board.js?v=15"></script>
+<script src="js/invite.js?v=15"></script>
+<script src="js/home.js?v=15"></script>
+<script src="js/seed.js?v=15"></script>
+<script src="js/settings.js?v=15"></script>
+<script src="js/app.js?v=15"></script>
 </body>
 </html>

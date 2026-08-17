@@ -388,7 +388,7 @@ var People = (function () {
     acc.appendChild(UI.segmented(
       [{ value: 'self', label: '自分' }, { value: 'mama', label: 'ママ' },
        { value: 'other', label: 'ほかの方' }, { value: 'free', label: 'フリー' }],
-      c.account_owner || 'self',
+      c.account_owner,
       function (v) {
         Store.updateCustomer(c.id, { account_owner: v });
         Store.clearDailyPlan();

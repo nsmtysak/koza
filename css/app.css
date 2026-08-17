@@ -483,3 +483,8 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
   font-family:inherit;font-size:.85rem;cursor:pointer;min-height:40px;padding:0 6px}
 .nrow-detail{margin-top:11px;padding-top:11px;border-top:1px solid var(--ink-3);
   display:flex;flex-direction:column;gap:12px}
+.nrow-hint.pick{color:#e7b8ac}
+.nrow-pick{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.nrow-pick .chip{min-height:36px;padding:0 12px;cursor:pointer;border:1px solid var(--ink-3)}
+.tidy-card.is-off{opacity:.45}
+.tidy-cb{width:24px;height:24px;flex:0 0 24px;accent-color:var(--accent)}

@@ -98,7 +98,6 @@ var Seed = (function () {
 
   var INVITE_TEXTS = {
     star: '先日伺った{i}の件、その後いかがでしたか。またお聞かせいただければ嬉しいです。',
-    deadline: '頂いていた{b}が残り少なくなってまいりました。お知らせまで。',
     info: '{b}が入りましたので、お知らせまで。',
     rely: '{i}のことで、少しお知恵をお借りしたくご連絡いたしました。',
     choice: '今週でしたら木曜と金曜、どちらがご都合よろしいでしょうか。',
@@ -106,7 +105,8 @@ var Seed = (function () {
     report: '本日から新しいお酒が入りました。ご無理のないときにでも。'
   };
 
-  var STYLES = ['star', 'deadline', 'info', 'rely', 'choice', 'meal', 'report'];
+  // deadline は根拠（ボトルの残量）を持てないうちは使わない
+  var STYLES = ['star', 'info', 'rely', 'choice', 'meal', 'report'];
 
   function fill(tpl, c) {
     return tpl

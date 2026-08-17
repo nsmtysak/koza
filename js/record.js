@@ -507,10 +507,11 @@ var Record = (function () {
     }
 
     var was = !!editingId;
+    var back = afterEdit;
     reset();
 
-    // 整理の途中なら、そのまま次の卓へ。画面を往復させない
-    if (queue.length) { nextInQueue(); return; }
+    // 整理の一覧から来ていたら、そこへ戻す
+    if (back) { back(); UI.toast('直しました'); return; }
 
     UI.show('home', { replace: true });
     Home.refresh();
@@ -581,6 +582,7 @@ var Record = (function () {
   function reset() {
     draft = null; rawMemo = ''; editingId = null;
     enrichChoices = []; apptChoices = []; briefIdForVisit = null;
+    afterEdit = null;   // ここを消し忘れると、次の記録が古い整理に乗っ取られる
   }
 
   function discard() {
@@ -594,7 +596,7 @@ var Record = (function () {
    * 深夜にAIを待たせないための折り返し地点。
    */
 
-  var queue = [];
+  var afterEdit = null;   // 1卓だけ直したあとの戻り先
 
   function pending() {
     return Store.listVisits().filter(function (v) {
@@ -602,31 +604,10 @@ var Record = (function () {
     });
   }
 
-  function tidy() {
-    queue = pending();
-    if (!queue.length) { UI.toast('整理するものはありません'); return; }
-    if (!Api.isConfigured()) { UI.toast('AIの接続が必要です', true); return; }
-    nextInQueue();
-  }
-
-  function nextInQueue() {
-    if (!queue.length) {
-      UI.show('home', { replace: true });
-      Home.refresh();
-      UI.toast('整理が終わりました');
-      return;
-    }
-    var v = queue.shift();
-    UI.busy(true, 'あと' + (queue.length + 1) + '卓、整理しています…');
-
-    Api.structure(v.raw_memo).then(function (data) {
-      UI.busy(false);
-      openTidy(v, data);
-    }).catch(function (err) {
-      UI.busy(false);
-      UI.toast(err.message, true);
-      openTidy(v, null);
-    });
+  /** 整理の一覧から「この卓を直す」で呼ばれる。戻り先を渡してもらう */
+  function openTidyOne(v, data, back) {
+    afterEdit = back || null;
+    openTidy(v, data);
   }
 
   /** 整理の結果を、その来歴に当てる。中身は本人が確認してから残る */
@@ -662,8 +643,8 @@ var Record = (function () {
     };
 
     renderConfirm(data
-      ? '整理しました。違うところだけ直してください。（残り' + queue.length + '卓）'
-      : '整理できませんでした。手で直せます。（残り' + queue.length + '卓）');
+      ? '整理しました。違うところだけ直してください。'
+      : '整理できませんでした。手で直せます。');
     UI.show('confirm');
   }
 
@@ -682,5 +663,5 @@ var Record = (function () {
     });
   }
 
-  return { init: init, open: open, openEdit: openEdit, tidy: tidy, pending: pending };
+  return { init: init, open: open, openEdit: openEdit, openTidyOne: openTidyOne, pending: pending };
 })();

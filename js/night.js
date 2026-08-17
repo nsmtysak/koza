@@ -23,14 +23,27 @@ var Night = (function () {
   }
 
   function blankRow() {
-    return { name: '', customer_id: null, spend: '', douhan: false, memo: '',
+    return { name: '', customer_id: null, spend: '', douhan: false, memo: '', help: false,
              others: '', sets: '', bottle: '', kirikaeshi: false, nominaoshi: false, open: false };
   }
 
+  /** 入力中の下書き。日をまたいでも捨てない */
+  function draft() {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; }
+  }
+
+  function pendingDraft() {
+    var raw = draft();
+    if (!raw) return null;
+    var n = (raw.rows || []).filter(isFilled).length;
+    return n ? { date: raw.date, count: n } : null;
+  }
+
   function load() {
-    var raw = null;
-    try { raw = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { raw = null; }
-    if (raw && raw.date === businessDate() && (raw.rows || []).length) return raw;
+    var raw = draft();
+    /* 日が変わっていても捨てない。
+     * 「残す」を押し忘れた3卓が黙って消えるのが、いちばん腹の立つ壊れ方。 */
+    if (raw && (raw.rows || []).length) return raw;
     return { date: businessDate(), rows: [blankRow()] };
   }
 
@@ -42,14 +55,39 @@ var Night = (function () {
 
   /* ---------- 画面 ---------- */
 
-  function open() {
+  function open(opts) {
     state = load();
+    // 前の晩の下書きが残っていて、今夜の分を入れたいときは日を切り替える
+    if (opts && opts.fresh && state.date !== businessDate()) {
+      state = { date: businessDate(), rows: [blankRow()] };
+    }
     UI.show('night');
     render();
   }
 
   function render() {
-    document.getElementById('night-date').textContent = UI.longDate(state.date);
+    var dateEl = document.getElementById('night-date');
+    dateEl.textContent = UI.longDate(state.date);
+
+    var old = document.getElementById('night-old');
+    if (state.date !== businessDate()) {
+      UI.clear(old);
+      old.appendChild(UI.el('p', null,
+        UI.longDate(state.date) + 'の入力が残っています。先にこちらを残してください。'));
+      var nb = UI.el('button', 'ghost small', '今夜の分を新しく始める');
+      nb.type = 'button';
+      nb.addEventListener('click', function () {
+        if (!UI.confirmAsk(UI.longDate(state.date) + 'の入力を捨てて、今夜の分を始めます。よろしいですか。')) return;
+        clearDraft();
+        state = { date: businessDate(), rows: [blankRow()] };
+        save(); render();
+      });
+      old.appendChild(nb);
+      old.hidden = false;
+    } else {
+      old.hidden = true;
+    }
+
     var wrap = UI.clear(document.getElementById('night-rows'));
     state.rows.forEach(function (r, i) { wrap.appendChild(rowEl(r, i)); });
 
@@ -62,7 +100,59 @@ var Night = (function () {
   }
 
   function isFilled(r) {
-    return !!(r.name.trim() || r.memo.trim() || String(r.spend).trim());
+    return !!((r.name || '').trim() || (r.memo || '').trim() || String(r.spend || '').trim());
+  }
+
+  /**
+   * お名前の照合結果を出す。
+   *
+   * **同じ苗字が複数いるときに黙って新規を作らない。**
+   * 田中様が2人いる店で「田中」と打つと、3人目の田中様が黙って増える。
+   * 一度分裂すると、来歴も平均日数も割合も全部壊れる。
+   */
+  function applyHint(r, hint) {
+    UI.clear(hint);
+    hint.className = 'nrow-hint';
+    var nm = (r.name || '').trim();
+    if (!nm) return;
+
+    var m = Store.matchCustomer({ display_name: nm, name: nm });
+    if (m) {
+      r.customer_id = m.id;
+      hint.className = 'nrow-hint ok';
+      hint.textContent = '既存の ' + m.display_name + (m.company ? '（' + m.company + '）' : '');
+      return;
+    }
+
+    var cands = Store.candidates(nm.replace(/(様|さん)$/, ''));
+    if (cands.length > 1) {
+      hint.className = 'nrow-hint pick';
+      hint.appendChild(UI.el('span', null, '同じ苗字の方が' + cands.length + '名います。どちらですか'));
+      var row = UI.el('div', 'nrow-pick');
+      cands.slice(0, 4).forEach(function (c) {
+        var b = UI.el('button', 'chip gold', c.display_name + (c.company ? '／' + c.company : ''));
+        b.type = 'button';
+        b.addEventListener('click', function () {
+          r.customer_id = c.id;
+          r.name = c.display_name;
+          save(); render();
+        });
+        row.appendChild(b);
+      });
+      var nw = UI.el('button', 'chip', '新しい方');
+      nw.type = 'button';
+      nw.addEventListener('click', function () {
+        r.customer_id = null;
+        hint.className = 'nrow-hint';
+        hint.textContent = '新しくお客様として登録します';
+      });
+      row.appendChild(nw);
+      hint.appendChild(row);
+      return;
+    }
+
+    r.customer_id = null;
+    hint.textContent = '新しくお客様として登録します';
   }
 
   function rowEl(r, i) {
@@ -81,12 +171,7 @@ var Night = (function () {
     name.addEventListener('input', function () {
       r.name = name.value;
       r.customer_id = null;
-      var m = Store.matchCustomer({ display_name: r.name, name: r.name });
-      if (m) r.customer_id = m.id;
-      hint.textContent = r.name.trim()
-        ? (m ? '既存の ' + m.display_name : '新しくお客様として登録します')
-        : '';
-      hint.className = 'nrow-hint' + (m ? ' ok' : '');
+      applyHint(r, hint);
       save();
       countUp();
     });
@@ -106,6 +191,8 @@ var Night = (function () {
     x.type = 'button';
     x.setAttribute('aria-label', 'この卓を消す');
     x.addEventListener('click', function () {
+      // 揺れる車内で親指が滑る。入っている卓は確認してから消す
+      if (isFilled(r) && !UI.confirmAsk((r.name || (i + 1) + '卓目') + 'の入力を消します。よろしいですか。')) return;
       state.rows.splice(i, 1);
       if (!state.rows.length) state.rows.push(blankRow());
       save(); render();
@@ -114,11 +201,7 @@ var Night = (function () {
     box.appendChild(head);
 
     var hint = UI.el('div', 'nrow-hint');
-    if (r.name.trim()) {
-      var m0 = Store.matchCustomer({ display_name: r.name, name: r.name });
-      hint.textContent = m0 ? '既存の ' + m0.display_name : '新しくお客様として登録します';
-      if (m0) hint.className = 'nrow-hint ok';
-    }
+    applyHint(r, hint);
     box.appendChild(hint);
 
     /* 2行目：一言。ここがいちばん大事なので広く取る */
@@ -133,6 +216,9 @@ var Night = (function () {
     /* 3行目：同伴だけは一等地に。ほかは畳む */
     var tog = UI.el('div', 'nrow-toggles');
     tog.appendChild(toggle('同伴', r.douhan, function (v) { r.douhan = v; save(); }));
+    /* ヘルプの席は自分の売上ではない。
+     * ここを分けないと、1晩の半分を占めるヘルプの卓が全部実績に乗って帯が嘘をつく。 */
+    tog.appendChild(toggle('ヘルプ', r.help, function (v) { r.help = v; save(); }));
 
     var more = UI.el('button', 'nrow-more', r.open ? '閉じる' : 'そのほか');
     more.type = 'button';
@@ -238,7 +324,7 @@ var Night = (function () {
       Store.addVisit({
         date: state.date,
         attendees: attendees,
-        my_role: Store.getProfile().my_role === 'help' ? 'help' : 'kakari',
+        my_role: r.help ? 'help' : (Store.getProfile().my_role === 'help' ? 'help' : 'kakari'),
         douhan: !!r.douhan,
         kirikaeshi: !!r.kirikaeshi,
         nominaoshi: !!r.nominaoshi,
@@ -286,5 +372,6 @@ var Night = (function () {
     });
   }
 
-  return { init: init, open: open, refreshNames: refreshNames, businessDate: businessDate };
+  return { init: init, open: open, refreshNames: refreshNames,
+           businessDate: businessDate, pendingDraft: pendingDraft };
 })();

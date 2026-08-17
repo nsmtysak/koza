@@ -32,6 +32,7 @@
 
     Record.init();
     Night.init();
+    Tidy.init();
     Scan.init();
     People.init();
     Brief.init();

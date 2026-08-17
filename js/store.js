@@ -244,6 +244,9 @@ var Store = (function () {
    * 未設定は、記録した本人の卓として数える（実績が消えるほうが実害が大きい）。
    */
   function isMyVisit(v) {
+    // ヘルプで付いた席は、口座が誰であろうと自分の売上ではない
+    if (v.my_role === 'help') return false;
+
     var att = v.attendees || [];
     if (!att.length) return true;
     var shukyaku = att.filter(function (a) { return a.role === 'shukyaku'; });
@@ -485,6 +488,24 @@ var Store = (function () {
       return h;
     }
     return null;
+  }
+
+  /**
+   * その来歴について、お誘いと予定を決着させる。
+   * addVisit は自分で呼ぶが、あとから同席者が付いた場合（整理でお名前が判明した等）は
+   * updateVisit では走らないため、外から呼べるようにしてある。
+   * ここが漏れると、来てくださった方に「お越しになりましたか」と聞き続けることになる。
+   */
+  function settleVisit(visitId) {
+    var v = getVisit(visitId);
+    if (!v) return 0;
+    var n = 0;
+    (v.attendees || []).forEach(function (a) {
+      if (!a.customer_id) return;
+      n += settleInvitesOnVisit(a.customer_id, v.date);
+      n += closeAppointmentsFor(a.customer_id, v.date);
+    });
+    return n;
   }
 
   function visitsOf(customerId) {
@@ -1104,7 +1125,7 @@ var Store = (function () {
 
     listVisits: listVisits, getVisit: getVisit, addVisit: addVisit,
     updateVisit: updateVisit, deleteVisit: deleteVisit,
-    setHookStatus: setHookStatus,
+    setHookStatus: setHookStatus, settleVisit: settleVisit,
     visitsOf: visitsOf, companionsOf: companionsOf, averageInterval: averageInterval,
     moneyOf: moneyOf, rankByMoney: rankByMoney,
 

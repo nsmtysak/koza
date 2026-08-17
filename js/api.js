@@ -243,7 +243,7 @@ var Api = (function () {
       today: Store.today(),
       context: contextForAi(),
       // 誰の口座かで、出せる手がまるで違う
-      account_owner: c.account_owner || 'self',
+      account_owner: c.account_owner || 'unknown',
       customer: {
         display_name: c.display_name,
         title: c.title, company_kind: c.company ? '法人' : '',

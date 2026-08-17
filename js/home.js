@@ -19,6 +19,7 @@ var Home = (function () {
     Store.settleOverdueInvites();
 
     Board.renderProgress(document.getElementById('home-goal'));
+    renderDraft();
     renderTidy();
     renderAccountTodo();
     renderAskingInvites();
@@ -28,6 +29,27 @@ var Home = (function () {
     renderCallList();
     renderRecent();
     renderNag();
+  }
+
+  /* ---------- 入力中の下書き ----------
+   * 「残す」を押し忘れた卓が、黙って消えるのがいちばん腹の立つ壊れ方。
+   * 消さずに持っておいて、ここから戻れるようにする。
+   */
+  function renderDraft() {
+    var host = document.getElementById('home-draft');
+    var d = Night.pendingDraft();
+    if (!d) { host.hidden = true; return; }
+
+    UI.clear(host);
+    host.appendChild(UI.el('h3', null, '入力中の記録があります（' + d.count + '卓）'));
+    host.appendChild(UI.el('p', null,
+      UI.longDate(d.date) + 'の分です。まだ「残す」を押していません。'));
+    var b = UI.el('button', 'primary full', '続きから残す');
+    b.type = 'button';
+    b.style.marginTop = '12px';
+    b.addEventListener('click', function () { Night.refreshNames(); Night.open(); });
+    host.appendChild(b);
+    host.hidden = false;
   }
 
   /* ---------- 昨夜の整理 ----------
@@ -50,7 +72,7 @@ var Home = (function () {
       var b = UI.el('button', 'primary full', 'まとめて整理する（' + list.length + '卓）');
       b.type = 'button';
       b.style.marginTop = '12px';
-      b.addEventListener('click', function () { Record.tidy(); });
+      b.addEventListener('click', function () { Tidy.open(); });
       host.appendChild(b);
     }
     host.hidden = false;

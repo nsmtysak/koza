@@ -262,6 +262,8 @@ var Plan = (function () {
 
       var expected = 0;
       apts.forEach(function (x) {
+        // 「狙う」は上の帯でも数えていない。ここだけ数えると食い違う
+        if (x.appointment.confidence === 'aiming') return;
         var w = Store.CONFIDENCE_WEIGHT[x.appointment.confidence] || 0.5;
         var amt = typeof x.appointment.expected_spend === 'number' && x.appointment.expected_spend > 0
           ? x.appointment.expected_spend
