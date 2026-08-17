@@ -329,6 +329,7 @@ var Board = (function () {
     var top = UI.el('div', 'card-top');
     if (c) top.appendChild(UI.avatar(c));
     top.appendChild(UI.el('div', 'card-name', c ? c.display_name : '（お名前未定）'));
+    if (a.time) top.appendChild(UI.chip(a.time, 'gold'));
     top.appendChild(UI.chip(Store.CONFIDENCE[a.confidence] || '',
       a.confidence === 'confirmed' ? 'gold' : ''));
     if (a.kind === 'douhan') top.appendChild(UI.chip('同伴', 'gold'));
@@ -365,6 +366,7 @@ var Board = (function () {
       }
     }
 
+    if (a.place) card.appendChild(UI.el('p', 'card-body', 'お食事：' + a.place));
     if (a.note) card.appendChild(UI.el('p', 'card-body', a.note));
 
     var acts = UI.el('div', 'card-acts');
@@ -400,12 +402,17 @@ var Board = (function () {
       kind: editing ? editing.kind : (opts.kind || 'visit'),
       confidence: editing ? editing.confidence : (opts.confidence || 'verbal'),
       expected_spend: editing ? editing.expected_spend : null,
+      time: editing ? (editing.time || '') : (opts.time || ''),
+      place: editing ? (editing.place || '') : '',
       note: editing ? editing.note : ''
     };
 
     document.getElementById('appt-title').textContent = editing ? '予定を直す' : '予定を入れる';
     document.getElementById('appt-date').value = draft.date;
     UI.setMoney('appt-spend', draft.expected_spend);
+    document.getElementById('appt-time').value = draft.time || '';
+    document.getElementById('appt-place').value = draft.place || '';
+    renderPlaces();
     document.getElementById('appt-note').value = draft.note || '';
     document.getElementById('appt-delete').hidden = !editing;
 
@@ -435,6 +442,20 @@ var Board = (function () {
     UI.show('appt');
   }
 
+  /** これまでにお連れしたお店。同じ店を続けないため候補に出す */
+  function renderPlaces() {
+    var dl = UI.clear(document.getElementById('douhan-places'));
+    var seen = {};
+    Store.listAppointments().concat(Store.listVisits()).forEach(function (x) {
+      var p = (x.place || x.douhan_place || '').trim();
+      if (!p || seen[p]) return;
+      seen[p] = true;
+      var o = UI.el('option');
+      o.value = p;
+      dl.appendChild(o);
+    });
+  }
+
   function saveAppt() {
     var date = document.getElementById('appt-date').value;
     var cid = document.getElementById('appt-customer').value;
@@ -448,6 +469,8 @@ var Board = (function () {
       kind: draft.kind,
       confidence: draft.confidence,
       expected_spend: spend > 0 ? spend : null,
+      time: document.getElementById('appt-time').value,
+      place: document.getElementById('appt-place').value.trim(),
       note: document.getElementById('appt-note').value.trim()
     };
 

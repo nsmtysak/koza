@@ -8,35 +8,35 @@
  * GASへの通信（POST）は素通しする。キャッシュすると古い返事を返しかねない。
  */
 
-var VERSION = 'koza2-v15';
+var VERSION = 'koza2-v16';
 
 // index.html が読み込むURL（?v= 付き）と揃える。
 // ここがずれると、圏外での初回起動でCSSやJSだけ取れないことがある。
 var SHELL = [
   './',
   './index.html',
-  './css/app.css?v=15',
-  './js/db.js?v=15',
-  './js/store.js?v=15',
-  './js/holiday.js?v=15',
-  './js/insight.js?v=15',
-  './js/plan.js?v=15',
-  './js/api.js?v=15',
-  './js/ui.js?v=15',
-  './js/lock.js?v=15',
-  './js/night.js?v=15',
-  './js/record.js?v=15',
-  './js/tidy.js?v=15',
-  './js/scan.js?v=15',
-  './js/people.js?v=15',
-  './js/brief.js?v=15',
-  './js/gifts.js?v=15',
-  './js/board.js?v=15',
-  './js/invite.js?v=15',
-  './js/home.js?v=15',
-  './js/seed.js?v=15',
-  './js/settings.js?v=15',
-  './js/app.js?v=15',
+  './css/app.css?v=16',
+  './js/db.js?v=16',
+  './js/store.js?v=16',
+  './js/holiday.js?v=16',
+  './js/insight.js?v=16',
+  './js/plan.js?v=16',
+  './js/api.js?v=16',
+  './js/ui.js?v=16',
+  './js/lock.js?v=16',
+  './js/night.js?v=16',
+  './js/record.js?v=16',
+  './js/tidy.js?v=16',
+  './js/scan.js?v=16',
+  './js/people.js?v=16',
+  './js/brief.js?v=16',
+  './js/gifts.js?v=16',
+  './js/board.js?v=16',
+  './js/invite.js?v=16',
+  './js/home.js?v=16',
+  './js/seed.js?v=16',
+  './js/settings.js?v=16',
+  './js/app.js?v=16',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'

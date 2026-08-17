@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=15">
+<link rel="stylesheet" href="css/app.css?v=16">
 </head>
 <body>
 
@@ -201,9 +201,22 @@
       <p class="help">確定＝日が決まっている／お約束＝口約束／狙う＝こちらの狙い。見込みの計算で重みが変わります。</p>
     </div>
 
-    <label class="f">
-      <span>見込みのお会計（円・空欄なら平均で計算）</span>
-      <input type="text" id="appt-spend" inputmode="numeric" placeholder="180,000">
+    <div class="grid2">
+      <label class="f">
+        <span>時刻</span>
+        <input type="time" id="appt-time">
+      </label>
+      <label class="f">
+        <span>見込みのお会計（円）</span>
+        <input type="text" id="appt-spend" inputmode="numeric" placeholder="180,000">
+      </label>
+    </div>
+
+    <label class="f" id="appt-place-wrap">
+      <span>お食事のお店（同伴のとき）</span>
+      <input type="text" id="appt-place" list="douhan-places" placeholder="店名">
+      <datalist id="douhan-places"></datalist>
+      <span class="help">同じお店に続けてお連れしないよう、これまでの記録から候補が出ます。</span>
     </label>
 
     <label class="f">
@@ -258,6 +271,7 @@
   </header>
 
   <div id="person-head" class="person-head"></div>
+  <div id="person-contact" class="contact-row" hidden></div>
 
   <div class="tabs" id="person-tabs">
     <button class="tab is-on" data-tab="brief">準備</button>
@@ -457,7 +471,7 @@
 <!-- ========== 贈答 ========== -->
 <section id="v-gifts" class="view" hidden>
   <header class="vhead">
-    <h1>贈答とご挨拶</h1>
+    <h1>記念日と贈答</h1>
   </header>
   <div id="gift-body"></div>
 </section>
@@ -682,7 +696,7 @@
   <button data-go="home" class="navbtn is-on">今日</button>
   <button data-go="board" class="navbtn">枠</button>
   <button data-go="people" class="navbtn">お客様</button>
-  <button data-go="gifts" class="navbtn">贈答</button>
+  <button data-go="gifts" class="navbtn">記念日</button>
   <button data-go="settings" class="navbtn">設定</button>
 </nav>
 
@@ -697,26 +711,26 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=15"></script>
-<script src="js/store.js?v=15"></script>
-<script src="js/holiday.js?v=15"></script>
-<script src="js/insight.js?v=15"></script>
-<script src="js/plan.js?v=15"></script>
-<script src="js/api.js?v=15"></script>
-<script src="js/ui.js?v=15"></script>
-<script src="js/lock.js?v=15"></script>
-<script src="js/night.js?v=15"></script>
-<script src="js/record.js?v=15"></script>
-<script src="js/tidy.js?v=15"></script>
-<script src="js/scan.js?v=15"></script>
-<script src="js/people.js?v=15"></script>
-<script src="js/brief.js?v=15"></script>
-<script src="js/gifts.js?v=15"></script>
-<script src="js/board.js?v=15"></script>
-<script src="js/invite.js?v=15"></script>
-<script src="js/home.js?v=15"></script>
-<script src="js/seed.js?v=15"></script>
-<script src="js/settings.js?v=15"></script>
-<script src="js/app.js?v=15"></script>
+<script src="js/db.js?v=16"></script>
+<script src="js/store.js?v=16"></script>
+<script src="js/holiday.js?v=16"></script>
+<script src="js/insight.js?v=16"></script>
+<script src="js/plan.js?v=16"></script>
+<script src="js/api.js?v=16"></script>
+<script src="js/ui.js?v=16"></script>
+<script src="js/lock.js?v=16"></script>
+<script src="js/night.js?v=16"></script>
+<script src="js/record.js?v=16"></script>
+<script src="js/tidy.js?v=16"></script>
+<script src="js/scan.js?v=16"></script>
+<script src="js/people.js?v=16"></script>
+<script src="js/brief.js?v=16"></script>
+<script src="js/gifts.js?v=16"></script>
+<script src="js/board.js?v=16"></script>
+<script src="js/invite.js?v=16"></script>
+<script src="js/home.js?v=16"></script>
+<script src="js/seed.js?v=16"></script>
+<script src="js/settings.js?v=16"></script>
+<script src="js/app.js?v=16"></script>
 </body>
 </html>

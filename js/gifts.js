@@ -1,12 +1,91 @@
-/* Kōza v2 — 贈答とご挨拶
- * 年賀状・お中元・お歳暮を「出した／まだ」で潰していく。
- * 時期でないときは、直近の接点を振り返る場所として使う。
+/* Kōza v2 — 記念日
+ *
+ * 前は「贈答」だけの画面だった。年賀状・お中元・お歳暮は年に3回。
+ * 年3回の仕事のために、毎日見るタブを1つ取られていた。
+ *
+ * この仕事でいちばん売れる日はお客様のお誕生日で、しかも**1か月前から仕込む**。
+ * 花もケーキも席の組み方も、10日前では間に合わない。
+ * だからここは「今月と来月の記念日」を先に出し、贈答はその下に置く。
  */
 var Gifts = (function () {
   'use strict';
 
+  /** MM-DD を取り出す。YYYY-MM-DD でも MM-DD でも受ける */
+  function md(v) {
+    var m = String(v || '').match(/(\d{1,2})-(\d{1,2})$/);
+    return m ? { m: parseInt(m[1], 10), d: parseInt(m[2], 10) } : null;
+  }
+
+  /** その月の記念日を集める。お誕生日・ご家族・初めてお越しいただいた日 */
+  function anniversariesIn(month) {
+    var out = [];
+    Store.activeCustomers().forEach(function (c) {
+      var b = md(c.birthday);
+      if (b && b.m === month) {
+        out.push({ customer: c, day: b.d, kind: 'お誕生日', who: c.display_name });
+      }
+      (c.family || []).forEach(function (f) {
+        var fb = md(f.birthday);
+        if (fb && fb.m === month) {
+          out.push({ customer: c, day: fb.d, kind: 'お誕生日',
+            who: (f.name || f.relation) + '様（' + c.display_name + 'の' + f.relation + '）' });
+        }
+      });
+      var fm = md(c.first_met);
+      if (fm && fm.m === month && c.first_met && c.first_met.length === 10) {
+        var years = new Date().getFullYear() - parseInt(c.first_met.slice(0, 4), 10);
+        if (years >= 1) {
+          out.push({ customer: c, day: fm.d, kind: years + '周年', who: c.display_name });
+        }
+      }
+    });
+    return out.sort(function (a, b) { return a.day - b.day; });
+  }
+
+  function renderAnniversaries(body) {
+    var now = new Date();
+    var thisM = now.getMonth() + 1;
+    var nextM = thisM === 12 ? 1 : thisM + 1;
+
+    [[thisM, '今月'], [nextM, '来月']].forEach(function (pair) {
+      var list = anniversariesIn(pair[0]);
+      var sec = UI.el('div', 'brief-sec');
+      sec.appendChild(UI.el('h3', null, pair[1] + '（' + pair[0] + '月）の記念日　' + list.length + '件'));
+
+      if (!list.length) {
+        sec.appendChild(UI.el('p', 'empty', 'ありません。'));
+        body.appendChild(sec);
+        return;
+      }
+
+      var wrap = UI.el('div', 'cards');
+      list.forEach(function (x) {
+        var card = UI.el('button', 'card');
+        card.type = 'button';
+        var top = UI.el('div', 'card-top');
+        top.appendChild(UI.el('span', 'soon-when', pair[0] + '/' + x.day));
+        top.appendChild(UI.el('div', 'card-name', x.who));
+        top.appendChild(UI.chip(x.kind, x.kind === 'お誕生日' ? 'gold' : ''));
+        card.appendChild(top);
+        if (x.customer.company) card.appendChild(UI.el('p', 'card-body', x.customer.company));
+        card.addEventListener('click', function () { People.openPerson(x.customer.id, 'brief'); });
+        wrap.appendChild(card);
+      });
+      sec.appendChild(wrap);
+      if (pair[1] === '来月') {
+        sec.appendChild(UI.el('p', 'help',
+          'お花もケーキも席の組み方も、1か月前から仕込みます。ここで先に見ておいてください。'));
+      }
+      body.appendChild(sec);
+    });
+  }
+
   function render() {
     var body = UI.clear(document.getElementById('gift-body'));
+
+    // 記念日が先。贈答は年3回なので下に置く
+    renderAnniversaries(body);
+
     var tasks = Insight.giftTasks();
 
     if (tasks) {
@@ -40,7 +119,7 @@ var Gifts = (function () {
       }
     } else {
       var none = UI.el('div', 'gift-head');
-      none.appendChild(UI.el('h2', null, '今は贈答の時期ではありません'));
+      none.appendChild(UI.el('h2', null, '贈答（今は時期ではありません）'));
       none.appendChild(UI.el('p', null,
         '年賀状は12月から、お中元は6月半ばから、お歳暮は11月からここに出ます。'));
       body.appendChild(none);

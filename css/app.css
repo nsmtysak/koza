@@ -488,3 +488,12 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
 .nrow-pick .chip{min-height:36px;padding:0 12px;cursor:pointer;border:1px solid var(--ink-3)}
 .tidy-card.is-off{opacity:.45}
 .tidy-cb{width:24px;height:24px;flex:0 0 24px;accent-color:var(--accent)}
+
+/* 連絡の導線。写してから相手を探す40秒を削る */
+.contact-row{display:flex;gap:9px;margin:-8px 0 20px;flex-wrap:wrap}
+.contact-row[hidden]{display:none}
+.contact-btn{flex:1;min-width:88px;min-height:48px;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--radius);background:var(--ink-1);border:1px solid var(--ink-3);
+  color:var(--text-dim);text-decoration:none;font-size:.95rem}
+.contact-btn:active{border-color:var(--accent-deep);color:var(--accent)}
+.contact-btn.line{border-color:var(--accent-deep);color:var(--accent)}

@@ -136,7 +136,18 @@ var Insight = (function () {
         }
       });
 
-      // ⑤ 贈答の時期で、今年まだ出していない
+      /* ⑤ お預かりしているボトルが、そろそろ空く。
+       * 作り話でない口実として、これがいちばん強い */
+      (c.bottles || []).forEach(function (b) {
+        if (b.remain !== 'low') return;
+        reasons.push({
+          score: 88,
+          text: 'お預かりの' + b.name + 'が、そろそろ空きます',
+          tag: 'ボトル'
+        });
+      });
+
+      // ⑥ 贈答の時期で、今年まだ出していない
       if (season && c.gift_policy && c.gift_policy[season.kind]) {
         if (!Store.sentIn(c.id, season.kind, season.year)) {
           reasons.push({ score: 75, text: season.label + 'をまだお出ししていない', tag: '贈答' });

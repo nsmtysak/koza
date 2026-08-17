@@ -219,7 +219,9 @@ var Api = (function () {
         interests: c.interests,
         prefs: c.prefs,
         ng_topics: c.ng_topics,
-        memo: c.memo
+        memo: c.memo,
+        bottles: (c.bottles || []).filter(function (b) { return b.remain !== 'empty'; })
+          .map(function (b) { return { name: b.name, remain: Store.REMAIN[b.remain] || b.remain, since: b.opened_at }; })
       },
       hooks: (d.open_hooks || []).slice(0, 6),
       recent_visits: d.visits.slice(0, 4).map(function (v) {
@@ -250,7 +252,9 @@ var Api = (function () {
         relation_type: c.relation_type, shimei_type: c.shimei_type,
         birthday: c.birthday,
         family: c.family, interests: c.interests, prefs: c.prefs,
-        ng_topics: c.ng_topics, memo: c.memo
+        ng_topics: c.ng_topics, memo: c.memo,
+        bottles: (c.bottles || []).filter(function (b) { return b.remain !== 'empty'; })
+          .map(function (b) { return { name: b.name, remain: Store.REMAIN[b.remain] || b.remain, since: b.opened_at }; })
       },
       stats: {
         visit_count: d.visit_count,

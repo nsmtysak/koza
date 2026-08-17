@@ -117,6 +117,7 @@ var Store = (function () {
 
     /* お店のきまり */
     douhan_deadline: '',     // 同伴の入店締め時刻。例 21:00
+    douhan_places: [],       // 同伴で使うお店。同じ店に続けてお連れしないため
     open_time: '', close_time: '',
 
     /* お客様への配慮。ここは店ではなく相手に合わせて動かす */
@@ -165,6 +166,10 @@ var Store = (function () {
     family: [],              // [{relation, name, note, birthday}]
     interests: [],           // 趣味・興味
     prefs: { drinks: [], food: [], smoke: '', karaoke: [], likes: [], dislikes: [] },
+    /* お預かりしているボトル。
+     * 「そろそろ空きます」は、この仕事でいちばん自然にお声がけできる理由。
+     * 残量を持たないままAIに「残り少なくなってまいりました」と書かせるのは作り話になる。 */
+    bottles: [],             // [{id, name, opened_at, remain, note}]
     ng_topics: [],
     avoid_pair: [],
     gift_policy: { nenga: true, ochugen: false, oseibo: false },
@@ -394,6 +399,62 @@ var Store = (function () {
     return updateCustomer(id, patch);
   }
 
+  /* ---------- ボトル ---------- */
+
+  var REMAIN = {
+    full: 'まだ十分',
+    half: '半分ほど',
+    low: 'そろそろ空きます',
+    empty: '空きました'
+  };
+
+  function bottlesOf(customerId) {
+    var c = getCustomer(customerId);
+    return ((c && c.bottles) || []).filter(function (b) { return b.remain !== 'empty'; });
+  }
+
+  function addBottle(customerId, fields) {
+    var c = getCustomer(customerId);
+    if (!c) return null;
+    var b = {
+      id: uid('b'),
+      name: (fields.name || '').trim(),
+      opened_at: fields.opened_at || today(),
+      remain: REMAIN[fields.remain] ? fields.remain : 'full',
+      note: fields.note || ''
+    };
+    if (!b.name) return null;
+    var list = (c.bottles || []).slice();
+    list.push(b);
+    updateCustomer(customerId, { bottles: list });
+    return b;
+  }
+
+  function updateBottle(customerId, bottleId, patch) {
+    var c = getCustomer(customerId);
+    if (!c) return null;
+    var list = (c.bottles || []).map(function (b) {
+      return b.id === bottleId ? Object.assign({}, b, patch) : b;
+    });
+    updateCustomer(customerId, { bottles: list });
+    return list.filter(function (b) { return b.id === bottleId; })[0] || null;
+  }
+
+  function removeBottle(customerId, bottleId) {
+    var c = getCustomer(customerId);
+    if (!c) return;
+    updateCustomer(customerId, {
+      bottles: (c.bottles || []).filter(function (b) { return b.id !== bottleId; })
+    });
+  }
+
+  /** そろそろ空くボトルをお預かりしている方。お声がけの理由になる */
+  function customersWithLowBottle() {
+    return activeCustomers().filter(function (c) {
+      return (c.bottles || []).some(function (b) { return b.remain === 'low'; });
+    });
+  }
+
   /* ---------- Visit（来歴） ---------- */
 
   function listVisits() {
@@ -589,6 +650,8 @@ var Store = (function () {
     oseibo:   'お歳暮',
     birthday: '誕生日',
     gift:     '贈り物',
+    after:    'アフター',
+    okuri:    '送り',
     line:     'LINE',
     phone:    '電話',
     mail:     'メール',
@@ -776,6 +839,8 @@ var Store = (function () {
       date: f.date,
       customer_id: f.customer_id || null,
       kind: f.kind === 'douhan' ? 'douhan' : 'visit',
+      time: f.time || '',       // 待ち合わせ・ご来店の時刻
+      place: f.place || '',     // 同伴のお食事の店
       confidence: CONFIDENCE[f.confidence] ? f.confidence : 'verbal',
       expected_spend: typeof f.expected_spend === 'number' ? f.expected_spend : null,
       note: f.note || '',
@@ -1126,6 +1191,9 @@ var Store = (function () {
     listVisits: listVisits, getVisit: getVisit, addVisit: addVisit,
     updateVisit: updateVisit, deleteVisit: deleteVisit,
     setHookStatus: setHookStatus, settleVisit: settleVisit,
+    REMAIN: REMAIN, bottlesOf: bottlesOf, addBottle: addBottle,
+    updateBottle: updateBottle, removeBottle: removeBottle,
+    customersWithLowBottle: customersWithLowBottle,
     visitsOf: visitsOf, companionsOf: companionsOf, averageInterval: averageInterval,
     moneyOf: moneyOf, rankByMoney: rankByMoney,
 

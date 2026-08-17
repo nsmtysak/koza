@@ -172,6 +172,43 @@ var People = (function () {
       pi.appendChild(row);
     }
     head.appendChild(pi);
+    renderContactRow(c);
+  }
+
+  /**
+   * 連絡の導線。
+   *
+   * 文を写しても、そこからアプリを切り替えて相手を探すのに40秒かかる。
+   * 1日10人なら7分。記録で節約した時間がそのまま戻ってくる。
+   * 電話とメールは相手まで直接つながる。LINEはアプリを開くところまで
+   * （LINEに、特定の相手を開く仕組みが公開されていないため）。
+   */
+  function renderContactRow(c) {
+    var host = UI.clear(document.getElementById('person-contact'));
+    var any = false;
+
+    function link(label, href, note) {
+      var a = UI.el('a', 'contact-btn', label);
+      a.href = href;
+      if (note) a.title = note;
+      host.appendChild(a);
+      any = true;
+    }
+
+    if (c.line || c.mobile) {
+      var l = UI.el('a', 'contact-btn line', 'LINE');
+      l.href = 'https://line.me/R/';
+      l.addEventListener('click', function () {
+        if (c.line) UI.toast('LINEでの表示名：' + c.line);
+      });
+      host.appendChild(l);
+      any = true;
+    }
+    if (c.mobile) link('電話', 'tel:' + c.mobile.replace(/[^\d+]/g, ''));
+    else if (c.phone) link('電話', 'tel:' + c.phone.replace(/[^\d+]/g, ''));
+    if (c.email) link('メール', 'mailto:' + c.email);
+
+    host.hidden = !any;
   }
 
   function renderTabs() {
@@ -414,6 +451,126 @@ var People = (function () {
     ownerName.appendChild(oi);
     ownerName.hidden = (c.account_owner || 'self') !== 'other';
     form.appendChild(ownerName);
+
+    /* お預かりしているボトル。
+     * 「そろそろ空きます」は、いちばん自然にお声がけできる理由。
+     * ここが埋まって初めて、AIは期限のあるお誘いを書ける。 */
+    var bt = UI.el('div', 'f');
+    bt.appendChild(UI.el('span', null, 'お預かりしているボトル'));
+    var blist = UI.el('div', 'cards');
+    (c.bottles || []).forEach(function (b) {
+      var row = UI.el('div', 'gift-row');
+      row.appendChild(UI.el('span', 'gname',
+        b.name + '　' + UI.shortDate(b.opened_at) + '〜'));
+      var sel = UI.el('select');
+      sel.style.width = 'auto';
+      sel.style.minHeight = '40px';
+      Object.keys(Store.REMAIN).forEach(function (k) {
+        var o = UI.el('option', null, Store.REMAIN[k]);
+        o.value = k;
+        if (b.remain === k) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        Store.updateBottle(c.id, b.id, { remain: sel.value });
+        Store.clearDailyPlan();
+        renderBody();
+      });
+      row.appendChild(sel);
+      var del = UI.el('button', 'chip-x', '×');
+      del.type = 'button';
+      del.addEventListener('click', function () {
+        Store.removeBottle(c.id, b.id);
+        renderBody();
+      });
+      row.appendChild(del);
+      blist.appendChild(row);
+    });
+    if (!(c.bottles || []).length) blist.appendChild(UI.el('p', 'help', 'ありません'));
+    bt.appendChild(blist);
+
+    var badd = UI.el('div', 'tag-input');
+    var bi = UI.el('input');
+    bi.type = 'text';
+    bi.placeholder = '銘柄（響17年 など）';
+    var bb = UI.el('button', 'ghost small', '入れていただいた');
+    bb.type = 'button';
+    bb.addEventListener('click', function () {
+      var v = bi.value.trim();
+      if (!v) return;
+      Store.addBottle(c.id, { name: v });
+      bi.value = '';
+      renderBody();
+    });
+    badd.appendChild(bi); badd.appendChild(bb);
+    bt.appendChild(badd);
+    bt.appendChild(UI.el('p', 'help',
+      '「そろそろ空きます」にすると、お声がけの候補に出ます。AIもその事実を使って文を書けるようになります。'));
+    form.appendChild(bt);
+
+    /* ご紹介くださった方。
+     * これまで判定するコードだけがあって、入れる場所が無かった。
+     * 紹介者へのお礼は、ご本人へのお礼より先に出す筋のもの。 */
+    var intro = UI.el('div', 'f');
+    intro.appendChild(UI.el('span', null, 'ご紹介くださった方'));
+    var isel = UI.el('select');
+    var none = UI.el('option', null, '（なし）');
+    none.value = '';
+    isel.appendChild(none);
+    Store.activeCustomers().forEach(function (o) {
+      if (o.id === c.id) return;
+      var op = UI.el('option', null, o.display_name + (o.company ? '（' + o.company + '）' : ''));
+      op.value = o.id;
+      if (c.intro_by === o.id) op.selected = true;
+      isel.appendChild(op);
+    });
+    isel.addEventListener('change', function () {
+      Store.updateCustomer(c.id, { intro_by: isel.value || null });
+      UI.toast('保存しました');
+    });
+    intro.appendChild(isel);
+    form.appendChild(intro);
+
+    /* 顔を合わせない方が良い相手。判定はあったが入れる場所が無かった */
+    var avoid = UI.el('div', 'f');
+    avoid.appendChild(UI.el('span', null, '顔を合わせない方が良い相手'));
+    var alist = UI.el('div', 'tag-list');
+    (c.avoid_pair || []).forEach(function (id) {
+      var o = Store.getCustomer(id);
+      if (!o) return;
+      var t = UI.el('span', 'chip removable warn', o.display_name);
+      var x = UI.el('button', 'chip-x', '×');
+      x.type = 'button';
+      x.addEventListener('click', function () {
+        Store.updateCustomer(c.id, {
+          avoid_pair: (c.avoid_pair || []).filter(function (v) { return v !== id; })
+        });
+        renderBody();
+      });
+      t.appendChild(x);
+      alist.appendChild(t);
+    });
+    if (!(c.avoid_pair || []).length) alist.appendChild(UI.el('span', 'help', 'ありません'));
+    avoid.appendChild(alist);
+
+    var asel = UI.el('select');
+    var an = UI.el('option', null, '（選ぶと足します）');
+    an.value = '';
+    asel.appendChild(an);
+    Store.activeCustomers().forEach(function (o) {
+      if (o.id === c.id || (c.avoid_pair || []).indexOf(o.id) >= 0) return;
+      var op = UI.el('option', null, o.display_name + (o.company ? '（' + o.company + '）' : ''));
+      op.value = o.id;
+      asel.appendChild(op);
+    });
+    asel.addEventListener('change', function () {
+      if (!asel.value) return;
+      Store.updateCustomer(c.id, { avoid_pair: (c.avoid_pair || []).concat([asel.value]) });
+      renderBody();
+    });
+    avoid.appendChild(asel);
+    avoid.appendChild(UI.el('p', 'help', '同じ日に予定を入れようとすると、確認が出ます。'));
+    form.appendChild(avoid);
 
     // 立場
     var rel = UI.el('div', 'f');
