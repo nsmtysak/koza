@@ -23,6 +23,7 @@ var Home = (function () {
     renderTidy();
     renderAccountTodo();
     renderAskingInvites();
+    renderReviewBanner();
     renderGiftBanner();
     renderGuests();
     renderPlan();
@@ -484,6 +485,25 @@ var Home = (function () {
     row.appendChild(line);
 
     return row;
+  }
+
+  /* 締まった直後だけ出す。
+   * 使い続けるかどうかは「効いたのか」が見えるかどうかで決まる。
+   * 見ないままにしておくと、効いていても辞められる。 */
+  function renderReviewBanner() {
+    var el = document.getElementById('home-review');
+    var prev = Review.justClosed();
+    if (!prev) { el.hidden = true; return; }
+
+    var r = Review.of(prev.end);
+    UI.clear(el);
+    el.appendChild(UI.el('h3', null, prev.label + 'が締まりました'));
+    el.appendChild(UI.el('p', null, r.credited.count
+      ? 'お声がけから' + r.credited.count + '組、'
+        + (r.credited.spend ? UI.yen(r.credited.spend) : '') + 'でした'
+      : '先月の答え合わせを見る'));
+    el.hidden = false;
+    el.onclick = function () { Review.open(prev.end); };
   }
 
   function renderGiftBanner() {

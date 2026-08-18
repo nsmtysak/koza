@@ -8,7 +8,10 @@
  *
  * ■ スクリプトプロパティ
  *   ANTHROPIC_API_KEY   Anthropic の APIキー
- *   TOKEN               アプリと共有する合言葉
+ *   TOKEN               アプリと共有する合言葉（1人で使うとき）
+ *   LEDGER_ID           省略可。台帳のスプレッドシートID
+ *                       入れると1人1鍵になり、使用量と上限をこちらで持つ
+ *                       （setupLedger を実行すれば自動で入る）
  *   MODEL_FAST          省略可。既定 claude-haiku-4-5   （整理・名刺）
  *   MODEL_THINK         省略可。既定 claude-sonnet-5    （準備・段取り・文面）
  *
@@ -49,23 +52,30 @@ function doPost(e) {
     try { req = JSON.parse(e.postData.contents); }
     catch (err) { return json({ ok: false, error: '本文がJSONではありません' }); }
 
-    var expected = PropertiesService.getScriptProperties().getProperty('TOKEN');
-    if (!expected) return json({ ok: false, error: 'サーバー側の合言葉が未設定です' });
-    if (!safeEquals(String(req.token || ''), expected)) {
-      return json({ ok: false, error: '合言葉が違います' });
+    // 合言葉の照合。台帳があれば1人1鍵、無ければ従来の TOKEN ひとつ
+    var auth = authorize_(req.token);
+    if (!auth.ok) return json({ ok: false, error: auth.error });
+
+    if (req.mode === 'ping') {
+      // つながるかの確認は回数に数えない
+      return json({ ok: true, data: { status: 'ok', model: model('fast'), name: auth.name || '' } });
     }
 
+    var out;
     switch (req.mode) {
-      case 'ping':      return json({ ok: true, data: { status: 'ok', model: model('fast') } });
-      case 'structure': return json(handleStructure(req));
-      case 'card':      return json(handleCard(req));
-      case 'brief':     return json(handleBrief(req));
-      case 'plan':      return json(handlePlan(req));
-      case 'invite':    return json(handleInvite(req));
-      case 'drafts':    return json(handleDrafts(req));
-      case 'daily':     return json(handlePlan(req));   // 旧名。互換のため残す
+      case 'structure': out = handleStructure(req); break;
+      case 'card':      out = handleCard(req); break;
+      case 'brief':     out = handleBrief(req); break;
+      case 'plan':      out = handlePlan(req); break;
+      case 'invite':    out = handleInvite(req); break;
+      case 'drafts':    out = handleDrafts(req); break;
+      case 'daily':     out = handlePlan(req); break;   // 旧名。互換のため残す
       default:          return json({ ok: false, error: '不明な依頼です: ' + req.mode });
     }
+
+    // 使った分を台帳に立てる。端末側の申告は当てにしない
+    if (out && out.ok) ledgerRecord_(auth, out.usage);
+    return json(out);
   } catch (err) {
     console.error(err);   // 顧客情報は載せない
     return json({ ok: false, error: 'サーバー側で問題が起きました' });
@@ -1071,4 +1081,185 @@ function safeEquals(a, b) {
 function json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ============================================================
+ * 台帳（1人1つの合言葉）
+ *
+ * 1人で使っているうちは、スクリプトプロパティの TOKEN ひとつで足りる。
+ * けれど複数の方にお配りするなら、それでは破綻する。
+ *   - 1人が誰かに教えたら、全員が同じ鍵を使える
+ *   - 誰がいくら使ったか分からない
+ *   - 使いすぎを止められない
+ *   - お辞めになった方を止められない
+ *
+ * そこでスプレッドシートを台帳にして、1人1行で持つ。
+ * 端末側の申告は当てにしない。**数えるのはここだけ。**
+ *
+ * LEDGER_ID（スクリプトプロパティ）が無いときは、これまでどおり TOKEN で動く。
+ * 1人で使っている間は、何も変えなくてよい。
+ *
+ * ■ 列（1行目は見出し）
+ *   A 合言葉 / B お名前 / C 状態(有効・停止) / D 月の上限(回。0＝無制限)
+ *   E 集計月 / F 今月の回数 / G 送ったトークン / H 返ったトークン
+ *   I 最後に使った日時 / J 備考
+ * ============================================================ */
+
+var LEDGER_SHEET = 'users';
+var LEDGER_HEAD = ['合言葉', 'お名前', '状態', '月の上限', '集計月', '今月の回数',
+                   '送った', '返った', '最後に使った', '備考'];
+
+function ledgerSheet_() {
+  var id = PropertiesService.getScriptProperties().getProperty('LEDGER_ID');
+  if (!id) return null;
+  try {
+    var ss = SpreadsheetApp.openById(id);
+    return ss.getSheetByName(LEDGER_SHEET) || ss.getSheets()[0];
+  } catch (e) {
+    console.error('台帳を開けません');
+    return null;
+  }
+}
+
+function monthKey_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy-MM');
+}
+
+/**
+ * 合言葉を確かめて、使ってよいかを返す。
+ * 台帳が無ければ、これまでどおり TOKEN ひとつで通す（1人用）。
+ */
+function authorize_(token) {
+  token = String(token || '');
+  if (!token) return { ok: false, error: '合言葉が違います' };
+
+  var sh = ledgerSheet_();
+  if (!sh) {
+    var expected = PropertiesService.getScriptProperties().getProperty('TOKEN');
+    if (!expected) return { ok: false, error: 'サーバー側の合言葉が未設定です' };
+    if (!safeEquals(token, expected)) return { ok: false, error: '合言葉が違います' };
+    return { ok: true, sheet: null, row: 0 };
+  }
+
+  var v = sh.getDataRange().getValues();
+  var month = monthKey_();
+
+  for (var i = 1; i < v.length; i++) {
+    if (!safeEquals(String(v[i][0] || '').trim(), token)) continue;
+
+    var status = String(v[i][2] || '').trim();
+    if (status && status !== '有効') {
+      return { ok: false, error: 'ご利用が止まっています。お手数ですが管理者にご連絡ください' };
+    }
+
+    // 月が変わっていたら、数え直しとして扱う
+    var same = String(v[i][4] || '') === month;
+    var calls = same ? Number(v[i][5] || 0) : 0;
+    var limit = Number(v[i][3] || 0);
+    if (limit > 0 && calls >= limit) {
+      return { ok: false, error: '今月のご利用が上限に達しました。お手数ですが管理者にご連絡ください' };
+    }
+
+    return { ok: true, sheet: sh, row: i + 1, name: String(v[i][1] || ''), month: month };
+  }
+  return { ok: false, error: '合言葉が違います' };
+}
+
+/** 使った分を台帳に足す。ここが唯一の集計元 */
+function ledgerRecord_(auth, usage) {
+  if (!auth || !auth.sheet || !auth.row) return;
+
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(8000); } catch (e) { return; }   // 取れなければ数えない。止めるほどではない
+
+  try {
+    var sh = auth.sheet, r = auth.row;
+    var cur = sh.getRange(r, 5, 1, 4).getValues()[0];        // E〜H
+    var same = String(cur[0] || '') === auth.month;
+    sh.getRange(r, 5, 1, 4).setValues([[
+      auth.month,
+      (same ? Number(cur[1] || 0) : 0) + 1,
+      (same ? Number(cur[2] || 0) : 0) + ((usage && usage['in']) || 0),
+      (same ? Number(cur[3] || 0) : 0) + ((usage && usage.out) || 0)
+    ]]);
+    sh.getRange(r, 9).setValue(new Date());
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ------------------------------------------------------------
+ * ここから下は、エディタの「実行」から手で動かすもの
+ * ------------------------------------------------------------ */
+
+/** ① 台帳を作る。一度だけ実行する */
+function setupLedger() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('LEDGER_ID')) {
+    console.log('もうあります: ' + ledgerUrl());
+    return;
+  }
+  var ss = SpreadsheetApp.create('Kōza 台帳');
+  var sh = ss.getSheets()[0];
+  sh.setName(LEDGER_SHEET);
+  sh.getRange(1, 1, 1, LEDGER_HEAD.length).setValues([LEDGER_HEAD]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  sh.setColumnWidth(1, 260);
+  props.setProperty('LEDGER_ID', ss.getId());
+  console.log('台帳を作りました: ' + ss.getUrl());
+  console.log('次は issueKey を実行して、1人目の合言葉を発行してください。');
+}
+
+/** ② 合言葉を1つ発行する。実行するたびに1行増える */
+function issueKey() {
+  var sh = ledgerSheet_();
+  if (!sh) { console.log('先に setupLedger を実行してください'); return; }
+
+  var key = 'k_' + Utilities.getUuid().replace(/-/g, '');
+  sh.appendRow([key, '（お名前を入れてください）', '有効', 900, monthKey_(), 0, 0, 0, '', '']);
+  console.log('発行しました。この1行をお渡しください。');
+  console.log(key);
+  console.log('※ 月の上限は900回にしてあります。台帳のD列で変えられます。');
+  console.log('※ お名前は台帳のB列に直接お書きください。');
+}
+
+/** ③ 今の状況を見る */
+function showLedger() {
+  var sh = ledgerSheet_();
+  if (!sh) { console.log('台帳がありません（1人用のまま動いています）'); return; }
+  var v = sh.getDataRange().getValues();
+  if (v.length < 2) { console.log('まだ誰も登録されていません'); return; }
+
+  var month = monthKey_();
+  var totalIn = 0, totalOut = 0;
+  for (var i = 1; i < v.length; i++) {
+    var same = String(v[i][4] || '') === month;
+    var calls = same ? Number(v[i][5] || 0) : 0;
+    var tin = same ? Number(v[i][6] || 0) : 0;
+    var tout = same ? Number(v[i][7] || 0) : 0;
+    totalIn += tin; totalOut += tout;
+    console.log([
+      (v[i][1] || '（名なし）'),
+      (v[i][2] || '有効'),
+      calls + '回',
+      '送' + tin + ' / 返' + tout,
+      '鍵…' + String(v[i][0]).slice(-6)
+    ].join('　'));
+  }
+  // ざっくりの目安。正確な請求は Anthropic の管理画面で見ること
+  var usd = (totalIn / 1e6) * 3 + (totalOut / 1e6) * 15;
+  console.log('---');
+  console.log(month + ' 合計　送' + totalIn + ' / 返' + totalOut +
+    '　おおよそ $' + (Math.round(usd * 100) / 100));
+}
+
+/** ④ 止める・戻す。台帳のC列を直接書き換えても同じ */
+function suspendKey() {
+  console.log('台帳のC列を「停止」に書き換えてください。次の呼び出しから止まります。');
+  console.log(ledgerUrl());
+}
+
+function ledgerUrl() {
+  var id = PropertiesService.getScriptProperties().getProperty('LEDGER_ID');
+  return id ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : '（台帳なし）';
 }

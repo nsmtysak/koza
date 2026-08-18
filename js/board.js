@@ -68,6 +68,13 @@ var Board = (function () {
         (p.douhan.booked ? '（予定 ' + p.douhan.booked + '回）' : '')));
     }
 
+    // 締めてみてどうだったのか。逆算の隣に置く
+    var rev = UI.el('button', 'ghost small full', p.period.label + 'の答え合わせを見る');
+    rev.type = 'button';
+    rev.style.marginTop = '12px';
+    rev.addEventListener('click', function () { Review.open(Store.today()); });
+    box.appendChild(rev);
+
     wrap.appendChild(box);
     return p;
   }

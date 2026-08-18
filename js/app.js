@@ -37,6 +37,7 @@
     People.init();
     Brief.init();
     Board.init();
+    Review.init();
     Invite.init();
     Home.init();
     Settings.init();

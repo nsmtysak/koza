@@ -3,7 +3,7 @@ var UI = (function () {
   'use strict';
 
   var VIEWS = ['lock', 'setup', 'home', 'board', 'day', 'appt', 'invite', 'people', 'person', 'night', 'tidy',
-    'record', 'confirm', 'scan', 'gifts', 'settings', 'brief'];
+    'record', 'confirm', 'scan', 'gifts', 'settings', 'brief', 'review'];
   var current = 'home';
   var stack = [];
   var toastTimer = null;
@@ -29,7 +29,7 @@ var UI = (function () {
 
     var nav = document.getElementById('nav');
     nav.hidden = ['lock', 'setup', 'record', 'confirm', 'scan', 'brief', 'person', 'night', 'tidy',
-      'day', 'appt', 'invite'].indexOf(name) >= 0;
+      'day', 'appt', 'invite', 'review'].indexOf(name) >= 0;
 
     document.querySelectorAll('.navbtn').forEach(function (b) {
       b.classList.toggle('is-on', b.dataset.go === name);
