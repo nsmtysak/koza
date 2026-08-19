@@ -57,8 +57,17 @@ var Api = (function () {
   /* ---------- 音声・文章 → 来歴 ---------- */
 
   function structure(rawText) {
+    /* すでに記録してあることも一緒に渡す。
+     * これが無いと、AIは「趣味に相撲を追加」を、既に相撲が入っている方にも出す。
+     * 的外れな候補が続くと、正しい候補まで読み飛ばされる。そうなると機能ごと死ぬ。 */
     var known = Store.activeCustomers().slice(0, 300).map(function (c) {
-      return { id: c.id, name: c.display_name, real: c.name || '', company: c.company || '' };
+      return {
+        id: c.id, name: c.display_name, real: c.name || '', company: c.company || '',
+        known_interests: (c.interests || []).slice(0, 8),
+        known_family: (c.family || []).map(function (f) { return f.relation; }),
+        known_drinks: ((c.prefs || {}).drinks || []).slice(0, 4),
+        known_foods: ((c.prefs || {}).food || []).slice(0, 4)
+      };
     });
 
     return post({
