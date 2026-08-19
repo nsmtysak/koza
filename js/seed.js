@@ -9,6 +9,18 @@
  *   - お誘い → ご来店 の記録があるので、リードタイムと打率が出る
  *   - 外したお誘いも入れてある。全部当たっているデータは嘘になる
  *
+ * ■ 会話は「筋書き」で続く
+ *
+ * ここがいちばん大事なところ。
+ * 1回ごとに無関係な話題が並ぶだけのデータでは、このアプリの値打ちが確かめられない。
+ * 「前回の話の続き」も「席で伺っておくこと」も、話が続いていて初めて意味を持つ。
+ *
+ * だから、お客様ごとに一本の筋書き（ご息女の受験、新しい現場、社長交代…）を持たせて、
+ * ご来店のたびに一段ずつ進むようにしてある。
+ *   1回目「受験が来年です」 → 2回目「来月に迫っています」 → 3回目「合格しました」
+ * 前の回で開いた宿題が、あとの回で閉じる。閉じないまま残るものもある。
+ * 実際のお客様との関係も、そういう形で進む。
+ *
  * **お渡しする前に必ず「全部消す」を押すこと。**
  * 手順は DEPLOY.md に書いてある。
  */
@@ -59,33 +71,184 @@ var Seed = (function () {
   var BOTTLES = ['響17年', '山崎12年', '白州', '森伊蔵', '村尾', 'バランタイン17年', 'ドンペリニヨン'];
   var FOODS = ['寿司', '焼肉', '天ぷら', 'フレンチ', '割烹', '鉄板焼き'];
 
-  var RELATIONS = ['奥様', 'ご息女', 'ご子息', 'お母様'];
+  var LIKES = ['氷は少なめ', '濃いめの水割り', '奥の席', '静かめの音楽', '最初はビール',
+    '乾き物より果物', 'おしぼりは熱め'];
+  var DISLIKES = ['カラオケ', '香水の強い席', '長居', '大人数', '早い時間の来店'];
 
-  var TOPICS = [
-    '{i}の話で盛り上がった。今度ご一緒しましょうという話に。',
-    'ご{r}の{ev}の話。{when}に控えているとのこと。',
-    '{c}の決算期の話。今期は堅調とのこと。',
-    '来月の{place}へのご出張の話。{d}日ほど留守にされるとのこと。',
-    'ご接待で{f}に行かれた話。次はこちらでという話になった。',
-    '{i}を始めて{y}年になるとのこと。道具の話を伺った。',
-    '新しい現場が{place}で始まった話。しばらく忙しくなるとのこと。',
-    'ご{r}の進学の話。{place}の学校を検討されているとのこと。'
-  ];
-  /* ご家族の続柄に合う出来事だけを選ぶ。
-   * 「お母様の入学」のような文が混ざると、見た瞬間に嘘だと分かってしまう */
-  var EVENTS_BY_REL = {
-    'ご息女': ['受験', '入学', '就職', '発表会', 'ご結婚'],
-    'ご子息': ['受験', '入学', '就職', '部活の大会'],
-    '奥様': ['お誕生日', 'ご旅行', '習い事の発表会'],
-    'お母様': ['通院', '米寿のお祝い', 'ご旅行'],
-    'ご家族': ['ご旅行', 'お祝いごと']
-  };
-  function eventFor(c) {
-    var rel = (c.family[0] && c.family[0].relation) || 'ご家族';
-    return pick(EVENTS_BY_REL[rel] || EVENTS_BY_REL['ご家族']);
-  }
-  var PLACES = ['東京', '名古屋', '福岡', '北浜', '本町', '広島', '仙台'];
+  var RELATIONS = ['奥様', 'ご息女', 'ご子息', 'お母様'];
+  var PLACES = ['東京', '名古屋', '福岡', '北浜', '本町', '広島', '仙台', '金沢'];
+  var SCHOOLS = ['京都', '神戸', '東京', '大阪市内'];
   var WHENS = ['来月', '再来月', '年明け', '春先'];
+
+  /* ============================================================
+   * 筋書き
+   *
+   * ご来店のたびに一段ずつ進む。
+   *   talk  … その日に出た話（顧客カードの「前回の話」に出る）
+   *   memo  … 帰り道に本人が吹き込んだ言葉（整理の材料）
+   *   hook  … その日にできた宿題。次のお声がけの起点になる
+   *   close … その日に片づいた宿題（前の回の hook を閉じる）
+   * ============================================================ */
+
+  var ARCS = [
+    {
+      key: 'juken', family: true,
+      beats: [
+        { talk: '{rel}の受験の話。{school}の学校を第一志望にされているとのこと。塾の送り迎えを奥様と分担されているそうで、「久しぶりに親らしいことをしている」と笑っておられた。',
+          memo: '{rel}の受験の話。{school}の学校が第一志望らしい。塾の送り迎えを奥様と分担してるって。久しぶりに親らしいことしてるわ、って笑ってはった。',
+          hook: '{rel}の受験' },
+        { talk: '{rel}の受験が来月に迫っているとのこと。「本人よりこちらが落ち着かない」と。願掛けで好きな煙草を断っておられるそうです。',
+          memo: '{rel}の受験、来月やって。本人よりこっちが落ち着かんって。願掛けで煙草やめてはるらしい。',
+          hook: '{rel}の受験の結果' },
+        { talk: '{rel}が第一志望に合格されたとのご報告。声が明らかに弾んでおられた。煙草も無事に解禁とのこと。お祝いをこちらでという話になった。',
+          memo: '{rel}、第一志望受かったって！声がめっちゃ弾んでた。煙草も解禁やって。お祝いうちでやろかって話になった。',
+          close: '{rel}の受験の結果', hook: '合格のお祝いの席' },
+        { talk: '{rel}の入学式のお写真を見せていただいた。下宿の準備で{school}に何度も通われているとのこと。',
+          memo: '{rel}の入学式の写真見せてもろた。下宿の準備で{school}に何回も行ってはるみたい。',
+          close: '合格のお祝いの席' }
+      ]
+    },
+    {
+      key: 'genba',
+      beats: [
+        { talk: '{place}で新しい現場が始まるとのこと。着工は{when}で、ご自分が現場に入られる期間が長くなりそうだと。',
+          memo: '{place}で新しい現場始まるって。着工は{when}。しばらく現場に張り付きになるらしい。',
+          hook: '{place}の現場の着工' },
+        { talk: '{place}の現場が着工したとのこと。人手の手配で苦労されている様子で、「若い子が続かない」と。しばらくお越しになる間隔が空くかもしれないと言っておられた。',
+          memo: '{place}の現場、着工したって。人の手配が大変らしくて、若い子が続かへんって。しばらく来る間隔空くかもって。',
+          close: '{place}の現場の着工', hook: '現場が落ち着く頃' },
+        { talk: '{place}の現場が山を越えたとのこと。久しぶりにゆっくりされて、いつもより長くお座りになった。次の現場の話も少し出た。',
+          memo: '{place}の現場、山越えたって。久しぶりにゆっくりしてはって、いつもより長かった。次の現場の話もちょっと出た。',
+          close: '現場が落ち着く頃' },
+        { talk: '次の現場が{place2}に決まったとのこと。今度は{n1}か月ほどの短期だと。前の現場の反省を活かして人を先に押さえたとおっしゃっていた。',
+          memo: '次の現場{place2}に決まったって。今度は{n1}か月の短期。前の反省で人を先に押さえたらしい。',
+          hook: '{place2}の現場' }
+      ]
+    },
+    {
+      key: 'compe',
+      beats: [
+        { talk: '{i}のコンペに出られる話。{when}に{place}のコースで、取引先の社長も一緒だとのこと。前回は最下位だったと苦笑いされていた。',
+          memo: '{i}のコンペ出はるって。{when}に{place}のコース。取引先の社長も一緒らしい。前回ビリやったって苦笑いしてはった。',
+          hook: '{i}のコンペ' },
+        { talk: '{i}のコンペの結果を伺った。真ん中より少し上だったとのことで、ご満足の様子。道具を新調されたのが効いたと。',
+          memo: '{i}のコンペ、真ん中より上やったって。満足そうやった。道具新しくしたのが効いたって。',
+          close: '{i}のコンペ', hook: '新しい道具の話' },
+        { talk: '新調された道具の話を詳しく伺った。次のコンペは{when}で、今度は上位を狙うとのこと。',
+          memo: '新しい道具の話、詳しく聞いた。次のコンペは{when}。今度は上位狙うって。',
+          close: '新しい道具の話', hook: '次のコンペ' }
+      ]
+    },
+    {
+      key: 'shousin',
+      beats: [
+        { talk: '社内の人事の話。{when}に動きがありそうだとのことで、ご自分の処遇についても含みのある言い方をされていた。',
+          memo: '社内の人事の話。{when}に動きあるらしい。自分の処遇についても含みのある言い方してはった。',
+          hook: '{when}の人事' },
+        { talk: '昇進が決まったとのご報告。責任が増えるぶん、部下の面倒を見る時間が要るとおっしゃっていた。お祝いを申し上げた。',
+          memo: '昇進決まったって！責任増えるぶん部下の面倒見る時間がいるって。お祝い言うといた。',
+          close: '{when}の人事', hook: '昇進のお祝い' },
+        { talk: '新しい立場になられてひと月。決裁の量に驚いておられた。部下を連れてこちらへ、という話が出た。',
+          memo: '新しい立場になってひと月。決裁の量にびっくりしてはる。部下連れてうちに来る話出た。',
+          close: '昇進のお祝い', hook: '部下の方をお連れになる話' }
+      ]
+    },
+    {
+      key: 'ryoko', family: true,
+      beats: [
+        { talk: 'ご結婚記念日のご旅行を計画されている話。{place}をお考えだが、宿がなかなか取れないとのこと。',
+          memo: '結婚記念日の旅行の話。{place}考えてはるけど宿が取れへんらしい。',
+          hook: 'ご記念日のご旅行' },
+        { talk: '{place}へのご旅行に行ってこられた話。奥様がたいへん喜ばれたそうで、お土産の話を長くされていた。',
+          memo: '{place}行ってきはった。奥様めっちゃ喜んでたって。お土産の話長かった。',
+          close: 'ご記念日のご旅行', hook: '次はご家族全員での旅行' },
+        { talk: '次はご家族全員でとお考えとのこと。ただ{rel}の予定が合わないそうで、{when}以降になりそうだと。',
+          memo: '次は家族全員でって。{rel}の予定が合わへんくて{when}以降になりそうやって。' }
+      ]
+    },
+    {
+      key: 'karada',
+      beats: [
+        { talk: '健康診断で数値を指摘された話。しばらく節制されるとのことで、この日は水割りを薄めにお作りした。',
+          memo: '健康診断で数値言われたって。しばらく節制するらしいから、今日は水割り薄めにした。',
+          hook: '節制されている件' },
+        { talk: '節制の成果が出て、体重が{n1}キロ落ちたとのこと。ただ「そろそろ反動が来そう」と笑っておられた。この日も薄めでお出しした。',
+          memo: '節制の成果出て{n1}キロ落ちたって。そろそろ反動来そうって笑ってはった。今日も薄めで。',
+          hook: '数値の再検査' },
+        { talk: '再検査の結果が良かったとのこと。久しぶりに通常の濃さでお出しした。無理のない範囲でと申し上げた。',
+          memo: '再検査の結果よかったって。久しぶりに普通の濃さで出した。無理せんようにって言うといた。',
+          close: '数値の再検査' }
+      ]
+    },
+    {
+      key: 'shumi',
+      beats: [
+        { talk: '{i2}を始められた話。{y}年ぶりに新しいことを始めたそうで、道具を一式そろえたと嬉しそうにされていた。',
+          memo: '{i2}始めはったって。{y}年ぶりに新しいこと始めたらしくて、道具一式そろえたって嬉しそうやった。',
+          hook: '{i2}を始められた件' },
+        { talk: '{i2}の進み具合を伺った。思ったより難しいとのことだが、続けておられる様子。{when}に発表の場があるとのこと。',
+          memo: '{i2}の進み具合聞いた。思ったより難しいらしいけど続けてはる。{when}に発表の場あるって。',
+          close: '{i2}を始められた件', hook: '{when}の発表' },
+        { talk: '{i2}の発表を終えられたとのこと。写真を見せていただいた。次の目標もお決めになっている様子。',
+          memo: '{i2}の発表終わったって。写真見せてもろた。次の目標も決めてはるみたい。',
+          close: '{when}の発表' }
+      ]
+    },
+    {
+      key: 'settai',
+      beats: [
+        { talk: '{place}の取引先との商談の話。{when}に先方がこちらへ来られるそうで、接待の店をお探しとのこと。',
+          memo: '{place}の取引先との商談の話。{when}に先方がこっち来はるらしくて、接待の店探してはる。',
+          hook: '{when}のご接待' },
+        { talk: 'ご接待の帰りにお立ち寄りくださった。先方に喜んでいただけたとのことで、ほっとされた様子。お連れの方は{f}がお好きだったと。',
+          memo: '接待の帰りに寄ってくれはった。先方に喜んでもろたってほっとしてはった。連れの方は{f}が好きやったって。',
+          close: '{when}のご接待', hook: '先方の再訪' },
+        { talk: '先方との取引がまとまったとのご報告。次に来られるときは、こちらへお連れしたいとおっしゃっていた。',
+          memo: '先方との取引まとまったって。次来はるときはうちに連れてきたいって言うてくれはった。',
+          close: '先方の再訪', hook: '先方をお連れになる話' }
+      ]
+    },
+    {
+      key: 'shushoku', family: true,
+      beats: [
+        { talk: '{rel}の就職活動の話。志望されている業界がご自分と違うそうで、口を出さないようにしているとのこと。',
+          memo: '{rel}の就活の話。志望してる業界が自分と違うらしくて、口出さんようにしてるって。',
+          hook: '{rel}の就職活動' },
+        { talk: '{rel}の内定が出たとのこと。{place}の会社で、来春から家を出られるそうです。「寂しいような、ほっとしたような」と。',
+          memo: '{rel}の内定出たって。{place}の会社で来春から家出はるって。寂しいような、ほっとしたような、って。',
+          close: '{rel}の就職活動', hook: '{rel}のご就職のお祝い' },
+        { talk: '{rel}が家を出られたとのこと。ご夫婦二人の生活に戻って、かえって会話が増えたと。',
+          memo: '{rel}、家出はったって。夫婦二人に戻って、かえって会話増えたらしい。',
+          close: '{rel}のご就職のお祝い' }
+      ]
+    },
+    {
+      key: 'ie',
+      beats: [
+        { talk: 'ご自宅の建て替えを検討されている話。{n1}社から見積もりを取っておられるとのこと。',
+          memo: '自宅の建て替え検討してるって。{n1}社から見積もり取ってるらしい。',
+          hook: 'ご自宅の建て替え' },
+        { talk: '建て替えの業者が決まったとのこと。着工までに仮住まいを探さねばならず、それが一番面倒だと。',
+          memo: '建て替えの業者決まったって。着工までに仮住まい探さなあかんくて、それが一番面倒やって。',
+          hook: '仮住まいのこと' },
+        { talk: '仮住まいへの引っ越しを終えられたとのこと。荷物の多さに驚かれたそうで、しばらく落ち着かない日が続くと。',
+          memo: '仮住まいに引っ越し終わったって。荷物の多さにびっくりしたらしい。しばらく落ち着かへんって。',
+          close: '仮住まいのこと', hook: '新しいお住まいの完成' }
+      ]
+    }
+  ];
+
+  /* 筋書きの合間に挟む単発の話。毎回筋書きの話だけだと、かえって嘘くさい */
+  var SIDE = [
+    '{i}の話も少し。今年は{n1}回ほど行かれたとのこと。',
+    '{co}の決算期の話。今期は堅調とのこと。',
+    '{place2}へのご出張の話。{n1}日ほど留守にされるそうです。',
+    'お好きな{f}の店の話。新しくできた店を教えていただいた。',
+    '最近{i2}を再開されたとのこと。',
+    'お知り合いの方の近況を伺った。',
+    '',
+    ''
+  ];
 
   var OBSERVATIONS = [
     'ゴルフの話になってから、ご自分から話される時間が長くなった。',
@@ -93,39 +256,57 @@ var Seed = (function () {
     'いつもより早めにお帰りになった。',
     'ご同席の方に何度も酒を勧めておられた。',
     '携帯を何度か確認されていた。',
+    'お話しの途中で何度も時計をご覧になっていた。',
+    'いつもより口数が多かった。',
     ''
   ];
 
+  /* お誘いの文。会話の記録を起点にする形にしてある。
+   * どなたにでも送れる文だけが並ぶと、このアプリの値打ちが確かめられない */
   var INVITE_TEXTS = {
-    star: '先日伺った{i}の件、その後いかがでしたか。またお聞かせいただければ嬉しいです。',
+    star: '先日伺った{hook}の件、その後いかがでしたか。またお聞かせいただければ嬉しく存じます。',
     info: '{b}が入りましたので、お知らせまで。',
-    rely: '{i}のことで、少しお知恵をお借りしたくご連絡いたしました。',
+    rely: '{i}のことで少しお知恵をお借りしたく、ご連絡いたしました。',
     choice: '今週でしたら木曜と金曜、どちらがご都合よろしいでしょうか。',
-    meal: '一度伺ってみたい{f}のお店ができました。お時間が合えばぜひ。',
-    report: '本日から新しいお酒が入りました。ご無理のないときにでも。'
+    meal: '一度伺ってみたい{f}のお店ができました。お時間が合えばぜひご一緒に。',
+    report: '先日おっしゃっていた{i}のこと、少し調べてみました。ご無理のないときにでも。',
+    deadline: 'お預かりしております{bt}が残り少なくなってまいりました。'
   };
-
-  // deadline は根拠（ボトルの残量）を持てないうちは使わない
-  var STYLES = ['star', 'info', 'rely', 'choice', 'meal', 'report'];
-
-  function fill(tpl, c) {
-    return tpl
-      .replace('{i}', (c.interests || ['お仕事'])[0])
-      .replace('{c}', c.company || '会社')
-      .replace('ご{r}', (c.family[0] && c.family[0].relation) || 'ご家族')
-      .replace('{ev}', eventFor(c))
-      .replace('{when}', pick(WHENS))
-      .replace('{place}', pick(PLACES))
-      .replace('{f}', pick(FOODS))
-      .replace('{b}', pick(BOTTLES))
-      .replace('{d}', String(ri(3, 10)))
-      .replace('{y}', String(ri(3, 20)));
-  }
 
   function mmdd(offsetDays) {
     var d = new Date();
     d.setDate(d.getDate() + offsetDays);
     return String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  /** 筋書きの中で値が揺れないよう、お客様ごとに一度だけ決める */
+  function makeCtx(c) {
+    var kid = (c.family || []).filter(function (f) {
+      return f.relation === 'ご息女' || f.relation === 'ご子息';
+    })[0];
+    var any = (c.family || [])[0];
+    return {
+      rel: (kid && kid.relation) || (any && any.relation) || 'ご家族',
+      place: pick(PLACES),
+      place2: pick(PLACES),
+      school: pick(SCHOOLS),
+      i: (c.interests || ['お仕事'])[0],
+      i2: (c.interests || [])[1] || pick(INTERESTS),
+      f: (c.prefs && c.prefs.food && c.prefs.food[0]) || pick(FOODS),
+      b: pick(BOTTLES),
+      co: c.company || '会社',
+      when: pick(WHENS),
+      n1: String(ri(2, 9)),
+      y: String(ri(3, 20)),
+      hook: '',
+      bt: ''
+    };
+  }
+
+  function fillT(tpl, ctx) {
+    return String(tpl || '').replace(/\{(\w+)\}/g, function (_, k) {
+      return ctx[k] !== undefined && ctx[k] !== null ? String(ctx[k]) : '';
+    });
   }
 
   /* ---------- 本体 ---------- */
@@ -170,13 +351,13 @@ var Seed = (function () {
       var interval = tier === 'futo' ? ri(14, 25) : (tier === 'regular' ? ri(28, 45) : ri(55, 90));
 
       var interests = [];
-      for (var k = 0; k < ri(1, 3); k++) {
+      for (var k = 0; k < ri(2, 3); k++) {
         var it = pick(INTERESTS);
         if (interests.indexOf(it) < 0) interests.push(it);
       }
 
       var family = [];
-      if (chance(0.65)) {
+      if (chance(0.7)) {
         var fc = ri(1, 2);
         for (var j = 0; j < fc; j++) {
           var rel = pick(RELATIONS);
@@ -189,6 +370,12 @@ var Seed = (function () {
             birthday: chance(0.2) ? mmdd(ri(2, 9)) : ''
           });
         }
+      }
+
+      var likes = [];
+      for (var L = 0; L < ri(1, 2); L++) {
+        var lk = pick(LIKES);
+        if (likes.indexOf(lk) < 0) likes.push(lk);
       }
 
       var c = Store.createCustomer({
@@ -206,14 +393,36 @@ var Seed = (function () {
         // 1割ほどは、直近にお誕生日が来る
         birthday: chance(0.12) ? mmdd(ri(1, 10)) : mmdd(ri(40, 300)),
         interests: interests,
-        prefs: { drinks: [pick(DRINKS)], food: [pick(FOODS)], smoke: '', karaoke: [], likes: [], dislikes: [] },
-        ng_topics: chance(0.15) ? [pick(['政治', '前の会社のこと', 'ご家庭のこと'])] : [],
+        prefs: {
+          drinks: [pick(DRINKS)], food: [pick(FOODS)], smoke: '', karaoke: [],
+          likes: likes, dislikes: chance(0.35) ? [pick(DISLIKES)] : []
+        },
+        ng_topics: chance(0.2) ? [pick(['政治', '前の会社のこと', 'ご家庭のこと', '健康のこと'])] : [],
         family: family,
         gift_policy: { nenga: true, ochugen: tier === 'futo', oseibo: tier !== 'light' },
         first_met: D(T, -ri(90, 700)),
         memo: ''
       });
-      made.push({ c: c, unit: unit, interval: interval, tier: tier, owner: owner });
+
+      /* 筋書きを1本割り当てる。ご家族が要る筋書きは、ご家族のいる方にだけ */
+      var ctx = makeCtx(c);
+      var pool = ARCS.filter(function (a) { return !a.family || family.length > 0; });
+      var arc = pool[(n * 3 + 1) % pool.length];
+
+      /* お預かりしているボトル。
+       * 「そろそろ空きます」が無いと、期限を理由にしたお誘いが一度も出せない */
+      if (owner === 'self' && chance(0.45)) {
+        var remain = chance(0.35) ? 'low' : pick(['full', 'half', 'half']);
+        Store.addBottle(c.id, {
+          name: pick(BOTTLES),
+          opened_at: D(T, -ri(20, 120)),
+          remain: remain,
+          note: ''
+        });
+        ctx.bt = Store.bottlesOf(c.id)[0].name;
+      }
+
+      made.push({ c: c, unit: unit, interval: interval, tier: tier, owner: owner, ctx: ctx, arc: arc });
     }
 
     /* ご来店とご連絡を、古いほうから時系列に積む。
@@ -230,28 +439,28 @@ var Seed = (function () {
         day -= m.interval + ri(-6, 8);
         if (day < -330) break;
       }
-      dates.reverse();
+      dates.reverse();   // 古い順。筋書きはこの順に進む
 
       dates.forEach(function (off, i) {
         // 半分ほどは、お誘いを出してからお越しいただいたことにする
         if (i > 0 && chance(0.55)) {
           var lead = ri(2, 7);
-          var style = pick(STYLES);
+          var st = pickStyle(m, i);
           events.push({
-            at: off - lead, kind: 'invite', c: c, style: style,
-            target: D(T, off), text: fill(INVITE_TEXTS[style], c)
+            at: off - lead, kind: 'invite', c: c, style: st,
+            target: D(T, off), text: inviteText(st, m, i)
           });
         }
-        events.push({ at: off, kind: 'visit', c: c, m: m, i: i, count: count });
+        events.push({ at: off, kind: 'visit', c: c, m: m, i: i, count: dates.length });
       });
 
       // 外したお誘い。全部当たっているデータは嘘になる
       if (m.owner === 'self' && chance(0.35)) {
         var off2 = -ri(30, 120);
-        var st2 = pick(STYLES);
+        var st2 = pickStyle(m, 0);
         events.push({
           at: off2, kind: 'invite', c: c, style: st2,
-          target: D(T, off2 + ri(3, 6)), text: fill(INVITE_TEXTS[st2], c), fail: true
+          target: D(T, off2 + ri(3, 6)), text: inviteText(st2, m, 0), fail: true
         });
       }
 
@@ -287,7 +496,7 @@ var Seed = (function () {
       }
 
       /* ご来店。addVisit が、直前のお誘いを自動で決着させる */
-      var c = e.c, m = e.m;
+      var c = e.c, m = e.m, ctx = m.ctx;
       var attendees = [{ customer_id: c.id, role: 'shukyaku' }];
 
       // 法人接待。ときどき同じ会社の方をお連れになる
@@ -299,19 +508,40 @@ var Seed = (function () {
       }
 
       var douhan = m.owner === 'self' && chance(0.22);
-      var topic = fill(pick(TOPICS), c);
+
+      /* 筋書きを一段進める。
+       * ご来店の回数が筋書きより多いときは、最後の段のあとは単発の話でつなぐ */
+      var beat = m.arc.beats[e.i] || null;
+      var side = fillT(pick(SIDE), ctx);
+
+      var talk = beat
+        ? fillT(beat.talk, ctx) + (side ? ' ' + side : '')
+        : (side || fillT('{i}の話で盛り上がった。今度ご一緒しましょうという話に。', ctx));
+
+      var memo = beat
+        ? '今日は' + c.display_name + 'が' +
+          (attendees.length > 1 ? 'お二人で。' : 'お一人で。') +
+          fillT(beat.memo, ctx) + ' ' + Math.round(m.unit / 10000) + '万くらい。'
+        : '今日は' + c.display_name + '。' + (side || 'いつもの話。') + ' ' +
+          Math.round(m.unit / 10000) + '万くらい。';
+
+      /* 宿題。前の回で開いたものが、この回で閉じることがある */
       var hooks = [];
-      if (chance(0.5)) {
-        // 「ご息女」「奥様」には既に敬称が入っている。重ねない
-        var rel = (c.family[0] && c.family[0].relation) || 'ご家族';
-        hooks.push({ text: rel + 'の' + eventFor(c) + 'のこと', type: 'family', status: 'open' });
+      if (beat && beat.close) {
+        hooks.push({ text: fillT(beat.close, ctx), type: 'commitment', status: 'done' });
       }
-      if (chance(0.4)) {
-        hooks.push({ text: pick(WHENS) + 'にまた伺う', type: 'commitment', status: 'open' });
+      if (beat && beat.hook) {
+        hooks.push({ text: fillT(beat.hook, ctx), type: 'family', status: 'open' });
       }
       if (chance(0.3)) {
-        hooks.push({ text: pick(PLACES) + 'へのご出張', type: 'work', status: 'open' });
+        hooks.push({ text: fillT('{place2}へのご出張', ctx), type: 'work', status: 'open' });
       }
+
+      // 最後のご来店で「次はいつ頃」の言質があると、逆算の見え方が確かめられる
+      var isLast = e.i === e.count - 1;
+      var hint = (isLast && chance(0.35))
+        ? { timing: pick(['来月あたま', '再来週', '月末ごろ', '来週']), confidence: 'implied' }
+        : {};
 
       Store.addVisit({
         date: date,
@@ -324,13 +554,12 @@ var Seed = (function () {
         spend: Math.round(m.unit * (0.75 + rnd() * 0.5) / 1000) * 1000,
         bottle: chance(0.25) ? pick(BOTTLES) : '',
         topics: c.interests.slice(0, 1),
-        topic_detail: topic,
+        topic_detail: talk,
         drinks: [{ item: pick(DRINKS), count: ri(1, 4) }],
         observation: pick(OBSERVATIONS),
-        raw_memo: '今日は' + c.display_name + 'が' + (attendees.length > 1 ? 'お二人で' : 'お一人で') +
-          '。' + topic + ' ' + Math.round(m.unit / 10000) + '万くらい。',
+        raw_memo: memo,
         hooks: hooks,
-        next_visit_hint: {},
+        next_visit_hint: hint,
         ai_structured: true
       });
     });
@@ -365,8 +594,8 @@ var Seed = (function () {
     mine.slice(10, 14).forEach(function (m, i) {
       Store.addTouch({
         customer_id: m.c.id, date: D(T, -i), kind: 'line', direction: 'sent',
-        intent: 'invite', style: pick(STYLES), target_date: D(T, ri(3, 6)),
-        title: 'お誘い', note: fill(INVITE_TEXTS.info, m.c)
+        intent: 'invite', style: pickStyle(m, 0), target_date: D(T, ri(3, 6)),
+        title: 'お誘い', note: inviteText('star', m, 0)
       });
     });
 
@@ -382,9 +611,27 @@ var Seed = (function () {
     };
   }
 
+  /** 誘いの型を選ぶ。期限型は、根拠になるボトルがある方にだけ */
+  function pickStyle(m, beatIndex) {
+    var base = ['star', 'info', 'rely', 'choice', 'meal', 'report'];
+    if (m.ctx.bt) base.push('deadline');
+    // 会話の記録があとにあるほど、話を起点にした型が選ばれやすいようにする
+    if (beatIndex > 0) base.push('star', 'star');
+    return pick(base);
+  }
+
+  /** お誘いの文。その方の筋書きから拾った宿題を起点にする */
+  function inviteText(style, m, beatIndex) {
+    var ctx = m.ctx;
+    var beat = m.arc.beats[Math.max(0, beatIndex - 1)];
+    ctx.hook = beat && beat.hook ? fillT(beat.hook, ctx) : fillT('{i}', ctx);
+    return fillT(INVITE_TEXTS[style] || INVITE_TEXTS.info, ctx);
+  }
+
   /** 全部消す。お渡しする前に必ず押していただく */
   function wipe() {
-    ['profile', 'customers', 'visits', 'touches', 'briefs', 'appointments', 'goals', 'meta', 'daily']
+    ['profile', 'customers', 'visits', 'touches', 'briefs', 'appointments', 'goals', 'meta', 'daily',
+     'timing', 'usage', 'night']
       .forEach(function (k) { localStorage.removeItem('koza2.' + k); });
     if (window.Blobs && Blobs.keys) {
       Blobs.keys().then(function (ks) { (ks || []).forEach(function (k) { Blobs.remove(k); }); })

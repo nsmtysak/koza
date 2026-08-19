@@ -41,6 +41,8 @@ var Invite = (function () {
     var body = UI.clear(document.getElementById('invite-body'));
     if (!cur) return;
 
+    body.appendChild(UI.aiNote('draft'));
+
     /* 狙う日 */
     var head = UI.el('div', 'form');
     var f = UI.el('label', 'f');

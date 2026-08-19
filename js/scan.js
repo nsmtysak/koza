@@ -84,8 +84,8 @@ var Scan = (function () {
     var wrap = UI.clear(document.getElementById('scan-form'));
 
     if (note) {
-      var p = UI.el('p', 'confirm-note', note);
-      wrap.appendChild(p);
+      wrap.appendChild(UI.el('p', 'confirm-note', note));
+      wrap.appendChild(UI.aiNote('read'));
     }
 
     // 呼び方は毎回使うので一番上に置く

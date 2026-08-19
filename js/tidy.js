@@ -71,6 +71,8 @@ var Tidy = (function () {
       body.appendChild(n);
     }
 
+    if (Api.isConfigured()) body.appendChild(UI.aiNote('content'));
+
     results.forEach(function (r, i) { body.appendChild(cardFor(r, i)); });
 
     var act = UI.el('div', 'actions col');

@@ -280,6 +280,8 @@ var Home = (function () {
   }
 
   function drawPlan(body, plan) {
+    body.appendChild(UI.aiNote('draft'));
+
     // 深夜・早朝に送らせない。ご家庭のある方には特に響く
     var timeWarn = Plan.sendTimeWarning();
     if (timeWarn && (plan.today || []).some(function (it) { return it.draft; })) {

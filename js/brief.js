@@ -67,6 +67,8 @@ var Brief = (function () {
       body.appendChild(acc);
     }
 
+    body.appendChild(UI.aiNote('content'));
+
     if (b.summary) {
       body.appendChild(UI.el('div', 'brief-summary', b.summary));
     }

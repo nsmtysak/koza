@@ -518,3 +518,19 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
 .rn-label{font-size:.76rem;letter-spacing:.1em;color:var(--text-faint)}
 .rn-value{font-family:var(--display);font-size:1.7rem;color:var(--accent);line-height:1.2}
 .rn-value small{font-size:.8rem;margin-left:3px;color:var(--text-dim)}
+
+/* ---------- AIが書いたものだという断り ---------- */
+.ai-note{
+  margin:0 0 16px;padding:9px 12px;
+  border-left:2px solid var(--accent-deep);background:var(--ink-1);
+  border-radius:0 6px 6px 0;
+  color:var(--text-faint);font-size:.84rem;line-height:1.65;
+}
+.ai-disclosure{
+  margin:14px 0 26px;padding:16px 18px;
+  background:var(--ink-1);border:1px solid var(--ink-3);border-radius:var(--radius);
+}
+.ai-disclosure h3{margin:0 0 8px;font-size:.88rem;letter-spacing:.1em;color:var(--accent)}
+.ai-disclosure p{margin:0 0 9px;font-size:.88rem;line-height:1.8;color:var(--text-dim)}
+.ai-disclosure p:last-child{margin-bottom:0}
+.ai-disclosure strong{color:var(--text)}

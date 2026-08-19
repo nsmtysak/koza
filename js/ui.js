@@ -119,6 +119,24 @@ var UI = (function () {
     document.getElementById('busy-left').textContent = left || '';
   }
 
+  /* ---------- AIが書いたものだという断り ----------
+   *
+   * ここに出るものは、そのままお客様に送られる。
+   * 日付やお名前をAIが取り違えていれば、恥をかくのは送った本人。
+   * だから「確認してから使う」を、出力のすぐ横に書いておく。
+   *
+   * 提供する側の告知義務でもある（利用条件とAIの利用ポリシー）。
+   */
+  var AI_NOTE = {
+    draft:   'AIが下書きした文です。日付・お名前・事実に誤りがないか、お目通しのうえお送りください。',
+    content: 'AIがこれまでの記録から組み立てたものです。事実を取り違えていることがあります。お使いになる前にご確認ください。',
+    read:    'AIが画像から読み取ったものです。誤りが混じることがありますので、ご確認のうえ登録してください。'
+  };
+
+  function aiNote(kind) {
+    return el('p', 'ai-note', AI_NOTE[kind] || AI_NOTE.content);
+  }
+
   function toast(msg, isError) {
     var t = document.getElementById('toast');
     t.textContent = msg;
@@ -304,7 +322,7 @@ var UI = (function () {
 
   return {
     el: el, clear: clear,
-    show: show, back: back, busy: busy, toast: toast,
+    show: show, back: back, busy: busy, toast: toast, aiNote: aiNote,
     yen: yen, shortDate: shortDate, longDate: longDate, sinceLabel: sinceLabel,
     parseMoney: parseMoney, commas: commas, moneyInput: moneyInput,
     setMoney: setMoney, getMoney: getMoney,

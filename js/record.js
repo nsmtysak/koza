@@ -228,7 +228,7 @@ var Record = (function () {
   function renderConfirm(note) {
     document.getElementById('confirm-title').textContent = editingId ? '来歴を直す' : 'この内容で残します';
     document.getElementById('confirm-note').textContent =
-      note || '違うところだけ直してください。そのままでも残せます。';
+      note || 'AIが組み立てた内容です。違うところだけ直してください。そのままでも残せます。';
     document.getElementById('btn-delete-visit').hidden = !editingId;
     document.getElementById('btn-discard').textContent = editingId ? '直すのをやめる' : 'やめる';
 
