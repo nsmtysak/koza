@@ -180,6 +180,8 @@ var Api = (function () {
           average_interval: x.average_interval,
           visit_count: x.visit_count,
           best_style: x.best_style ? x.best_style.style : '',
+          // 直近に使った型。続けて同じ手を出すと、まずテンプレだと気づかれる
+          recent_styles: Plan.recentStyles(x.customer.id, 2),
           hooks: x.hooks,
           last_topic: x.last_topic,
           interests: (x.customer.interests || []).slice(0, 5),
@@ -226,6 +228,7 @@ var Api = (function () {
         why_now: it.why_now || '',
         reason: it.reason || '',
         best_style: (x && x.best_style) ? x.best_style.style : '',
+        recent_styles: Plan.recentStyles(c.id, 2),
         hooks: x ? x.hooks : [],
         last_topic: x ? x.last_topic : (a ? a.topic : ''),
         days_since: x ? x.days_since : null,
@@ -275,6 +278,7 @@ var Api = (function () {
       target_date: opts.target_date || '',
       target_weekday: opts.target_date ? Store.weekdayOf(opts.target_date) : '',
       best_style: style ? style.style : '',
+      recent_styles: Plan.recentStyles(customerId, 2),
       customer: {
         display_name: c.display_name,
         title: c.title,

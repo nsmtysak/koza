@@ -378,6 +378,11 @@ var Home = (function () {
       var d = UI.el('div', 'draft');
       d.appendChild(UI.el('div', 'txt', it.draft));
 
+      /* 現場の評価で、送り手・受け手の双方から同じ話が出た。
+       * 骨組みはAIでよい。効くかどうかを分けるのは、最後に足す一言のほう。 */
+      d.appendChild(UI.el('p', 'draft-hint',
+        'LINEに貼ったあと、その方だけの一言を足してからお送りください。'));
+
       var row = UI.el('div', 'card-acts');
       var copy = UI.el('button', 'ghost small copy', '文を写す');
       copy.type = 'button';

@@ -150,6 +150,24 @@ var Plan = (function () {
     return out;
   }
 
+  /**
+   * 直近に使った誘いの型。
+   *
+   * 効いた型を繰り返すと、ほどなくテンプレだと気づかれる。
+   * 現場の評価でも、送り手と受け手の両方から同じ指摘が出た。
+   *   受け手「在庫の話が続くと、今月ノルマが足りないのかと勘繰る」
+   *   送り手「型の使い回しがばれた瞬間、40人分の信頼が同時に揺らぐ」
+   *
+   * 成功率だけを見て型を選ぶと、当たった型に寄っていって自分で自分を壊す。
+   * だから直近の型は事実として持っておき、避ける材料にする。
+   */
+  function recentStyles(customerId, n) {
+    return Store.touchesOf(customerId)
+      .filter(function (t) { return t.intent === 'invite' && t.style; })
+      .slice(0, n || 2)
+      .map(function (t) { return t.style; });
+  }
+
   function bestStyle(customerId) {
     function pick(stats, minTried) {
       var best = null;
@@ -689,7 +707,7 @@ var Plan = (function () {
   return {
     HORIZON: HORIZON,
     leadTime: leadTime, comeRate: comeRate, weekdayPattern: weekdayPattern,
-    styleStats: styleStats, bestStyle: bestStyle,
+    styleStats: styleStats, bestStyle: bestStyle, recentStyles: recentStyles,
     expectedSpend: expectedSpend, overallAverage: overallAverage,
     progress: progress, board: board, candidates: candidates, fillPlan: fillPlan,
     aftercare: aftercare, guestsOfOthers: guestsOfOthers,

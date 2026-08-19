@@ -76,7 +76,8 @@ var Seed = (function () {
   var DISLIKES = ['カラオケ', '香水の強い席', '長居', '大人数', '早い時間の来店'];
 
   var RELATIONS = ['奥様', 'ご息女', 'ご子息', 'お母様'];
-  var PLACES = ['東京', '名古屋', '福岡', '北浜', '本町', '広島', '仙台', '金沢'];
+  var PLACES = ['東京', '名古屋', '福岡', '広島', '仙台', '金沢'];        // ご出張・現場
+  var NEAR = ['北新地', '本町', '北浜', '淀屋橋', '心斎橋'];              // 同伴で行ける範囲
   var SCHOOLS = ['京都', '神戸', '東京', '大阪市内'];
   var WHENS = ['来月', '再来月', '年明け', '春先'];
 
@@ -126,14 +127,14 @@ var Seed = (function () {
       ]
     },
     {
-      key: 'compe',
+      key: 'compe', golf: true,
       beats: [
-        { talk: '{i}のコンペに出られる話。{when}に{place}のコースで、取引先の社長も一緒だとのこと。前回は最下位だったと苦笑いされていた。',
-          memo: '{i}のコンペ出はるって。{when}に{place}のコース。取引先の社長も一緒らしい。前回ビリやったって苦笑いしてはった。',
-          hook: '{i}のコンペ' },
-        { talk: '{i}のコンペの結果を伺った。真ん中より少し上だったとのことで、ご満足の様子。道具を新調されたのが効いたと。',
-          memo: '{i}のコンペ、真ん中より上やったって。満足そうやった。道具新しくしたのが効いたって。',
-          close: '{i}のコンペ', hook: '新しい道具の話' },
+        { talk: 'ゴルフのコンペに出られる話。{when}に{place}のコースで、取引先の社長も一緒だとのこと。前回は最下位だったと苦笑いされていた。',
+          memo: 'ゴルフのコンペ出はるって。{when}に{place}のコース。取引先の社長も一緒らしい。前回ビリやったって苦笑いしてはった。',
+          hook: 'ゴルフのコンペ' },
+        { talk: 'ゴルフのコンペの結果を伺った。真ん中より少し上だったとのことで、ご満足の様子。道具を新調されたのが効いたと。',
+          memo: 'ゴルフのコンペ、真ん中より上やったって。満足そうやった。道具新しくしたのが効いたって。',
+          close: 'ゴルフのコンペ', hook: '新しい道具の話' },
         { talk: '新調された道具の話を詳しく伺った。次のコンペは{when}で、今度は上位を狙うとのこと。',
           memo: '新しい道具の話、詳しく聞いた。次のコンペは{when}。今度は上位狙うって。',
           close: '新しい道具の話', hook: '次のコンペ' }
@@ -171,7 +172,7 @@ var Seed = (function () {
       beats: [
         { talk: '健康診断で数値を指摘された話。しばらく節制されるとのことで、この日は水割りを薄めにお作りした。',
           memo: '健康診断で数値言われたって。しばらく節制するらしいから、今日は水割り薄めにした。',
-          hook: '節制されている件' },
+          hook: '節制のこと' },
         { talk: '節制の成果が出て、体重が{n1}キロ落ちたとのこと。ただ「そろそろ反動が来そう」と笑っておられた。この日も薄めでお出しした。',
           memo: '節制の成果出て{n1}キロ落ちたって。そろそろ反動来そうって笑ってはった。今日も薄めで。',
           hook: '数値の再検査' },
@@ -185,10 +186,10 @@ var Seed = (function () {
       beats: [
         { talk: '{i2}を始められた話。{y}年ぶりに新しいことを始めたそうで、道具を一式そろえたと嬉しそうにされていた。',
           memo: '{i2}始めはったって。{y}年ぶりに新しいこと始めたらしくて、道具一式そろえたって嬉しそうやった。',
-          hook: '{i2}を始められた件' },
+          hook: '{i2}のこと' },
         { talk: '{i2}の進み具合を伺った。思ったより難しいとのことだが、続けておられる様子。{when}に発表の場があるとのこと。',
           memo: '{i2}の進み具合聞いた。思ったより難しいらしいけど続けてはる。{when}に発表の場あるって。',
-          close: '{i2}を始められた件', hook: '{when}の発表' },
+          close: '{i2}のこと', hook: '{when}の発表' },
         { talk: '{i2}の発表を終えられたとのこと。写真を見せていただいた。次の目標もお決めになっている様子。',
           memo: '{i2}の発表終わったって。写真見せてもろた。次の目標も決めてはるみたい。',
           close: '{when}の発表' }
@@ -264,13 +265,17 @@ var Seed = (function () {
   /* お誘いの文。会話の記録を起点にする形にしてある。
    * どなたにでも送れる文だけが並ぶと、このアプリの値打ちが確かめられない */
   var INVITE_TEXTS = {
-    star: '先日伺った{hook}の件、その後いかがでしたか。またお聞かせいただければ嬉しく存じます。',
-    info: '{b}が入りましたので、お知らせまで。',
-    rely: '{i}のことで少しお知恵をお借りしたく、ご連絡いたしました。',
-    choice: '今週でしたら木曜と金曜、どちらがご都合よろしいでしょうか。',
-    meal: '一度伺ってみたい{f}のお店ができました。お時間が合えばぜひご一緒に。',
-    report: '先日おっしゃっていた{i}のこと、少し調べてみました。ご無理のないときにでも。',
-    deadline: 'お預かりしております{bt}が残り少なくなってまいりました。'
+    star: '先日伺った{hook}、その後いかがでしょうか。またお聞かせいただければ嬉しく存じます。',
+    info: '以前お好きだとおっしゃっていた{b}が入りましたので、お知らせまで。',
+    rely: '{i}を始めた知人に、何から揃えればよいか聞かれて困っております。'
+        + '{name}にお詳しいところを一度伺えたら心強いのですが。',
+    choice: '{hook}の続きをぜひ伺いたく存じます。木曜と金曜でしたら、どちらがご都合よろしいでしょうか。',
+    meal: '{near}に{f}のよいお店を見つけました。金曜の18時にいかがでしょうか。'
+        + 'お店はこちらで押さえておきます。ご無理のないときで結構です。',
+    report: '先日おっしゃっていた{i}のこと、よい品が見つかりましたのでお持ちしておきます。'
+        + 'お忙しければ次の機会でも大丈夫です。',
+    deadline: 'お預かりしております{bt}が、残りわずかとなってまいりました。'
+        + '次にお越しの際にお空けいただけましたら。'
   };
 
   function mmdd(offsetDays) {
@@ -289,6 +294,7 @@ var Seed = (function () {
       rel: (kid && kid.relation) || (any && any.relation) || 'ご家族',
       place: pick(PLACES),
       place2: pick(PLACES),
+      near: pick(NEAR),
       school: pick(SCHOOLS),
       i: (c.interests || ['お仕事'])[0],
       i2: (c.interests || [])[1] || pick(INTERESTS),
@@ -299,7 +305,8 @@ var Seed = (function () {
       n1: String(ri(2, 9)),
       y: String(ri(3, 20)),
       hook: '',
-      bt: ''
+      bt: '',
+      name: c.display_name
     };
   }
 
@@ -406,7 +413,11 @@ var Seed = (function () {
 
       /* 筋書きを1本割り当てる。ご家族が要る筋書きは、ご家族のいる方にだけ */
       var ctx = makeCtx(c);
-      var pool = ARCS.filter(function (a) { return !a.family || family.length > 0; });
+      var pool = ARCS.filter(function (a) {
+        if (a.family && !family.length) return false;
+        if (a.golf && interests.indexOf('ゴルフ') < 0) return false;   // コンペはゴルフの話
+        return true;
+      });
       var arc = pool[(n * 3 + 1) % pool.length];
 
       /* お預かりしているボトル。
@@ -592,10 +603,11 @@ var Seed = (function () {
     /* 昨日・今日お送りしたばかりのお誘い。
      * 「今は間を置く方」がどう見えるかを確かめるために要る */
     mine.slice(10, 14).forEach(function (m, i) {
+      var st = pickStyle(m, 0);
       Store.addTouch({
         customer_id: m.c.id, date: D(T, -i), kind: 'line', direction: 'sent',
-        intent: 'invite', style: pickStyle(m, 0), target_date: D(T, ri(3, 6)),
-        title: 'お誘い', note: inviteText('star', m, 0)
+        intent: 'invite', style: st, target_date: D(T, ri(3, 6)),
+        title: 'お誘い', note: inviteText(st, m, 0)
       });
     });
 
@@ -611,13 +623,19 @@ var Seed = (function () {
     };
   }
 
-  /** 誘いの型を選ぶ。期限型は、根拠になるボトルがある方にだけ */
+  /** 誘いの型を選ぶ。期限型は、根拠になるボトルがある方にだけ。
+   *  直前に使った型は続けて選ばない。データ自体が「型の連発」を教えないように。 */
   function pickStyle(m, beatIndex) {
     var base = ['star', 'info', 'rely', 'choice', 'meal', 'report'];
     if (m.ctx.bt) base.push('deadline');
-    // 会話の記録があとにあるほど、話を起点にした型が選ばれやすいようにする
-    if (beatIndex > 0) base.push('star', 'star');
-    return pick(base);
+    if (beatIndex > 0) base.push('star', 'report');   // 会話が溜まるほど話を起点にした型が効く
+
+    var avoid = m._lastStyles || [];
+    var open = base.filter(function (k) { return avoid.indexOf(k) < 0; });
+    var picked = pick(open.length ? open : base);
+
+    m._lastStyles = [picked].concat(avoid).slice(0, 2);
+    return picked;
   }
 
   /** お誘いの文。その方の筋書きから拾った宿題を起点にする */

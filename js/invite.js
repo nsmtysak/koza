@@ -198,6 +198,9 @@ var Invite = (function () {
         card.appendChild(rk);
       }
 
+      card.appendChild(UI.el('p', 'draft-hint',
+        'このまま送らず、その方だけの一言を足してください。'));
+
       var acts = UI.el('div', 'card-acts');
       // 写すことと、送ったことにすることは別。押した時点では、まだ送っていない
       var justCopy = UI.el('button', 'ghost small', '文を写す');
