@@ -190,6 +190,46 @@ var Plan = (function () {
       .map(function (t) { return t.style; });
   }
 
+  /**
+   * 変わったかもしれない兆し。
+   *
+   * 段取りと準備は別々のお願いなので、放っておくと言うことが食い違う。
+   * 実際そうなった。段取りが「関心が薄れているかも」と警戒を出しているのに、
+   * 準備は同じ来店に一杯乗せる提案をしていた。
+   *   「同じアプリの中で言っていることが噛み合っていない」（現場の評価より）
+   *
+   * だから兆しはここで一度だけ計算して、両方に同じものを渡す。
+   * 解釈はしない。**気づいたことを並べるだけ。**
+   * 会計が下がったのは、離れかけているのかもしれないし、
+   * その日たまたま急いでおられただけかもしれない。決めるのは本人。
+   */
+  /* お帰りを急いでおられた、という趣旨の記録だけを拾う。
+   * 「お酒を勧めておられた」のような、ただの観察は兆しではない。
+   * ここを広く取ると、ほとんどの方に兆しが立って、勧める機能が死ぬ。 */
+  var HURRY = ['早め', '時計', '急い', '短く', '慌た', '落ち着かな', '口数が少な', '浮かな'];
+
+  function watchSigns(customerId) {
+    var out = [];
+    var m = Store.moneyOf(customerId);
+    var last = Store.visitsOf(customerId)[0];
+
+    // お会計が、いつもの8割を下回った。記録が3回以上ある方だけ
+    if (m.average && m.recent.length >= 3 && m.recent[0].amount) {
+      var amt = m.recent[0].amount;
+      if (amt < m.average * 0.8) {
+        out.push('前回のお会計が' + Math.round(amt / 10000) + '万円。' +
+          'これまでの平均は' + Math.round(m.average / 10000) + '万円です');
+      }
+    }
+
+    // お急ぎだった気配。当てはまる言葉があるときだけ
+    var obs = (last && last.observation) || '';
+    if (obs && HURRY.some(function (k) { return obs.indexOf(k) >= 0; })) {
+      out.push('前回のご様子：' + obs);
+    }
+    return out;
+  }
+
   function bestStyle(customerId) {
     function pick(stats, minTried) {
       var best = null;
@@ -730,6 +770,7 @@ var Plan = (function () {
     HORIZON: HORIZON,
     leadTime: leadTime, comeRate: comeRate, weekdayPattern: weekdayPattern,
     styleStats: styleStats, bestStyle: bestStyle, recentStyles: recentStyles,
+    watchSigns: watchSigns,
     expectedSpend: expectedSpend, overallAverage: overallAverage,
     progress: progress, board: board, candidates: candidates, fillPlan: fillPlan,
     aftercare: aftercare, guestsOfOthers: guestsOfOthers,

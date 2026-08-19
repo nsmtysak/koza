@@ -80,7 +80,7 @@ var Brief = (function () {
     section(body, '確かめたいこと', b.confirm_points);
     renderSeeds(body, b);
     section(body, '信を落としかねないこと', b.trust_risks, 'caution');
-    section(body, '気をつけること', b.cautions, 'caution');
+    renderCautions(body, b);
 
     if (b.timing) {
       var t = UI.el('div', 'brief-sec');
@@ -156,6 +156,36 @@ var Brief = (function () {
   }
 
   /**
+   * 気をつけること。
+   *
+   * 「健康の数値には触れない」「お会計のことは口にしない」——
+   * こういう当たり前が上に並ぶと、その方だけの大事な一つが読み飛ばされる。
+   *   「これを読んで気づく人は現場にいないほうがいい」（8年目の評価より）
+   * だから、この方だからのものだけを開いて、基本は畳んでおく。
+   * 畳むのであって、消すのではない。1年目には教科書として値打ちがある。
+   */
+  function renderCautions(parent, b) {
+    var all = b.cautions || [];
+    if (!all.length) return;
+
+    var personal = all.filter(function (x) { return (x && x.scope) !== 'basic'; });
+    var basic = all.filter(function (x) { return (x && x.scope) === 'basic'; });
+
+    section(parent, '気をつけること', personal, 'caution');
+
+    if (!basic.length) return;
+    var det = UI.el('details', 'raw');
+    det.appendChild(UI.el('summary', null, 'どなたにも当てはまる基本（' + basic.length + '件）'));
+    var ul = UI.el('ul', 'brief-list');
+    ul.style.marginTop = '12px';
+    basic.forEach(function (x) {
+      ul.appendChild(UI.el('li', 'caution', typeof x === 'string' ? x : (x.text || '')));
+    });
+    det.appendChild(ul);
+    parent.appendChild(det);
+  }
+
+  /**
    * さりげなくお勧めできるもの。
    * 売上は組数×単価。組数だけ追っても届かない。
    * ただし押し売りにした瞬間に口座が離れるので、理由が書けないものは出さない。
@@ -202,7 +232,9 @@ var Brief = (function () {
 
     var s = UI.el('div', 'brief-sec');
     s.appendChild(UI.el('h3', null, '席で伺っておくこと'));
-    s.appendChild(UI.el('p', 'help', 'ここで日付を聞けると、次にご連絡する口実になります。'));
+    s.appendChild(UI.el('p', 'help',
+      'ここで日付を聞けると、次にご連絡する口実になります。' +
+      '全部は使いません。流れに乗ったものを一つだけ。'));
 
     var ul = UI.el('ul', 'brief-list');
     items.forEach(function (q) {

@@ -191,6 +191,8 @@ var Api = (function () {
           best_style: x.best_style ? x.best_style.style : '',
           // 直近に使った型。続けて同じ手を出すと、まずテンプレだと気づかれる
           recent_styles: Plan.recentStyles(x.customer.id, 2),
+          // 段取りと準備で言うことが食い違わないよう、同じ計算を両方に渡す
+          watch_signs: Plan.watchSigns(x.customer.id),
           hooks: x.hooks,
           last_topic: x.last_topic,
           interests: (x.customer.interests || []).slice(0, 5),
@@ -359,6 +361,8 @@ var Api = (function () {
         return { date: t.date, kind: Store.TOUCH_KINDS[t.kind] || t.kind, direction: t.direction, note: t.note };
       }),
       open_hooks: d.open_hooks,
+      // 段取り側と同じ計算。ここがずれると、2つの画面が別のことを言い出す
+      watch_signs: Plan.watchSigns(customerId),
       // 前回の提案とその結果。ここが螺旋の折り返し
       last_brief: d.last_brief ? {
         created_at: d.last_brief.created_at,
