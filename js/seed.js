@@ -61,7 +61,13 @@ var Seed = (function () {
     '和泉テクノ', '神戸海運', '京都繊維', '奈良機工', '滋賀電子'
   ];
 
-  var TITLES = ['部長', '課長', '取締役', '代表取締役', '専務', '常務', '支店長', '次長', '係長', '顧問'];
+  /* 役職はお会計の額と揃える。係長が一晩に48万は使わない。
+   * ここがちぐはぐだと、画面を見た瞬間に作り物だと分かる。 */
+  var TITLES_BY_TIER = {
+    futo:    ['代表取締役', '専務', '常務', '取締役', '会長'],
+    regular: ['部長', '支店長', '本部長', '次長', '顧問'],
+    light:   ['課長', '係長', '主任', '課長代理']
+  };
   var DEPTS = ['営業部', '管理部', '技術部', '経営企画部', '購買部', '人事部', ''];
 
   var INTERESTS = ['ゴルフ', '日本酒', 'ワイン', '競馬', '釣り', '野球観戦', '落語', '茶道',
@@ -252,7 +258,7 @@ var Seed = (function () {
   ];
 
   var OBSERVATIONS = [
-    'ゴルフの話になってから、ご自分から話される時間が長くなった。',
+    '{i}の話になってから、ご自分から話される時間が長くなった。',
     '価格を確認してから注文された。',
     'いつもより早めにお帰りになった。',
     'ご同席の方に何度も酒を勧めておられた。',
@@ -308,6 +314,21 @@ var Seed = (function () {
       bt: '',
       name: c.display_name
     };
+  }
+
+  /* 書き言葉の記録を、帰り道に吹き込んだ言葉に崩す。
+   * 整理（AI）が受け取るのはこちらなので、丁寧語のままだと材料にならない。 */
+  function spoken(text) {
+    return String(text || '')
+      .replace(/とのこと。/g, 'って。')
+      .replace(/とのことです。/g, 'って。')
+      .replace(/されていた。/g, 'してはった。')
+      .replace(/されている/g, 'してはる')
+      .replace(/おられた。/g, 'はった。')
+      .replace(/おっしゃっていた。/g, '言うてはった。')
+      .replace(/伺った。/g, '聞いた。')
+      .replace(/ご自分/g, '自分')
+      .replace(/だった。/g, 'やった。');
   }
 
   function fillT(tpl, ctx) {
@@ -391,7 +412,7 @@ var Seed = (function () {
         kana: '',
         company: company,
         department: pick(DEPTS),
-        title: pick(TITLES),
+        title: pick(TITLES_BY_TIER[tier] || TITLES_BY_TIER.regular),
         mobile: '090-' + ri(1000, 9999) + '-' + ri(1000, 9999),
         account_owner: owner,
         account_owner_name: owner === 'other' ? pick(['あやか', 'れい', 'みゆき', 'さやか']) : '',
@@ -525,16 +546,29 @@ var Seed = (function () {
       var beat = m.arc.beats[e.i] || null;
       var side = fillT(pick(SIDE), ctx);
 
+      /* 筋書きを使い切ったあとも、話は続く。
+       * 同じ定型に落とすと「今度ご一緒しましょう」が何度も並んで、
+       * 顧客カードの「前回の話」がどの回も同じに見えてしまう。 */
+      var after = [
+        '{i}の話。今年は{n1}回ほど行かれたとのこと。道具を買い替えたいとおっしゃっていた。',
+        '{co}の人の入れ替わりの話。若い方が増えて、言葉が通じにくいと苦笑いされていた。',
+        '{i2}を再開されたとのこと。しばらく離れておられたが、また通い始めたと。',
+        '{place2}の取引先へ行かれた話。先方の担当が変わって、一からのお付き合いになると。',
+        'お好きな{f}の店の話。ご自分で予約を取るのが好きだとおっしゃっていた。',
+        '{rel}が最近よく話しかけてくるようになったとのこと。少し嬉しそうだった。',
+        '週末の過ごし方の話。近ごろは家で過ごすことが増えたと。',
+        '健康診断の時期だという話。毎年この時期は気が重いとおっしゃっていた。'
+      ];
       var talk = beat
         ? fillT(beat.talk, ctx) + (side ? ' ' + side : '')
-        : (side || fillT('{i}の話で盛り上がった。今度ご一緒しましょうという話に。', ctx));
+        : fillT(after[(e.i * 3 + 1) % after.length], ctx) + (side ? ' ' + side : '');
 
-      var memo = beat
-        ? '今日は' + c.display_name + 'が' +
-          (attendees.length > 1 ? 'お二人で。' : 'お一人で。') +
-          fillT(beat.memo, ctx) + ' ' + Math.round(m.unit / 10000) + '万くらい。'
-        : '今日は' + c.display_name + '。' + (side || 'いつもの話。') + ' ' +
-          Math.round(m.unit / 10000) + '万くらい。';
+      /* 帰り道のメモは、その晩の「話」と同じ中身でなければならない。
+       * ここがずれると、記録を開いた本人が「どっちが本当か」と迷う。 */
+      var memo = '今日は' + c.display_name +
+        (attendees.length > 1 ? 'がお二人で。' : 'がお一人で。') +
+        (beat ? fillT(beat.memo, ctx) : spoken(talk)) +
+        ' ' + Math.round(m.unit / 10000) + '万くらい。';
 
       /* 宿題。前の回で開いたものが、この回で閉じることがある */
       var hooks = [];
@@ -567,7 +601,7 @@ var Seed = (function () {
         topics: c.interests.slice(0, 1),
         topic_detail: talk,
         drinks: [{ item: pick(DRINKS), count: ri(1, 4) }],
-        observation: pick(OBSERVATIONS),
+        observation: fillT(pick(OBSERVATIONS), ctx),
         raw_memo: memo,
         hooks: hooks,
         next_visit_hint: hint,

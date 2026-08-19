@@ -33,6 +33,19 @@ var Insight = (function () {
    * 「また来る」と言ったのは主客であって、連れてこられた同行者ではない。
    * 同行者に主客の約束を紐づけると、声かけ候補が水増しされて信用を失う。
    */
+  /* 同じ宿題が別の日にも記録されることがある。
+   * 「仙台へのご出張」が2つ並ぶと、2回言われたように見えて、
+   * お誘いの文もその調子で書かれる。同じ言葉のものは1つにまとめる。 */
+  function dedupeHooks(list) {
+    var seen = {};
+    return (list || []).filter(function (h) {
+      var k = String(h.text || '').trim();
+      if (!k || seen[k]) return false;
+      seen[k] = true;
+      return true;
+    });
+  }
+
   function hooksFor(visit, customerId) {
     var attendees = visit.attendees || [];
     var mine = attendees.filter(function (a) { return a.customer_id === customerId; })[0];
@@ -234,10 +247,10 @@ var Insight = (function () {
       money: money,
       companions: Store.companionsOf(customerId),
       touches: Store.touchesOf(customerId),
-      open_hooks: visits.slice(0, 5).reduce(function (acc, v) {
+      open_hooks: dedupeHooks(visits.slice(0, 5).reduce(function (acc, v) {
         hooksFor(v, customerId).forEach(function (h) { if (h.status !== 'closed') acc.push(h); });
         return acc;
-      }, []),
+      }, [])),
       last_brief: Store.latestBrief(customerId)
     };
   }
