@@ -81,6 +81,7 @@ var Settings = (function () {
     val('s-quiet-to', typeof p.quiet_to === 'number' ? p.quiet_to : 9);
     val('s-lead-visit', typeof p.lead_default_visit === 'number' ? p.lead_default_visit : 4);
     val('s-lead-douhan', typeof p.lead_default_douhan === 'number' ? p.lead_default_douhan : 5);
+    val('s-max-contacts', typeof p.max_contacts_month === 'number' ? p.max_contacts_month : 3);
 
     val('s-myrole', p.my_role || 'both');
     val('s-shimei', p.shimei_system || 'eikyu');
@@ -166,6 +167,7 @@ var Settings = (function () {
       quiet_to: Math.max(0, Math.min(23, num('s-quiet-to'))),
       lead_default_visit: Math.max(1, Math.min(30, num('s-lead-visit') || 4)),
       lead_default_douhan: Math.max(1, Math.min(30, num('s-lead-douhan') || 5)),
+      max_contacts_month: Math.max(0, Math.min(20, num('s-max-contacts'))),
 
       configured: true
     });

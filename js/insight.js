@@ -45,7 +45,19 @@ var Insight = (function () {
       return Object.assign({}, h, { visit_id: visit.id, index: i });
     }).filter(function (h) {
       if (h.customer_id) return h.customer_id === customerId;   // AIが特定できた場合
-      if (!hasShukyaku) return true;                            // 主客が分からなければ全員
+      if (attendees.length === 1) return true;                  // お一人なら迷いようがない
+
+      /* 複数名の卓で、誰の話か決まらないもの。
+       *
+       * ここを「全員のもの」にすると、同席のAさんが話したご息女の受験が、
+       * Bさんの宿題として残る。そのままお誘いの文の起点になれば、
+       * 身に覚えのない話を振ることになり、記録違いが一発で露呈する。
+       *
+       * 現場の評価でも、いちばん重い指摘はここだった。
+       * 「文面の巧拙よりずっと深刻。間違った客の話を別の客に送りかねない」
+       *
+       * 分からないものは、誰のものにもしない。取りこぼすほうがまだ安い。 */
+      if (!hasShukyaku) return false;
       return mine.role === 'shukyaku';                          // 既定は主客のもの
     });
   }

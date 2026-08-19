@@ -687,6 +687,7 @@ var Store = (function () {
     match:    '会わせたい方がいる',
     choice:   '二択で伺う',
     meal:     'お食事に誘う',
+    work:     'お仕事と絡める',
     report:   '近況をお伝えする'
   };
 

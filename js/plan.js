@@ -55,6 +55,28 @@ var Plan = (function () {
         return { ok: false, reason: since === 0 ? '今日ご連絡したばかりです' : since + '日前にご連絡しています' };
       }
     }
+
+    /* ひと月に何通まで。
+     *
+     * 間隔を空けるだけでは足りない。型を変えても、続けば「量」そのものが伝わる。
+     *   受け手「型を変えても、3通が短期間に続けば量自体がサインになる。
+     *           2通目の時点で、今週は何か仕掛けてきてるなと切り替わる」
+     *   送り手「間隔が詰まれば、よく構ってくる店という印象は生まれる」
+     * 3日おきに送れば月に10通届く。それは多すぎる。 */
+    var cap = num('max_contacts_month', 3);
+    if (cap > 0) {
+      var recent = touches.filter(function (t) {
+        var d = Store.daysBetween(t.date, t0);
+        return d !== null && d >= 0 && d < 30;
+      }).length;
+      if (recent >= cap) {
+        return {
+          ok: false,
+          reason: 'この30日で' + recent + '回ご連絡しています。少し間を置きます'
+        };
+      }
+    }
+
     return { ok: true, reason: '' };
   }
 
