@@ -41,6 +41,11 @@ body{
   -webkit-font-smoothing:antialiased;
   padding-bottom:calc(76px + env(safe-area-inset-bottom));
   overscroll-behavior-y:none;   /* 行き止まりで引っ張らせない */
+  /* 中身が画面より短い画面（お客様・記念日）では、書類そのものが画面より短くなる。
+   * そのとき iOS は position:fixed を画面の底ではなく書類の底に置くことがあり、
+   * 下の帯だけが浮き上がって見える。書類の丈を画面と同じにして、その差を無くす。 */
+  min-height:100vh;
+  min-height:100dvh;
 }
 
 .view{padding:calc(26px + env(safe-area-inset-top)) var(--pad) 28px;max-width:680px;margin:0 auto}
