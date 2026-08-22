@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=41">
+<link rel="stylesheet" href="css/app.css?v=42">
 </head>
 <body>
 
@@ -601,7 +601,8 @@
       <span>同伴のタイムアウト（分・0＝なし）</span>
       <input type="number" id="s-douhan-timeout" min="0" step="5" inputmode="numeric">
       <span class="help">お食事を終えてから入店するまでの猶予です。<strong>超えると同伴にならず、切り返し扱いになって伝票が2枚になります。</strong><br>
-        30分と入れておくと、お誘いの文が「7時にお店を出れば、ちょうど良い時間かと存じます」のような書き方になります。</span>
+        AIはこれを見て、お誘いの文に時間の目安を入れます。<strong>「同伴」という言葉は文面には出しません。</strong>
+        「7時頃にお食事を上がれましたら、ゆっくりしていただけます」のように、お客様にとっての都合として書きます。</span>
     </label>
 
     <label class="f">
@@ -612,8 +613,8 @@
     <label class="f">
       <span>同伴の入店締め</span>
       <input type="time" id="s-douhan-deadline">
-      <span class="help">この時刻までに入店しないと、同伴として付きません。<br>
-        20:00 と入れておくと、お誘いの文が「20時までにお店に入れますと同伴になりますので、18時頃にお会いできれば」のような書き方になります。</span>
+      <span class="help">この時刻までに入店しないと、同伴として付きません。<strong>これは店の数え方なので、お客様への文には出しません。</strong><br>
+        20:00 と入れておくと、AIは逆算して「6時頃にお会いできましたら」と時間を提案します。理由は書きません。</span>
     </label>
 
     <div class="grid2">
@@ -664,7 +665,7 @@
 
     <h2 class="sect">このアプリについて</h2>
     <div class="actions col">
-      <a class="ghost linkbtn" href="about.html?v=41">できること・できないこと</a>
+      <a class="ghost linkbtn" href="about.html?v=42">できること・できないこと</a>
     </div>
     <p class="help">何のためのアプリか、AIが何を提案するのかをまとめています。</p>
 
@@ -800,28 +801,28 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=41"></script>
-<script src="js/store.js?v=41"></script>
-<script src="js/holiday.js?v=41"></script>
-<script src="js/insight.js?v=41"></script>
-<script src="js/plan.js?v=41"></script>
-<script src="js/api.js?v=41"></script>
-<script src="js/ui.js?v=41"></script>
-<script src="js/lock.js?v=41"></script>
-<script src="js/night.js?v=41"></script>
-<script src="js/record.js?v=41"></script>
-<script src="js/tidy.js?v=41"></script>
-<script src="js/scan.js?v=41"></script>
-<script src="js/people.js?v=41"></script>
-<script src="js/brief.js?v=41"></script>
-<script src="js/gifts.js?v=41"></script>
-<script src="js/board.js?v=41"></script>
-<script src="js/review.js?v=41"></script>
-<script src="js/invite.js?v=41"></script>
-<script src="js/home.js?v=41"></script>
-<script src="js/seed.js?v=41"></script>
-<script src="js/install.js?v=41"></script>
-<script src="js/settings.js?v=41"></script>
-<script src="js/app.js?v=41"></script>
+<script src="js/db.js?v=42"></script>
+<script src="js/store.js?v=42"></script>
+<script src="js/holiday.js?v=42"></script>
+<script src="js/insight.js?v=42"></script>
+<script src="js/plan.js?v=42"></script>
+<script src="js/api.js?v=42"></script>
+<script src="js/ui.js?v=42"></script>
+<script src="js/lock.js?v=42"></script>
+<script src="js/night.js?v=42"></script>
+<script src="js/record.js?v=42"></script>
+<script src="js/tidy.js?v=42"></script>
+<script src="js/scan.js?v=42"></script>
+<script src="js/people.js?v=42"></script>
+<script src="js/brief.js?v=42"></script>
+<script src="js/gifts.js?v=42"></script>
+<script src="js/board.js?v=42"></script>
+<script src="js/review.js?v=42"></script>
+<script src="js/invite.js?v=42"></script>
+<script src="js/home.js?v=42"></script>
+<script src="js/seed.js?v=42"></script>
+<script src="js/install.js?v=42"></script>
+<script src="js/settings.js?v=42"></script>
+<script src="js/app.js?v=42"></script>
 </body>
 </html>
