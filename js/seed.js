@@ -30,7 +30,9 @@ var Seed = (function () {
   /* 毎回同じデータが出るようにする。話が食い違わないため。
    * 掛け算が JS の安全整数を超えると桁が落ちて、出る値が偏る。
    * Math.imul を使って32ビットに収める。 */
-  var seed = 20260817 >>> 0;
+  var SEED0 = 20260817 >>> 0;
+  var seed = SEED0;
+  function reseed() { seed = SEED0; }
   function rnd() {
     seed = (seed + 0x6D2B79F5) | 0;
     var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
@@ -340,6 +342,8 @@ var Seed = (function () {
   /* ---------- 本体 ---------- */
 
   function install() {
+    // 入れ直しても同じ中身になるように、乱数を頭から巻き戻す
+    reseed();
     var T = Store.today();
     var D = Store.addDays;
 
