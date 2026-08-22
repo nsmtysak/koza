@@ -426,6 +426,11 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
 .soon-when{flex:0 0 auto;font-family:var(--display);font-size:.95rem;color:var(--accent);
   border:1px solid var(--accent-deep);border-radius:999px;padding:2px 11px}
 
+/* 手順。番号は本当に順序があるものにだけ使う */
+.howto{margin:12px 0 0;padding-left:1.35em;color:var(--text-dim);font-size:.92rem;line-height:1.8}
+.howto li{margin:.35em 0}
+.howto li::marker{color:var(--accent)}
+
 /* 危ないことは、目に入る形で出す */
 .banner-warn{background:rgba(150,60,45,.1);border:1px solid var(--danger);
   border-radius:var(--radius);padding:14px 16px;margin-bottom:18px}

@@ -20,6 +20,7 @@ var Home = (function () {
 
     Board.renderProgress(document.getElementById('home-goal'));
     renderDraft();
+    Install.renderHomeBanner();
     renderTidy();
     renderAccountTodo();
     renderAskingInvites();

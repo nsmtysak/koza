@@ -8,7 +8,7 @@
  * GASへの通信（POST）は素通しする。キャッシュすると古い返事を返しかねない。
  */
 
-var VERSION = 'koza2-v38';
+var VERSION = 'koza2-v39';
 
 // index.html が読み込むURL（?v= 付き）と揃える。
 // ここがずれると、圏外での初回起動でCSSやJSだけ取れないことがある。
@@ -16,32 +16,34 @@ var SHELL = [
   './',
   './index.html',
   './about.html',
-  './css/app.css?v=38',
-  './js/db.js?v=38',
-  './js/store.js?v=38',
-  './js/holiday.js?v=38',
-  './js/insight.js?v=38',
-  './js/plan.js?v=38',
-  './js/api.js?v=38',
-  './js/ui.js?v=38',
-  './js/lock.js?v=38',
-  './js/night.js?v=38',
-  './js/record.js?v=38',
-  './js/tidy.js?v=38',
-  './js/scan.js?v=38',
-  './js/people.js?v=38',
-  './js/brief.js?v=38',
-  './js/gifts.js?v=38',
-  './js/board.js?v=38',
-  './js/review.js?v=38',
-  './js/invite.js?v=38',
-  './js/home.js?v=38',
-  './js/seed.js?v=38',
-  './js/settings.js?v=38',
-  './js/app.js?v=38',
+  './css/app.css?v=39',
+  './js/db.js?v=39',
+  './js/store.js?v=39',
+  './js/holiday.js?v=39',
+  './js/insight.js?v=39',
+  './js/plan.js?v=39',
+  './js/api.js?v=39',
+  './js/ui.js?v=39',
+  './js/lock.js?v=39',
+  './js/night.js?v=39',
+  './js/record.js?v=39',
+  './js/tidy.js?v=39',
+  './js/scan.js?v=39',
+  './js/people.js?v=39',
+  './js/brief.js?v=39',
+  './js/gifts.js?v=39',
+  './js/board.js?v=39',
+  './js/review.js?v=39',
+  './js/invite.js?v=39',
+  './js/home.js?v=39',
+  './js/seed.js?v=39',
+  './js/install.js?v=39',
+  './js/settings.js?v=39',
+  './js/app.js?v=39',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', function (e) {

@@ -54,6 +54,7 @@ var Settings = (function () {
   /* ---------- 設定画面 ---------- */
 
   function load() {
+    Install.renderSettings();
     var p = Store.getProfile();
     var a = Store.getApiConfig();
 
