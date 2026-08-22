@@ -145,7 +145,11 @@ input::placeholder,textarea::placeholder{color:var(--text-faint)}
 .confirm-note{color:var(--text-dim);font-size:.93rem;margin:0 0 18px}
 
 .search-row{margin-bottom:12px}
-.filter-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px}
+/* 横に流す。縮ませると「最近お会／いした順」で語の途中で折れる */
+.filter-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;
+  scrollbar-width:none}
+.filter-row::-webkit-scrollbar{display:none}
+.filter-row > *{flex:0 0 auto;white-space:nowrap}
 
 /* 選択列 */
 .seg{display:flex;gap:0;border:1px solid var(--ink-3);border-radius:var(--radius);overflow:hidden}
