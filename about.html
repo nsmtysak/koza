@@ -22,16 +22,19 @@ body{background:var(--ink-0);color:var(--text);font-family:var(--font);
 
 /* 戻り道。ホーム画面から立ち上げると、ブラウザの戻るボタンが無いことがある。
  * 出口の無い画面を作らない。 */
+/* viewport-fit=cover なので、上端は時計と電波の下に潜る。
+ * 潜ったところは触っても反応しない。安全域のぶんだけ内側に押し出す。 */
 .backbar{
   position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;
-  min-height:52px;padding:0 22px;margin:0 -22px;
+  min-height:calc(52px + env(safe-area-inset-top));
+  padding:env(safe-area-inset-top) 22px 0;margin:0 -22px;
   background:var(--ink-0);border-bottom:1px solid var(--ink-3);
   color:var(--accent);text-decoration:none;font-size:.95rem;letter-spacing:.04em;
 }
 .backbar:active{background:var(--ink-1)}
 .backbar span{font-size:1.15rem;line-height:1}
 
-header.top{padding:44px 0 34px;text-align:center;border-bottom:1px solid var(--ink-3)}
+header.top{padding:34px 0 34px;text-align:center;border-bottom:1px solid var(--ink-3)}
 .brand{font-family:var(--display);font-size:2.9rem;letter-spacing:.14em;
   color:var(--accent);margin:0 0 6px}
 .brand-sub{color:var(--text-faint);font-size:.8rem;letter-spacing:.3em;margin:0 0 20px}

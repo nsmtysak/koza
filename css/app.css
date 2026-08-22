@@ -431,6 +431,17 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
 .soon-when{flex:0 0 auto;font-family:var(--display);font-size:.95rem;color:var(--accent);
   border:1px solid var(--accent-deep);border-radius:999px;padding:2px 11px}
 
+/* 伏せた接続の表示 */
+.masked{margin:6px 0 0;display:flex;flex-direction:column;gap:4px}
+.masked-line{font-size:.9rem;color:var(--text-dim);word-break:break-all;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+
+/* 最初の設定：月の目標を万で受ける */
+.manlabel{margin-bottom:8px}
+.manrow{display:flex;align-items:center;gap:10px}
+.manrow input{flex:1;min-width:0;font-size:1.35rem;text-align:right;min-height:var(--tap)}
+.manunit{flex:0 0 auto;color:var(--text-dim);font-size:1rem}
+
 /* 手順。番号は本当に順序があるものにだけ使う */
 .howto{margin:12px 0 0;padding-left:1.35em;color:var(--text-dim);font-size:.92rem;line-height:1.8}
 .howto li{margin:.35em 0}

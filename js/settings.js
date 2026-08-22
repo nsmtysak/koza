@@ -19,6 +19,23 @@ var Settings = (function () {
         });
       });
     });
+
+    /* 目標は選ばせない。店も本人も、数字は人それぞれ枠に入らない。
+     * 万で受けるのは、月の目標を円で打つ人がいないため。 */
+    var man = document.getElementById('setup-target-man');
+    document.getElementById('setup-target-ok').addEventListener('click', function () {
+      var v = parseInt(man.value, 10);
+      answers.target_sales = (v > 0 ? v * 10000 : 0);
+      next();
+    });
+    document.getElementById('setup-target-later').addEventListener('click', function () {
+      answers.target_sales = 0;
+      next();
+    });
+    man.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('setup-target-ok').click();
+    });
+
     document.getElementById('setup-skip').addEventListener('click', finishSetup);
     showStep(0);
   }
@@ -51,9 +68,67 @@ var Settings = (function () {
     if (onDone) onDone();
   }
 
+  /**
+   * AIの接続。
+   *
+   * つながったあとも合言葉を出しっぱなしにしていると、
+   * 端末を開ける人が読んで、そのまま別の端末に入れられる。
+   * こちらの費用で、こちらの知らない誰かが使うことになる。
+   * だから、いちど入れたら伏せる。つなぎ直すときだけ開く。
+   */
+  var apiEditing = false;
+
+  function maskToken(t) {
+    t = String(t || '');
+    if (!t) return '（未設定）';
+    if (t.length <= 4) return '●'.repeat(t.length);
+    return t.slice(0, 2) + '●'.repeat(Math.max(4, t.length - 4)) + t.slice(-2);
+  }
+
+  function shortUrl(u) {
+    u = String(u || '');
+    if (!u) return '（未設定）';
+    var m = u.match(/\/macros\/s\/([^\/]+)/);
+    if (!m) return u.length > 44 ? u.slice(0, 26) + '…' + u.slice(-8) : u;
+    var id = m[1];
+    return 'script.google.com/…/' + id.slice(0, 4) + '…' + id.slice(-4) + '/exec';
+  }
+
+  /** 伏せているときは入力欄に何も入っていない。そのまま保存すると接続が消える */
+  function saveApiFromForm() {
+    if (document.getElementById('api-open').hidden) return;
+    var url = str('s-gas-url'), token = str('s-gas-token');
+    if (!url && !token) return;      // 空のまま保存しない
+    Store.saveApiConfig({ gas_url: url, token: token });
+    apiEditing = false;
+    renderApi(Store.getApiConfig());
+  }
+
+  function renderApi(a) {
+    var configured = !!(a.gas_url && a.token);
+    var locked = document.getElementById('api-locked');
+    var open = document.getElementById('api-open');
+
+    if (configured && !apiEditing) {
+      var m = UI.clear(document.getElementById('api-masked'));
+      m.appendChild(UI.el('span', 'masked-line', shortUrl(a.gas_url)));
+      m.appendChild(UI.el('span', 'masked-line', '合言葉　' + maskToken(a.token)));
+      locked.hidden = false;
+      open.hidden = true;
+    } else {
+      locked.hidden = true;
+      open.hidden = false;
+      val('s-gas-url', a.gas_url);
+      // つなぎ直すときは空から。前の合言葉を読ませない
+      val('s-gas-token', apiEditing ? '' : a.token);
+    }
+  }
+
   /* ---------- 設定画面 ---------- */
 
   function load() {
+    // 画面を開き直したら、また伏せる。開けっ放しにしない
+    apiEditing = false;
     Install.renderSettings();
     var p = Store.getProfile();
     var a = Store.getApiConfig();
@@ -74,7 +149,6 @@ var Settings = (function () {
     val('s-obon-to', p.obon_to || '08-16');
 
     val('s-douhan-deadline', p.douhan_deadline || '');
-    val('s-open-time', p.open_time || '');
 
     val('s-cooldown-contact', typeof p.cooldown_contact === 'number' ? p.cooldown_contact : 3);
     val('s-cooldown-invite', typeof p.cooldown_invite === 'number' ? p.cooldown_invite : 10);
@@ -86,12 +160,9 @@ var Settings = (function () {
 
     val('s-myrole', p.my_role || 'both');
     val('s-shimei', p.shimei_system || 'eikyu');
-    val('s-douhan-type', p.douhan_reward_type || 'none');
-    val('s-douhan-value', p.douhan_reward_value || 0);
     val('s-douhan-timeout', p.douhan_timeout_min || 0);
     val('s-douhan-quota', p.douhan_quota_monthly || 0);
-    val('s-gas-url', a.gas_url);
-    val('s-gas-token', a.token);
+    renderApi(a);
     val('s-lock-after', typeof p.lock_after_min === 'number' ? p.lock_after_min : 3);
     document.getElementById('btn-lock-set').textContent =
       Lock.isSet() ? '暗証番号を外す' : '暗証番号を決める';
@@ -109,8 +180,20 @@ var Settings = (function () {
     if (el) el.value = (v === null || v === undefined) ? '' : v;
   }
 
-  function num(id) { return parseInt(document.getElementById(id).value, 10) || 0; }
-  function str(id) { return document.getElementById(id).value.trim(); }
+  /* 画面から欄を減らしたとき、ここの読み取りを消し忘れると保存が丸ごと落ちる。
+   * 一度それで「設定を保存」が効かない状態を作ったので、欠けても止まらないようにする。 */
+  function num(id) {
+    var el = document.getElementById(id);
+    return el ? (parseInt(el.value, 10) || 0) : 0;
+  }
+  function str(id) {
+    var el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+  function sel(id, fallback) {
+    var el = document.getElementById(id);
+    return el ? el.value : fallback;
+  }
   function chk(id, v) { var el = document.getElementById(id); if (el) el.checked = !!v; }
   function on(id) { var el = document.getElementById(id); return !!(el && el.checked); }
 
@@ -151,16 +234,13 @@ var Settings = (function () {
     Store.saveGoal(period.key, { sales: UI.getMoney('s-target-sales'), douhan: num('s-target-douhan') });
 
     Store.saveProfile({
-      my_role: document.getElementById('s-myrole').value,
-      shimei_system: document.getElementById('s-shimei').value,
-      douhan_reward_type: document.getElementById('s-douhan-type').value,
-      douhan_reward_value: num('s-douhan-value'),
+      my_role: sel('s-myrole', 'kakari'),
+      shimei_system: sel('s-shimei', 'eikyu'),
       douhan_timeout_min: num('s-douhan-timeout'),
       douhan_quota_monthly: num('s-douhan-quota'),
       lock_after_min: Math.max(0, Math.min(120, num('s-lock-after'))),
 
       douhan_deadline: str('s-douhan-deadline'),
-      open_time: str('s-open-time'),
 
       cooldown_contact: Math.max(0, Math.min(30, num('s-cooldown-contact'))),
       cooldown_invite: Math.max(0, Math.min(60, num('s-cooldown-invite'))),
@@ -172,7 +252,7 @@ var Settings = (function () {
 
       configured: true
     });
-    Store.saveApiConfig({ gas_url: str('s-gas-url'), token: str('s-gas-token') });
+    saveApiFromForm();
     Store.clearDailyPlan();   // 目標が変われば段取りも変わる
     UI.toast('設定を保存しました');
   }
@@ -255,11 +335,14 @@ var Settings = (function () {
     return String(n);
   }
 
-  function testApi() {
-    var out = document.getElementById('api-test-result');
+  function testApi(outId) {
+    var out = document.getElementById(outId || 'api-test-result');
     out.className = 'test-result';
     out.textContent = '確認中…';
-    Store.saveApiConfig({ gas_url: str('s-gas-url'), token: str('s-gas-token') });
+    // 伏せているときは、しまってあるものでそのまま試す
+    if (!document.getElementById('api-open').hidden) {
+      Store.saveApiConfig({ gas_url: str('s-gas-url'), token: str('s-gas-token') });
+    }
 
     Api.ping().then(function (d) {
       out.className = 'test-result ok';
@@ -273,7 +356,7 @@ var Settings = (function () {
   function makeSetupLink() {
     var out = document.getElementById('setup-link');
     try {
-      Store.saveApiConfig({ gas_url: str('s-gas-url'), token: str('s-gas-token') });
+      saveApiFromForm();
       var link = Api.buildSetupLink();
       out.value = link;
       out.hidden = false;
@@ -310,7 +393,14 @@ var Settings = (function () {
 
   function init() {
     document.getElementById('btn-save-settings').addEventListener('click', save);
-    document.getElementById('btn-test-api').addEventListener('click', testApi);
+    document.getElementById('btn-test-api').addEventListener('click', function () { testApi('api-test-result'); });
+    document.getElementById('btn-test-api-2').addEventListener('click', function () { testApi('api-test-result-2'); });
+    document.getElementById('btn-api-edit').addEventListener('click', function () {
+      if (!UI.confirmAsk('つなぎ直します。\n\n合言葉をもう一度入れていただく必要があります。\nよろしいですか。')) return;
+      apiEditing = true;
+      renderApi(Store.getApiConfig());
+      document.getElementById('s-gas-token').focus();
+    });
     document.getElementById('btn-setup-link').addEventListener('click', makeSetupLink);
     document.getElementById('btn-lock-set').addEventListener('click', function () {
       Lock.startSetting();
