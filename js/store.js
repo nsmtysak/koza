@@ -759,7 +759,13 @@ var Store = (function () {
     var mine = all.filter(function (t) {
       if (t.customer_id !== customerId || t.intent !== 'invite') return false;
       if (t.result === 'came' || t.result === 'superseded') return false;
-      // 確認待ちのものも、来店が入れば「効いた」に戻す（遅れて記録されただけ）
+      /* **本人が「お越しにならなかった」と答えたものは、二度と触らない。**
+       * ここを開けておくと、あとから自分でお越しになった一晩が、
+       * 効かなかったお誘いの手柄に付け替えられる。
+       * そうして水増しされた「お声がけから来た組数」は、いずれ現場の実感と合わなくなり、
+       * 数字そのものが読まれなくなる。 */
+      if (t.result === 'missed') return false;
+      // 確認待ちのものは、来店が入れば「効いた」に戻す（遅れて記録されただけ）
       var gap = daysBetween(t.date, visitDate);
       return gap !== null && gap >= 0 && gap <= INVITE_WINDOW;
     }).sort(function (a, b) { return b.date.localeCompare(a.date); });

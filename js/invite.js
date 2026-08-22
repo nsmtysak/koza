@@ -187,13 +187,13 @@ var Invite = (function () {
       card.appendChild(txt);
 
       if (dr.why) {
-        var w = UI.el('p', 'card-body');
+        var w = UI.el('p', 'card-body whole');
         w.textContent = '効く理由：' + dr.why;
         card.appendChild(w);
       }
       if (dr.risk) {
         // 危うさを隠すと、外したときに理由が分からなくなる
-        var rk = UI.el('p', 'card-body risk');
+        var rk = UI.el('p', 'card-body risk whole');
         rk.textContent = '注意：' + dr.risk;
         card.appendChild(rk);
       }

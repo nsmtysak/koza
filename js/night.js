@@ -199,14 +199,21 @@ var Night = (function () {
     applyHint(r, hint);
     box.appendChild(hint);
 
-    /* 2行目：一言。ここがいちばん大事なので広く取る */
+    /* 2行目：一言。ここがいちばん大事なので広く取る。
+     * 枠を固定すると、3行目から下が箱の縁で切れて読めなくなる。
+     * 深夜に打った本人が、打った端から見えなくなるのがいちばん困る。 */
     var memo = UI.el('textarea');
     memo.rows = 2;
     memo.className = 'nrow-memo';
     memo.placeholder = '話したこと、覚えておきたいこと（そのままの言葉で）';
     memo.value = r.memo;
-    memo.addEventListener('input', function () { r.memo = memo.value; save(); countUp(); });
+    memo.style.overflow = 'hidden';
+    memo.addEventListener('input', function () {
+      r.memo = memo.value; save(); countUp(); grow(memo);
+    });
     box.appendChild(memo);
+    // 描かれてからでないと高さが取れない
+    setTimeout(function () { grow(memo); }, 0);
 
     /* 3行目：同伴だけは一等地に。ほかは畳む */
     var tog = UI.el('div', 'nrow-toggles');
@@ -223,6 +230,12 @@ var Night = (function () {
 
     if (r.open) box.appendChild(detailEl(r));
     return box;
+  }
+
+  /** 打った字数ぶんだけ伸ばす。切って隠さない */
+  function grow(ta) {
+    ta.style.height = 'auto';
+    ta.style.height = Math.max(64, ta.scrollHeight) + 'px';
   }
 
   function toggle(label, on, onChange) {

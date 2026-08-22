@@ -486,9 +486,11 @@ var Seed = (function () {
         events.push({ at: off, kind: 'visit', c: c, m: m, i: i, count: dates.length });
       });
 
-      // 外したお誘い。全部当たっているデータは嘘になる
+      /* 外したお誘い。全部当たっているデータは嘘になる。
+       * 古いところにだけ置くと、今月の答え合わせが100%になって、
+       * 数字そのものが信用されなくなる。半分は直近に落とす。 */
       if (m.owner === 'self' && chance(0.35)) {
-        var off2 = -ri(30, 120);
+        var off2 = chance(0.5) ? -ri(4, 26) : -ri(30, 120);
         var st2 = pickStyle(m, 0);
         events.push({
           at: off2, kind: 'invite', c: c, style: st2,

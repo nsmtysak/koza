@@ -364,7 +364,8 @@ var Home = (function () {
     card.appendChild(UI.el('p', 'card-reason', it.reason || ''));
 
     if (it.why_now) {
-      var w = UI.el('p', 'card-body');
+      // 逆算の理由。ここを2行で切ると、なぜ今日なのかが読めなくなる
+      var w = UI.el('p', 'card-body whole');
       w.style.color = 'var(--text-dim)';
       w.textContent = it.why_now;
       card.appendChild(w);
