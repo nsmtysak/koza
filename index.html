@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=31">
+<link rel="stylesheet" href="css/app.css?v=32">
 </head>
 <body>
 
@@ -155,6 +155,8 @@
       <button class="ghost small" id="board-add">予定を入れる</button>
     </div>
     <div id="board-days" class="board"></div>
+    <!-- 2週間より先に入った予定。ここに出さないと、盤面から消えたまま当日を迎える -->
+    <div id="board-far" hidden></div>
   </section>
 
   <section class="block">
@@ -289,11 +291,19 @@
 
 <!-- ========== 今夜の分（1画面・卓ごとに1行） ========== -->
 <section id="v-night" class="view" hidden>
-  <header class="vhead row">
-    <button class="back" id="night-back" aria-label="戻る">←</button>
-    <div>
-      <h1>今夜の分</h1>
-      <p class="today" id="night-date"></p>
+  <!-- スクロールしても付いてくる。10卓目を入れているときに「残す」を探して
+       上まで戻らせない。親指は画面の下にあるが、目は上にある。 -->
+  <header class="vhead nhead">
+    <div class="nhead-r">
+      <button class="back" id="night-back" aria-label="戻る">←</button>
+      <div class="nhead-t">
+        <h1>今夜の分</h1>
+        <p class="today" id="night-date"></p>
+      </div>
+    </div>
+    <div class="nhead-act">
+      <button class="ghost" id="night-add-top" type="button">＋ 卓を足す</button>
+      <button class="primary" id="night-save-top" type="button" disabled>残す</button>
     </div>
   </header>
 
@@ -757,27 +767,27 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=31"></script>
-<script src="js/store.js?v=31"></script>
-<script src="js/holiday.js?v=31"></script>
-<script src="js/insight.js?v=31"></script>
-<script src="js/plan.js?v=31"></script>
-<script src="js/api.js?v=31"></script>
-<script src="js/ui.js?v=31"></script>
-<script src="js/lock.js?v=31"></script>
-<script src="js/night.js?v=31"></script>
-<script src="js/record.js?v=31"></script>
-<script src="js/tidy.js?v=31"></script>
-<script src="js/scan.js?v=31"></script>
-<script src="js/people.js?v=31"></script>
-<script src="js/brief.js?v=31"></script>
-<script src="js/gifts.js?v=31"></script>
-<script src="js/board.js?v=31"></script>
-<script src="js/review.js?v=31"></script>
-<script src="js/invite.js?v=31"></script>
-<script src="js/home.js?v=31"></script>
-<script src="js/seed.js?v=31"></script>
-<script src="js/settings.js?v=31"></script>
-<script src="js/app.js?v=31"></script>
+<script src="js/db.js?v=32"></script>
+<script src="js/store.js?v=32"></script>
+<script src="js/holiday.js?v=32"></script>
+<script src="js/insight.js?v=32"></script>
+<script src="js/plan.js?v=32"></script>
+<script src="js/api.js?v=32"></script>
+<script src="js/ui.js?v=32"></script>
+<script src="js/lock.js?v=32"></script>
+<script src="js/night.js?v=32"></script>
+<script src="js/record.js?v=32"></script>
+<script src="js/tidy.js?v=32"></script>
+<script src="js/scan.js?v=32"></script>
+<script src="js/people.js?v=32"></script>
+<script src="js/brief.js?v=32"></script>
+<script src="js/gifts.js?v=32"></script>
+<script src="js/board.js?v=32"></script>
+<script src="js/review.js?v=32"></script>
+<script src="js/invite.js?v=32"></script>
+<script src="js/home.js?v=32"></script>
+<script src="js/seed.js?v=32"></script>
+<script src="js/settings.js?v=32"></script>
+<script src="js/app.js?v=32"></script>
 </body>
 </html>

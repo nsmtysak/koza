@@ -19,8 +19,7 @@
     if (name === 'people') People.renderList();
     if (name === 'gifts') Gifts.render();
     if (name === 'settings') Settings.load();
-    UI.show(name);
-    document.getElementById('fab').hidden = ['home', 'board', 'people', 'gifts'].indexOf(name) < 0;
+    UI.show(name);   // 丸ボタンの出し入れは UI.show が持っている
   }
 
   function init() {

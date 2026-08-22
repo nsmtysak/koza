@@ -91,12 +91,7 @@ var Night = (function () {
     var wrap = UI.clear(document.getElementById('night-rows'));
     state.rows.forEach(function (r, i) { wrap.appendChild(rowEl(r, i)); });
 
-    var filled = state.rows.filter(isFilled).length;
-    var btn = document.getElementById('night-save');
-    btn.textContent = filled ? '残す（' + filled + '卓）' : '残す';
-    btn.disabled = !filled;
-    document.getElementById('night-count').textContent =
-      filled ? filled + '卓ぶん入っています' : '';
+    countUp();
   }
 
   function isFilled(r) {
@@ -270,11 +265,19 @@ var Night = (function () {
     return d;
   }
 
+  /* 「残す」は上と下の2箇所にある。どちらも同じ顔をしていないと、
+   * 押した側が効かなかったのかと思わせる。必ず揃えて書き換える。 */
   function countUp() {
     var filled = state.rows.filter(isFilled).length;
-    var btn = document.getElementById('night-save');
-    btn.textContent = filled ? '残す（' + filled + '卓）' : '残す';
-    btn.disabled = !filled;
+
+    var btm = document.getElementById('night-save');
+    btm.textContent = filled ? '残す（' + filled + '卓）' : '残す';
+    btm.disabled = !filled;
+
+    var top = document.getElementById('night-save-top');
+    top.textContent = filled ? '残す（' + filled + '卓）' : '残す';
+    top.disabled = !filled;
+
     document.getElementById('night-count').textContent = filled ? filled + '卓ぶん入っています' : '';
   }
 
@@ -353,7 +356,9 @@ var Night = (function () {
       Home.refresh();
     });
     document.getElementById('night-add').addEventListener('click', addRow);
+    document.getElementById('night-add-top').addEventListener('click', addRow);
     document.getElementById('night-save').addEventListener('click', commit);
+    document.getElementById('night-save-top').addEventListener('click', commit);
     document.getElementById('night-clear').addEventListener('click', function () {
       if (!UI.confirmAsk('入力中の内容を捨てます。よろしいですか。')) return;
       clearDraft();

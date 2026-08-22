@@ -476,6 +476,23 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
 
 /* ---------- 今夜の分 ----------
  * 深夜1時、片手、5分。ここは速さが全て */
+/* 今夜の分のヘッダーは貼り付けにする。
+ * 卓が増えるほど「残す」が下へ逃げる。深夜に指で戻らせない。 */
+.nhead{
+  position:sticky;top:0;z-index:18;
+  margin:calc(-26px - env(safe-area-inset-top)) calc(var(--pad) * -1) 16px;
+  padding:calc(6px + env(safe-area-inset-top)) var(--pad) 10px;
+  background:rgba(16,15,13,.96);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--ink-3);
+}
+.nhead-r{display:flex;align-items:center;gap:8px}
+.nhead-r .back{height:44px;width:44px;flex:0 0 44px}
+.nhead-t h1{font-size:1.3rem;font-weight:600;margin:0;letter-spacing:.04em}
+.nhead-t .today{margin:0;font-size:.88rem}
+.nhead-act{display:flex;gap:9px;margin-top:7px}
+.nhead-act button{flex:1;min-height:44px;font-size:.93rem;padding:0 12px}
+.nhead-act .primary[disabled]{opacity:.4}
+
 .nrows{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
 .nrow{background:var(--ink-1);border:1px solid var(--ink-3);border-radius:var(--radius);padding:12px 13px}
 .nrow.is-open{border-color:var(--accent-deep)}

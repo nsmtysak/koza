@@ -128,6 +128,57 @@ var Board = (function () {
     });
   }
 
+  /**
+   * 2週間より先に入った予定。
+   *
+   * 盤面は14日ぶんしか描かない。締めまでに効く日を見るための道具だからで、
+   * そこは変えない。ただし、**入れた予定が画面のどこにも出ないのは別の話**。
+   * 3週間先にお約束をいただいた方が盤面から消えると、
+   *   ・その日が空いているつもりで別の方をお誘いしてしまう
+   *   ・当日まで思い出さない
+   * この2つが起きる。だから、盤面の下に畳んで置いておく。
+   */
+  function renderFar() {
+    var host = document.getElementById('board-far');
+    UI.clear(host);
+
+    var edge = Store.addDays(Store.today(), Plan.HORIZON);   // 盤面の最終日の翌日
+    var far = Store.openAppointments().filter(function (a) {
+      return a.date >= edge;
+    }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+
+    if (!far.length) { host.hidden = true; return; }
+    host.hidden = false;
+
+    var det = UI.el('details', 'raw');
+    det.appendChild(UI.el('summary', null, 'この先のご予定（' + far.length + '件）'));
+
+    var period = Store.periodOf(Store.today());
+    var note = UI.el('p', 'help');
+    note.style.margin = '10px 0 4px';
+    note.textContent = period.label + 'の見込みには入っていません。締めをまたぐ先のお約束です。';
+    det.appendChild(note);
+
+    far.forEach(function (a) {
+      var c = a.customer_id ? Store.getCustomer(a.customer_id) : null;
+      var row = UI.el('button', 'card');
+      row.type = 'button';
+      var top = UI.el('div', 'card-top');
+      top.appendChild(UI.el('div', 'card-name', c ? c.display_name : '（未定）'));
+      top.appendChild(UI.el('span', 'card-meta', UI.shortDate(a.date)));
+      row.appendChild(top);
+      var tags = UI.el('div', 'card-tags');
+      tags.appendChild(UI.chip(Store.CONFIDENCE[a.confidence] || '',
+        a.confidence === 'confirmed' ? 'gold' : null));
+      if (a.kind === 'douhan') tags.appendChild(UI.chip('同伴', 'gold'));
+      row.appendChild(tags);
+      row.addEventListener('click', function () { openDay(a.date); });
+      det.appendChild(row);
+    });
+
+    host.appendChild(det);
+  }
+
   /* ---------- 埋める候補 ---------- */
 
   var URGENCY = {
@@ -342,6 +393,7 @@ var Board = (function () {
     Store.settleOverdueInvites();
     renderProgress();
     renderDays();
+    renderFar();
     renderCandidates();
     renderDouhan();
     renderJonai();

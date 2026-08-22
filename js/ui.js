@@ -31,6 +31,12 @@ var UI = (function () {
     nav.hidden = ['lock', 'setup', 'record', 'confirm', 'scan', 'brief', 'person', 'night', 'tidy',
       'day', 'appt', 'invite', 'review'].indexOf(name) >= 0;
 
+    /* 記録に飛ぶ丸ボタンは、記録している最中には要らない。
+     * 入力欄の上に居座って、押す用のないものが親指の通り道をふさぐ。
+     * 出す画面をここで決めておく。個別の画面から消し忘れないようにするため。 */
+    document.getElementById('fab').hidden =
+      ['home', 'board', 'people', 'gifts'].indexOf(name) < 0;
+
     document.querySelectorAll('.navbtn').forEach(function (b) {
       b.classList.toggle('is-on', b.dataset.go === name);
     });
