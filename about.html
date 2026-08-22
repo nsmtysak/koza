@@ -20,7 +20,18 @@ body{background:var(--ink-0);color:var(--text);font-family:var(--font);
   font-size:16.5px;line-height:1.85;letter-spacing:.01em}
 .wrap{max-width:620px;margin:0 auto;padding:0 22px 90px}
 
-header.top{padding:56px 0 34px;text-align:center;border-bottom:1px solid var(--ink-3)}
+/* 戻り道。ホーム画面から立ち上げると、ブラウザの戻るボタンが無いことがある。
+ * 出口の無い画面を作らない。 */
+.backbar{
+  position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;
+  min-height:52px;padding:0 22px;margin:0 -22px;
+  background:var(--ink-0);border-bottom:1px solid var(--ink-3);
+  color:var(--accent);text-decoration:none;font-size:.95rem;letter-spacing:.04em;
+}
+.backbar:active{background:var(--ink-1)}
+.backbar span{font-size:1.15rem;line-height:1}
+
+header.top{padding:44px 0 34px;text-align:center;border-bottom:1px solid var(--ink-3)}
 .brand{font-family:var(--display);font-size:2.9rem;letter-spacing:.14em;
   color:var(--accent);margin:0 0 6px}
 .brand-sub{color:var(--text-faint);font-size:.8rem;letter-spacing:.3em;margin:0 0 20px}
@@ -35,6 +46,14 @@ p{margin:14px 0}
 .dim{color:var(--text-dim)}
 .faint{color:var(--text-faint);font-size:.9rem}
 strong{color:var(--accent);font-weight:600}
+
+.actions-back{margin:52px 0 0}
+.backlink{
+  display:flex;align-items:center;justify-content:center;min-height:56px;
+  border:1px solid var(--ink-3);border-radius:14px;
+  color:var(--text-dim);text-decoration:none;font-size:1rem;letter-spacing:.04em;
+}
+.backlink:active{background:var(--ink-1)}
 
 .pull{font-family:var(--display);font-size:1.24rem;line-height:1.9;
   border-left:2px solid var(--accent);padding:4px 0 4px 18px;margin:26px 0;color:var(--text)}
@@ -77,6 +96,10 @@ footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--ink-3);
 </head>
 <body>
 <div class="wrap">
+
+<a class="backbar" id="backbar" href="index.html">
+  <span aria-hidden="true">&#8592;</span> アプリに戻る
+</a>
 
 <header class="top">
   <h1 class="brand">Kōza</h1>
@@ -258,11 +281,24 @@ footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--ink-3);
 
 <p class="dim">夜3分。朝1タップ。出勤前に段取りを受け取る。<br>これだけ回れば、あとは数字がついてきます。</p>
 
-<footer>
-  Kōza — 高級クラブのホステスのための行動アプリ<br>
-  <span style="opacity:.6">この説明書は端末に保存できます</span>
-</footer>
+<div class="actions-back">
+  <a class="backlink" href="index.html">&#8592; アプリに戻る</a>
+</div>
+
+<footer>Kōza</footer>
 
 </div>
+
+<script>
+/* アプリの中から開いたときは、読み込み直さずに戻る。
+ * ホーム画面から直に開いたときだけ、index.html へ行く。 */
+(function () {
+  var same = document.referrer && document.referrer.indexOf(location.origin) === 0;
+  if (!same) return;
+  [].slice.call(document.querySelectorAll('#backbar, .backlink')).forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); history.back(); });
+  });
+})();
+</script>
 </body>
 </html>
