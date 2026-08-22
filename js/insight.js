@@ -157,7 +157,10 @@ var Insight = (function () {
       (c.family || []).forEach(function (f) {
         var fd = daysUntilAnniversary(f.birthday);
         if (fd !== null && fd <= 7) {
-          reasons.push({ score: 70 - fd, text: (f.name || f.relation) + '様のお誕生日まであと' + fd + '日', tag: '家族' });
+          // 続柄には様が付いている。足すと「奥様様」になる
+          var who = (f.name || '').trim();
+          who = who ? (/(様|さん)$/.test(who) ? who : who + '様') : f.relation;
+          reasons.push({ score: 70 - fd, text: who + 'のお誕生日まであと' + fd + '日', tag: '家族' });
         }
       });
 

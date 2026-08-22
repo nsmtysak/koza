@@ -16,6 +16,18 @@ var Gifts = (function () {
     return m ? { m: parseInt(m[1], 10), d: parseInt(m[2], 10) } : null;
   }
 
+  /**
+   * ご家族の呼び方。
+   * 続柄はもともと「奥様」「お母様」のように様が付いている。
+   * そこへ機械的に様を足すと「奥様様」になる。贈答の宛名に出る名前なので、ここは崩せない。
+   */
+  function familyLabel(c, f) {
+    var nm = (f.name || '').trim();
+    if (!nm) return c.display_name + 'の' + f.relation;
+    if (!/(様|さん)$/.test(nm)) nm += '様';
+    return nm + '（' + c.display_name + 'の' + f.relation + '）';
+  }
+
   /** その月の記念日を集める。お誕生日・ご家族・初めてお越しいただいた日 */
   function anniversariesIn(month) {
     var out = [];
@@ -27,8 +39,7 @@ var Gifts = (function () {
       (c.family || []).forEach(function (f) {
         var fb = md(f.birthday);
         if (fb && fb.m === month) {
-          out.push({ customer: c, day: fb.d, kind: 'お誕生日',
-            who: (f.name || f.relation) + '様（' + c.display_name + 'の' + f.relation + '）' });
+          out.push({ customer: c, day: fb.d, kind: 'お誕生日', who: familyLabel(c, f) });
         }
       });
       var fm = md(c.first_met);
