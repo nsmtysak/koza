@@ -1375,6 +1375,10 @@ var Store = (function () {
   };
   var PRICE_DEFAULT = { in: 3, out: 15 };   // 分からない型番は高いほうで見積もる
 
+  /* 安いほう（haiku）で動かしている用途。gas/Code.gs の model('fast') と揃える。
+   * ここがずれると、画面に出る額だけが実際の何倍にもなる。 */
+  var FAST_MODES = ['structure', 'card', 'hooks'];
+
   function usageMonth(iso) { return (iso || today()).slice(0, 7); }
 
   function recordUsage(mode, u) {
@@ -1404,9 +1408,7 @@ var Store = (function () {
 
     var usd = 0;
     Object.keys(mon.by).forEach(function (k) {
-      // 用途ごとに使う型番が違う。整理と名刺は安いほう
-      var p = (k === 'structure' || k === 'card') ? PRICE['claude-haiku-4-5'] : PRICE['claude-sonnet-5'];
-      p = p || PRICE_DEFAULT;
+      var p = PRICE[FAST_MODES.indexOf(k) >= 0 ? 'claude-haiku-4-5' : 'claude-sonnet-5'] || PRICE_DEFAULT;
       usd += (mon.by[k].in / 1e6) * p.in + (mon.by[k].out / 1e6) * p.out;
     });
 

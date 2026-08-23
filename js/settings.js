@@ -366,7 +366,8 @@ var Settings = (function () {
     wrap.appendChild(ul);
 
     wrap.appendChild(UI.el('p', 'help',
-      '「送った量→返ってきた量」です。費用は1ドル155円で見た概算で、実際の請求はAnthropicの管理画面が正です。'));
+      '「送った量→返ってきた量」です。費用は1ドル155円で見た概算で、' +
+      '「お店を調べる」の検索料は含めていません。実際の請求はAnthropicの管理画面が正です。'));
   }
 
   function fmt(n) {
