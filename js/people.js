@@ -460,10 +460,13 @@ var People = (function () {
       var sb = UI.el('div', 'brief-sec');
       sb.appendChild(UI.el('h3', null, '席で伺うために、覚えておくこと'));
       sb.appendChild(UI.el('p', 'help',
-        'ご趣味の分野です。少し知っていると、一歩踏み込んで伺えます。'));
+        '下の分野を押すと、席で使えるところだけをまとめます。'));
       var row = UI.el('div', 'card-tags');
       ints.slice(0, 6).forEach(function (t) {
-        var b = UI.el('button', 'ghost small', t + (Store.getStudy(t) ? '　用意済み' : ''));
+        /* 分野名だけだと、ほかの画面の趣味タグと見分けがつかず、押すものだと分からない。
+         * 動詞まで書くと、はじめて押せるものに見える */
+        var b = UI.el('button', 'ghost small study-go',
+          t + (Store.getStudy(t) ? 'を読む' : 'を覚える'));
         b.type = 'button';
         b.addEventListener('click', function () { Study.open(t); });
         row.appendChild(b);

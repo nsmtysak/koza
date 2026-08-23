@@ -470,8 +470,23 @@ var Plan = (function () {
    * 声かけ候補ごとに「狙う日」と「声をかける締切」を出す。
    * ここが「今日のお客様づくりは今日ではない」の中身。
    */
+  /* 逆算の結果を、一度だけ数える。
+   *
+   * 枠の画面はこれを三度呼んでいた（狙う日の数え上げ・届くかの判定・候補の一覧）。
+   * ひとつ数えるのに全お客様ぶんの間隔と割合と空き日を回すので、
+   * 50名で1.2秒、100名で4秒かかっていた。**開かれない画面は無いのと同じ。**
+   *
+   * 記録が変わっていない間は、前の結果をそのまま返す。
+   * 変わったかどうかは Store が数えている（保存のたびに増える番号）。 */
+  var candCache = null, candRev = -1, candDay = '';
+
   function candidates(limit) {
     var t0 = Store.today();
+
+    if (candCache && candRev === Store.revision() && candDay === t0) {
+      return limit ? candCache.slice(0, limit) : candCache;
+    }
+
     var days = board(HORIZON);
     var reasons = {};
     Insight.callList().forEach(function (x) { reasons[x.customer.id] = x; });
@@ -589,6 +604,9 @@ var Plan = (function () {
     });
 
     lastHeld = held;
+    candCache = out;
+    candRev = Store.revision();
+    candDay = t0;
     return limit ? out.slice(0, limit) : out;
   }
 

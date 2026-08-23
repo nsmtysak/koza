@@ -599,7 +599,9 @@ var Record = (function () {
     }).filter(function (d) { return d.item; }) : [];
 
     var timing = document.getElementById('f-next').value.trim();
-    var spendRaw = document.getElementById('f-spend').value.replace(/[^\d]/g, '');
+    // 「8万」のまま保存を押されても正しく読む。数字だけ抜くと 8 円になる
+    var spendEl = document.getElementById('f-spend');
+    var spendRaw = spendEl.value.trim() === '' ? '' : String(UI.parseMoney(spendEl.value));
 
     var fields = {
       date: document.getElementById('f-date').value || Store.today(),
@@ -629,7 +631,10 @@ var Record = (function () {
           draft.next_visit_hint.confidence !== 'none') ? draft.next_visit_hint.confidence : 'implied'
       } : {},
       brief_id: briefIdForVisit,
-      ai_structured: !draft._offline
+      /* 既に残っている卓を開いて直したなら、本人が中身を見たということ。
+       * ここを立てないと、手で全部直しても「まだ整理していない」の督促が残り続ける。
+       * 印の意味は「AIが組み立てた」ではなく「未整理かどうか」である。 */
+      ai_structured: editingId ? true : !draft._offline
     };
 
     if (editingId) Store.updateVisit(editingId, fields);

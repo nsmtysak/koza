@@ -70,13 +70,19 @@ var Home = (function () {
         ? 'AIが中身を組み立てて、ご家族や趣味の書き足し、次のご来店の予定まで拾います。'
         : 'AIの接続を入れると、中身の組み立てまでできます。このままでも記録は残っています。'));
 
-    if (Api.isConfigured()) {
-      var b = UI.el('button', 'primary full', 'まとめて整理する（' + list.length + '卓）');
-      b.type = 'button';
-      b.style.marginTop = '12px';
-      b.addEventListener('click', function () { Tidy.open(); });
-      host.appendChild(b);
-    }
+    /* AIが繋がっていなくても、ここへ入れるようにしておく。
+     *
+     * 整理の画面には「整理しないまま確定にする」という逃げ道が用意してある。
+     * ところがボタンをAI接続時だけ出していたので、**その逃げ道へ行く道が無かった。**
+     * 結果、繋いでいない間は督促が毎晩積み上がり、消す手段が無い。 */
+    var b = UI.el('button', 'primary full',
+      Api.isConfigured()
+        ? 'まとめて整理する（' + list.length + '卓）'
+        : '確認して確定にする（' + list.length + '卓）');
+    b.type = 'button';
+    b.style.marginTop = '12px';
+    b.addEventListener('click', function () { Tidy.open(); });
+    host.appendChild(b);
     host.hidden = false;
   }
 
@@ -194,7 +200,8 @@ var Home = (function () {
         var row = UI.el('div', 'card-tags guest-study');
         row.appendChild(UI.el('span', 'help', '席で伺うために：'));
         ints.forEach(function (t) {
-          var b = UI.el('button', 'ghost small', t + (Store.getStudy(t) ? '　用意済み' : ''));
+          var b = UI.el('button', 'ghost small study-go',
+            t + (Store.getStudy(t) ? 'を読む' : 'を覚える'));
           b.type = 'button';
           b.addEventListener('click', function (ev) {
             ev.stopPropagation();

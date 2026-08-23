@@ -734,6 +734,25 @@ var Board = (function () {
       note: document.getElementById('appt-note').value.trim()
     };
 
+    /* 同伴は1日に1組しか成り立たない。
+     * お食事をご一緒してから入店する以上、体はひとつしかない。
+     * 候補を出す側（douhanPlan）は1日1組を守っているのに、
+     * 手で入れる側は素通りしていた。片方だけ守っても意味がない。 */
+    if (fields.kind === 'douhan') {
+      var already = Store.appointmentsOn(date).filter(function (a) {
+        return a.kind === 'douhan' && !a.closed && (!editing || a.id !== editing.id);
+      });
+      if (already.length) {
+        var who = already.map(function (a) {
+          var x = a.customer_id ? Store.getCustomer(a.customer_id) : null;
+          return x ? x.display_name : '（お名前なし）';
+        }).join('、');
+        if (!UI.confirmAsk('この日はすでに ' + who + 'と同伴のご予定が入っています。\n\n' +
+          'お食事をご一緒してから入店する以上、同じ日に二組は難しいはずです。\n' +
+          'それでも入れますか。')) return;
+      }
+    }
+
     // 鉢合わせは、起きてからでは取り返せない
     var clash = Plan.clashOn(date, cid);
     if (clash) {

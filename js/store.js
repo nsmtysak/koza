@@ -32,22 +32,71 @@ var Store = (function () {
 
   /* ---------- 基本 ---------- */
 
+  /* 読み書きが失敗したことを、黙って飲み込まない。
+   *
+   * 以前は read も write も静かに諦めていた。そのせいで二つの壊れ方があった。
+   *   一つ  保存できていないのに「残しました」と出て、一晩ぶんが消えた
+   *   二つ  記録が読めなくなったとき、空として扱い、**次の保存で全部上書きした**
+   * どちらも本人に気づく手立てが無い。**記録を預かる道具として、これが最悪の壊れ方である。**
+   *
+   * だから、失敗したら必ず画面に出す。そして**読めなかった鍵には書かない。** */
+  var broken = {};      // 読めなくなった鍵。ここへの上書きは止める
+  var told = {};        // 同じ知らせを何度も出さない
+
+  /* 中身が変わった回数。
+   * 逆算は重い（全お客様ぶんの間隔・割合・空き日を毎回数える）。
+   * 一つの画面で三度も同じ計算をしていたので、変わっていない間は使い回す。
+   * その「変わったかどうか」をここで数える。 */
+  var rev = 0;
+  function revision() { return rev; }
+
+  function alarm(msg) {
+    // Store は UI より先に読み込まれるので、あるときだけ使う
+    if (typeof UI !== 'undefined' && UI.toast) UI.toast(msg, true);
+    else if (typeof window !== 'undefined' && window.alert) window.alert(msg);
+  }
+
   function read(key, fallback) {
-    try {
-      var raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (e) {
+    // 一度読めなかった鍵は、読み直さない。画面を描くたびに同じ例外が積み上がる
+    if (broken[key]) return fallback;
+
+    var raw;
+    try { raw = localStorage.getItem(key); }
+    catch (e) {
       console.warn('読み込みに失敗:', key, e);
+      broken[key] = true;
+      return fallback;
+    }
+    if (!raw) return fallback;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      /* 中身が壊れている。**空として扱ってはいけない。**
+       * 空のまま書き戻せば、読めなかっただけの記録が本当に消える。 */
+      console.error('記録を読み取れません:', key, e);
+      broken[key] = true;
+      if (!told[key]) {
+        told[key] = true;
+        alarm('記録の一部を読み取れませんでした。新しく書き込むのを止めています。書き出しの控えから戻してください');
+      }
       return fallback;
     }
   }
 
   function write(key, value) {
+    if (broken[key]) {
+      // 読めていないものの上に書かない。壊れた記録を確定させてしまう
+      alarm('この記録は読み取れない状態です。上書きを止めました');
+      return false;
+    }
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      rev += 1;   // 中身が変わった。計算し直すべき目印
       return true;
     } catch (e) {
       console.error('保存に失敗:', key, e);
+      // 容量が尽きたときがほとんど。黙って「残しました」と言わせない
+      alarm('保存できませんでした。端末の空きが足りないおそれがあります。書き出してから、古い記録を整理してください');
       return false;
     }
   }
@@ -580,7 +629,9 @@ var Store = (function () {
     };
     var all = read(K.visits, []);
     all.push(v);
-    write(K.visits, all);
+    /* 保存できなければ、来歴を作ったことにしない。
+     * ここで進んでしまうと「残しました」と出たのに何も残らない。 */
+    if (!write(K.visits, all)) return null;
 
     // 来ていただけた。誘いと予定に決着をつける（逆算の精度はここで決まる）
     (v.attendees || []).forEach(function (a) {
@@ -651,10 +702,30 @@ var Store = (function () {
     return n;
   }
 
+  /* お客様ごとの索引。
+   *
+   * ここは一日に何百回も呼ばれる（間隔・割合・期待額・候補・段取り…）。
+   * 以前は毎回、記録を全部読み直して並べ替えてから絞っていた。
+   * 500件・100名になると、それだけで枠の画面が4秒かかっていた。
+   * **開かれない画面は、無いのと同じ。**
+   *
+   * 記録が変わったときだけ作り直す（Store が版を数えている）。 */
+  var vIndex = null, vIndexRev = -1;
+
   function visitsOf(customerId) {
-    return listVisits().filter(function (v) {
-      return (v.attendees || []).some(function (a) { return a.customer_id === customerId; });
-    });
+    if (!vIndex || vIndexRev !== rev) {
+      vIndex = {};
+      listVisits().forEach(function (v) {
+        (v.attendees || []).forEach(function (a) {
+          if (!a.customer_id) return;
+          if (!vIndex[a.customer_id]) vIndex[a.customer_id] = [];
+          vIndex[a.customer_id].push(v);
+        });
+      });
+      vIndexRev = rev;
+    }
+    // 呼び出し側が並べ替えても索引が崩れないよう、写しを返す
+    return (vIndex[customerId] || []).slice();
   }
 
   /** よく一緒に来る人（共起回数順） */
@@ -751,8 +822,19 @@ var Store = (function () {
     return read(K.touches, []).sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
 
+  var tIndex = null, tIndexRev = -1;
+
   function touchesOf(customerId) {
-    return listTouches().filter(function (t) { return t.customer_id === customerId; });
+    if (!tIndex || tIndexRev !== rev) {
+      tIndex = {};
+      listTouches().forEach(function (t) {
+        if (!t.customer_id) return;
+        if (!tIndex[t.customer_id]) tIndex[t.customer_id] = [];
+        tIndex[t.customer_id].push(t);
+      });
+      tIndexRev = rev;
+    }
+    return (tIndex[customerId] || []).slice();
   }
 
   /* 誘いの型は無くした。
@@ -1457,7 +1539,7 @@ var Store = (function () {
   }
 
   return {
-    uid: uid, today: today, daysBetween: daysBetween,
+    uid: uid, today: today, daysBetween: daysBetween, revision: revision,
     addDays: addDays, weekdayOf: weekdayOf, toISO: toISO,
     TOUCH_KINDS: TOUCH_KINDS,
     ACCOUNT_LABELS: ACCOUNT_LABELS, isMyAccount: isMyAccount,

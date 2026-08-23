@@ -111,11 +111,20 @@ var Night = (function () {
   }
 
   /**
-   * お名前の照合結果を出す。
+   * 打たれたお名前を、どなたに結び付けるか。
    *
-   * **同じ苗字が複数いるときに黙って新規を作らない。**
-   * 田中様が2人いる店で「田中」と打つと、3人目の田中様が黙って増える。
-   * 一度分裂すると、来歴も平均日数も割合も全部壊れる。
+   * **この仕事でいちばん重い事故が、ここで起きる。**
+   * 田中様が二人いる店で、黙って先頭の方に付けてしまうと、
+   * 乙社の田中様が話されたご息女のことが、甲社の田中様の宿題として残る。
+   * そのまま次のお声がけの起点になれば、身に覚えのない話を振ることになり、
+   * 本人には気づく手がかりが一つもない。
+   *
+   * だから順番はこうする。
+   *   1. すでに本人が選んでおられるなら、**その方を動かさない**
+   *   2. 同じ苗字が複数いるなら、**名前が完全に一致していても訊く**
+   *   3. 一人しかいないときだけ、黙って結び付ける
+   *
+   * 以前は 1 と 2 が無く、選んだ2人目が再描画のたびに1人目へ化けていた。
    */
   function applyHint(r, hint) {
     UI.clear(hint);
@@ -123,21 +132,34 @@ var Night = (function () {
     var nm = (r.name || '').trim();
     if (!nm) return;
 
-    var m = Store.matchCustomer({ display_name: nm, name: nm });
-    if (m) {
-      r.customer_id = m.id;
-      hint.className = 'nrow-hint ok';
-      hint.textContent = '既存の ' + m.display_name + (m.company ? '（' + m.company + '）' : '');
-      return;
+    /* 1. 本人が選ばれた方は、照合し直さない。
+     *    ここで matchCustomer を通すと、選択が毎回上書きされる。 */
+    if (r.customer_id) {
+      var chosen = Store.getCustomer(r.customer_id);
+      if (chosen) {
+        hint.className = 'nrow-hint ok';
+        hint.textContent = '既存の ' + chosen.display_name + (chosen.company ? '（' + chosen.company + '）' : '');
+        return;
+      }
+      r.customer_id = null;   // 消された方。選び直していただく
     }
 
+    /* 2. 同じ苗字が複数。**完全に一致していても訊く。**
+     *    「大森様」が二人いる店で、名前が合っているからと先頭に付けてはいけない。 */
     var cands = Store.candidates(nm.replace(/(様|さん)$/, ''));
     if (cands.length > 1) {
       hint.className = 'nrow-hint pick';
       hint.appendChild(UI.el('span', null, '同じ苗字の方が' + cands.length + '名います。どちらですか'));
       var row = UI.el('div', 'nrow-pick');
       cands.slice(0, 4).forEach(function (c) {
-        var b = UI.el('button', 'chip gold', c.display_name + (c.company ? '／' + c.company : ''));
+        /* 会社が同じだと「田中様／大阪商事」が二つ並んで見分けがつかない。
+         * 前回いつお越しになったかを添えると、その晩の記憶で選べる。 */
+        var last = Store.visitsOf(c.id)[0];
+        var mark = c.display_name + (c.company ? '／' + c.company : '');
+        if (last) mark += '／前回 ' + UI.shortDate(last.date);
+        else mark += '／未来店';
+
+        var b = UI.el('button', 'chip gold', mark);
         b.type = 'button';
         b.addEventListener('click', function () {
           r.customer_id = c.id;
@@ -155,6 +177,15 @@ var Night = (function () {
       });
       row.appendChild(nw);
       hint.appendChild(row);
+      return;
+    }
+
+    // 3. お一人しかいない。ここで初めて黙って結び付けてよい
+    var m = Store.matchCustomer({ display_name: nm, name: nm });
+    if (m) {
+      r.customer_id = m.id;
+      hint.className = 'nrow-hint ok';
+      hint.textContent = '既存の ' + m.display_name + (m.company ? '（' + m.company + '）' : '');
       return;
     }
 
@@ -228,6 +259,8 @@ var Night = (function () {
     spend.value = r.spend ? UI.commas(r.spend) : '';
     UI.moneyInput(spend);
     spend.addEventListener('input', function () { r.spend = spend.value; save(); countUp(); });
+    // 「8万」は欄を離れたときに 80,000 になる。そこも拾わないと下書きに 8 が残る
+    spend.addEventListener('blur', function () { r.spend = spend.value; save(); countUp(); });
     head.appendChild(spend);
 
     var x = UI.el('button', 'nrow-x', '×');
@@ -383,7 +416,7 @@ var Night = (function () {
     var rows = state.rows.filter(isFilled);
     if (!rows.length) return;
 
-    var made = 0;
+    var made = 0, failed = 0;
     rows.forEach(function (r) {
       var attendees = [];
       var nm = r.name.trim();
@@ -431,7 +464,7 @@ var Night = (function () {
         }
       }
 
-      Store.addVisit({
+      var v = Store.addVisit({
         date: state.date,
         attendees: attendees,
         my_role: r.help ? 'help' : (Store.getProfile().my_role === 'help' ? 'help' : 'kakari'),
@@ -448,8 +481,16 @@ var Night = (function () {
         hooks: [],
         ai_structured: false        // 整理は翌日。ここが未整理の目印
       });
-      made += 1;
+      if (v) made += 1; else failed += 1;
     });
+
+    /* 一卓でも保存できなかったら、**下書きを消さない。**
+     * 消してしまえば、その晩の入力は取り戻せない。
+     * 「残しました」と出して何も残っていないのが、いちばん困る壊れ方である。 */
+    if (failed) {
+      UI.toast(failed + '卓ぶんが保存できませんでした。入力はそのまま残してあります', true);
+      return;
+    }
 
     clearDraft();
     state = null;

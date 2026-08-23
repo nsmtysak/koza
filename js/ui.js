@@ -2,8 +2,11 @@
 var UI = (function () {
   'use strict';
 
+  /* 画面を足したら、**必ずここにも足すこと。**
+   * ここに無い画面は UI.show() で開いても hidden のままになり、真っ白になる。
+   * 一度それで、新しく作った画面がまるごと死んだ（study の登録漏れ）。 */
   var VIEWS = ['lock', 'setup', 'home', 'board', 'day', 'appt', 'invite', 'people', 'person', 'night', 'tidy',
-    'record', 'confirm', 'scan', 'gifts', 'settings', 'brief', 'review'];
+    'record', 'confirm', 'scan', 'gifts', 'settings', 'brief', 'study', 'review'];
   var current = 'home';
   var stack = [];
   var toastTimer = null;
@@ -192,8 +195,35 @@ var UI = (function () {
    * type="number" ではカンマを入れられないので text＋数字キーボードにする。
    */
 
+  /**
+   * 打たれた金額を読む。
+   *
+   * **深夜1時に「8万」と打つのが、いちばんありそうな入れ方である。**
+   * 以前はここで数字以外を全部落としていたので、
+   *   「8万」   → 8円
+   *   「９万」  → 0円（全角なので数字ごと消える）
+   * になっていた。しかも警告が出ないので、消えたことに気づけない。
+   * iPhoneのかな入力では全角数字が普通に出る。
+   */
   function parseMoney(v) {
-    var n = parseInt(String(v == null ? '' : v).replace(/[^\d-]/g, ''), 10);
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return 0;
+
+    // 全角の数字と記号を、半角に直す
+    s = s.replace(/[０-９]/g, function (c) {
+      return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+    }).replace(/[．。]/g, '.').replace(/[，、]/g, '').replace(/[ー－]/g, '-');
+
+    /* 「万」「千」で終わる形だけを、単位として読む。
+     * 「8万5」のような途中の形まで解こうとすると、
+     * 「8万50」を80,050と読むか85,000と読むかが決められない。
+     * 決められないものを機械が決めると、黙って違う額が残る。 */
+    var m = s.match(/^(-?[\d.]+)\s*万\s*$/);
+    if (m) return Math.round(parseFloat(m[1]) * 10000);
+    m = s.match(/^(-?[\d.]+)\s*千\s*$/);
+    if (m) return Math.round(parseFloat(m[1]) * 1000);
+
+    var n = parseInt(s.replace(/[^\d-]/g, ''), 10);
     return isFinite(n) ? n : 0;
   }
 
@@ -211,15 +241,33 @@ var UI = (function () {
     el.inputMode = 'numeric';
     el.autocomplete = 'off';
 
+    /* 打っている途中は触らない。
+     * 「8万」と打つ間に「8」で整形してしまうと、「万」を打つ前に数字だけになる。
+     * 全角や「万」が混じっているうちは、そのまま打たせて、離れたときに直す。 */
+    function typing() {
+      return /[^\d,]/.test(el.value);
+    }
+
     function format() {
+      if (typing()) return;
       var caretFromEnd = el.value.length - (el.selectionStart || el.value.length);
       var raw = el.value.replace(/[^\d]/g, '');
       el.value = raw ? parseInt(raw, 10).toLocaleString('ja-JP') : '';
       var pos = Math.max(0, el.value.length - caretFromEnd);
       try { el.setSelectionRange(pos, pos); } catch (e) { /* 数字キーボードでは効かないことがある */ }
     }
+
+    /* 欄を離れたときに、はじめて確定させる。
+     * ここで「8万」が 80,000 になる。目で見て確かめられる。 */
+    function settle() {
+      var v = el.value.trim();
+      if (!v) { el.value = ''; return; }
+      var n = parseMoney(v);
+      el.value = n ? n.toLocaleString('ja-JP') : '';
+    }
+
     el.addEventListener('input', format);
-    el.addEventListener('blur', format);
+    el.addEventListener('blur', settle);
     return el;
   }
 

@@ -49,6 +49,12 @@ body{
 }
 
 .view{padding:calc(26px + env(safe-area-inset-top)) var(--pad) 28px;max-width:680px;margin:0 auto}
+/* hidden は必ず効かせる。
+ * flex や grid を持つ要素は、ブラウザ既定の [hidden]{display:none} に勝ってしまう。
+ * それで「同伴のときだけ出す」欄が常に出ていた（JSは正しく付け外ししていた）。
+ * クラスごとに書き足していく作りだと、また同じ取りこぼしが起きる。 */
+[hidden]{display:none !important}
+
 .view[hidden]{display:none}
 
 .vhead{margin-bottom:24px}
@@ -422,6 +428,9 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
 .bd-mid{flex:1;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
 /* 今日お会いする方の、ご趣味への入口。カードの下にぶら下げる */
 .guest-study{margin:-4px 0 4px;padding:0 2px;align-items:center}
+/* 分野の手引きへの入口。趣味タグと見分けがつかないと、押すものだと分からない */
+.study-go{border-color:var(--accent-deep);color:var(--accent)}
+.study-go::after{content:'›';margin-left:6px;opacity:.7}
 .guest-study .help{margin-right:2px}
 
 .bd-empty{color:var(--text-faint);font-size:.88rem}
