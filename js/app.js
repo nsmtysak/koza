@@ -38,6 +38,7 @@
     Board.init();
     Review.init();
     Invite.init();
+    Study.init();
     Home.init();
     Settings.init();
     Lock.init();

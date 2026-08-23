@@ -1,13 +1,15 @@
 /* Kōza v2 — GASプロキシ経由でClaude APIを呼ぶ
  * APIキーはGASのスクリプトプロパティにのみ置く。ここが知るのはURLと合言葉だけ。
  *
- * 6つの用途がある。
+ * 5つの用途がある。
  *   structure  話し言葉 → 来歴＋プロフィール追記＋来店予定の候補
  *   card       名刺の画像 → 顧客情報
  *   brief      これまでの履歴 → 会う前の準備と、次の口実を作る質問
  *   plan       目標・不足・盤面 → 今日と数日先にやること（逆算）
- *   drafts     その段取りで送る文だけ。plan と分けて待ち時間を半分にしている
- *   invite     会話の記録 → お誘いの文面を型ごとに3案
+ *   hooks      会話の記録 → その方に、いま何から話しかけられるか
+ *
+ * **お客様に届く文は、もうどこでも作らない。**
+ * きっかけまでが機械の仕事で、そこから先は本人の仕事である。
  */
 var Api = (function () {
   'use strict';
@@ -118,7 +120,6 @@ var Api = (function () {
 
     var payload = {
       mode: 'plan',
-      want_draft: false,   // 文面は planDrafts で別に取る。先に段取りを見せたい
       today: Store.today(),
       weekday: Store.weekdayOf(Store.today()),
       context: contextForAi(),
@@ -133,6 +134,12 @@ var Api = (function () {
         booked: p.booked,
         forecast: p.forecast,
         gap: p.gap,
+        /* この候補で締めまでにいくら見込めるか。**締めをまたぐ分は入れない。**
+         * 混ぜて渡していたころは、AIが「これで届きます」と書いてしまっていた。 */
+        candidates_in_period: f.expected_in_period,
+        candidates_next_period: f.expected_next,
+        covers_gap: f.covers_gap,
+        shortfall: f.shortfall,
         days_left: p.days_left,
         average_spend: p.average_spend,
         need_visits: p.need_visits,
@@ -188,9 +195,6 @@ var Api = (function () {
           days_since: x.days_since,
           average_interval: x.average_interval,
           visit_count: x.visit_count,
-          best_style: x.best_style ? x.best_style.style : '',
-          // 直近に使った型。続けて同じ手を出すと、まずテンプレだと気づかれる
-          recent_styles: Plan.recentStyles(x.customer.id, 2),
           // 段取りと準備で言うことが食い違わないよう、同じ計算を両方に渡す
           watch_signs: Plan.watchSigns(x.customer.id),
           hooks: x.hooks,
@@ -204,92 +208,75 @@ var Api = (function () {
     return post(payload, 180000);
   }
 
-  /* ---------- 送る文だけを、あとから ----------
+  /* ---------- 分野の手引き ----------
    *
-   * 段取りと文面をひとつのお願いにまとめると、返事が出そろうまで1分近く待たされる。
-   * 出勤前に1分も画面を見つめる人はいない。
+   * ここだけは、お客様の記録を**送らない**。
+   * 送るのは分野の名前だけ。返るのは一般の知識だけ。
    *
-   * だから分けた。
-   *   誰に・何を・なぜ今日か  ← 先に出す。判断はここで足りる
-   *   送る文                  ← 読んでいる間に、うしろで用意する
-   * 段取りの見出しが出るまでが半分になる。文はその20秒後に埋まる。
+   * 会話は聞くだけでは記憶に残らない。深く伺うには、こちらが知っている必要がある。
+   * その「知っておくこと」を本人に渡すのがここの仕事で、
+   * お客様について何かを推し量る場所ではない。
+   *
+   * 記録から拾った具体（どの銘柄・どのコース）は、
+   * **どこを厚く書くかの手がかりとしてだけ**渡せる。渡さなくても成立する。
    */
-  function planDrafts(items) {
-    var want = (items || []).filter(function (it) {
-      return it.action === 'line' || it.action === 'douhan' || it.action === 'thanks';
-    });
-    if (!want.length) return Promise.resolve({ drafts: [] });
-
-    var byId = {};
-    Plan.fillPlan().chosen.forEach(function (x) { byId[x.customer.id] = x; });
-    var afterById = {};
-    Plan.aftercare().forEach(function (a) { afterById[a.customer.id] = a; });
-
-    var people = want.map(function (it) {
-      var c = Store.getCustomer(it.id);
-      if (!c) return null;
-      var x = byId[it.id], a = afterById[it.id];
-      return {
-        id: c.id,
-        name: c.display_name,
-        action: it.action,
-        style: it.style || '',
-        target_date: it.target_date || '',
-        target_weekday: it.target_date ? Store.weekdayOf(it.target_date) : '',
-        why_now: it.why_now || '',
-        reason: it.reason || '',
-        best_style: (x && x.best_style) ? x.best_style.style : '',
-        recent_styles: Plan.recentStyles(c.id, 2),
-        hooks: x ? x.hooks : [],
-        last_topic: x ? x.last_topic : (a ? a.topic : ''),
-        days_since: x ? x.days_since : null,
-        visit_count: x ? x.visit_count : null,
-        interests: (c.interests || []).slice(0, 5),
-        ng_topics: (c.ng_topics || []).slice(0, 5),
-        thanks: a ? { days: a.days, douhan: a.douhan, bottle: a.bottle, visit_date: a.visit.date } : null
-      };
-    }).filter(Boolean);
-
-    if (!people.length) return Promise.resolve({ drafts: [] });
+  function study(topic, known) {
+    var t = String(topic || '').trim();
+    if (!t) return Promise.reject(new Error('分野が空です'));
 
     return post({
-      mode: 'drafts',
+      mode: 'study',
+      topic: t,
       today: Store.today(),
       context: contextForAi(),
-      people: people
+      known: (known || []).slice(0, 8)
     }, 120000);
   }
 
-  /* ---------- お誘いの文面 ----------
-   * 型を変えて3案。「なぜこの型か」と「この型の危うさ」つき。選ぶのは本人。
+  /* ---------- お食事のお店を探す ----------
+   *
+   * ここは**実際にウェブで調べる**（GAS側で web_search を付けている）。
+   * 店は入れ替わるので、記憶で出した店名は事故になる。
+   *
+   * 送るのは、好みの軸・お好み・直近にお連れした店。**お名前は送らない。**
+   * 返るのは実在が確かめられた店だけ。予約は本人がする。
    */
-  function invite(customerId, opts) {
-    opts = opts || {};
+  function places(customerId, axis) {
+    var c = Store.getCustomer(customerId);
+    if (!c) return Promise.reject(new Error('お客様が見つかりません'));
+
+    var p = Store.placesOf(customerId);
+    return post({
+      mode: 'places',
+      today: Store.today(),
+      context: contextForAi(),
+      area: Store.getProfile().area || '',
+      meal_area: Store.getProfile().meal_area || '',
+      axis: axis || '',
+      // 続けて同じ店にお連れしない。同じ筋も避けさせる
+      avoid: p.recent.map(function (r) { return r.place; }),
+      prefs: { food: (c.prefs || {}).food || [], dislikes: (c.prefs || {}).dislikes || [] }
+    }, 180000);
+  }
+
+  /* ---------- 話のきっかけ ----------
+   *
+   * 以前ここは「お誘いの文を型ごとに3案」だった。文はもう作らない。
+   * 出すのは、その方にいま何から話しかけられるか。それだけ。
+   *
+   * 送る日も、言い回しも、締めの一言も渡さない。渡さないものは漏れない。
+   * そして、そこから先は本人の仕事である。
+   */
+  function hooks(customerId) {
     var c = Store.getCustomer(customerId);
     if (!c) return Promise.reject(new Error('お客様が見つかりません'));
 
     var d = Insight.digest(customerId);
-    var style = Plan.bestStyle(customerId);
-
-    var past = Store.touchesOf(customerId).filter(function (t) { return t.intent === 'invite'; })
-      .slice(0, 6).map(function (t) {
-        return {
-          date: t.date,
-          style: t.style,
-          result: t.result,
-          text: (t.note || '').slice(0, 120)
-        };
-      });
 
     return post({
-      mode: 'invite',
+      mode: 'hooks',
       today: Store.today(),
       context: contextForAi(),
-      kind: opts.kind === 'douhan' ? 'douhan' : 'visit',
-      target_date: opts.target_date || '',
-      target_weekday: opts.target_date ? Store.weekdayOf(opts.target_date) : '',
-      best_style: style ? style.style : '',
-      recent_styles: Plan.recentStyles(customerId, 2),
       customer: {
         display_name: c.display_name,
         title: c.title,
@@ -305,10 +292,10 @@ var Api = (function () {
       },
       hooks: (d.open_hooks || []).slice(0, 6),
       recent_visits: d.visits.slice(0, 4).map(function (v) {
-        return { date: v.date, topic_detail: v.topic_detail, douhan: v.douhan, bottle: v.bottle };
-      }),
-      past_invites: past
-    }, 150000);
+        // 同伴かどうかは店の数え方。きっかけを選ぶのに要らないので渡さない
+        return { date: v.date, topic_detail: v.topic_detail };
+      })
+    }, 60000);
   }
 
   /* ---------- 会う前の準備 ---------- */
@@ -361,6 +348,10 @@ var Api = (function () {
         return { date: t.date, kind: Store.TOUCH_KINDS[t.kind] || t.kind, direction: t.direction, note: t.note };
       }),
       open_hooks: d.open_hooks,
+      /* お食事に行ったお店。**どちらが決めたかで分けてある。**
+       * お客様が選ばれた店がその方のお好みそのもので、
+       * こちらが選んだ店は当たり外れがある。混ぜると何も読めない。 */
+      places: Store.placesOf(customerId),
       // 段取り側と同じ計算。ここがずれると、2つの画面が別のことを言い出す
       watch_signs: Plan.watchSigns(customerId),
       // 前回の提案とその結果。ここが螺旋の折り返し
@@ -378,8 +369,6 @@ var Api = (function () {
     var p = Store.getProfile();
     return {
       my_role: p.my_role,
-      douhan_timeout_min: p.douhan_timeout_min,
-      douhan_deadline: p.douhan_deadline,
       douhan_reward_type: p.douhan_reward_type,
       douhan_quota_monthly: p.douhan_quota_monthly,
       shimei_system: p.shimei_system,
@@ -444,8 +433,9 @@ var Api = (function () {
     readCard: readCard,
     brief: brief,
     weekPlan: weekPlan,
-    planDrafts: planDrafts,
-    invite: invite,
+    hooks: hooks,
+    study: study,
+    places: places,
     offlineStructure: offlineStructure,
     buildSetupLink: buildSetupLink,
     consumeSetupLink: consumeSetupLink

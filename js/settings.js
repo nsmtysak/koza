@@ -138,7 +138,7 @@ var Settings = (function () {
     UI.setMoney('s-target-sales', goal.sales);
     val('s-closing-day', p.closing_day || 0);
     val('s-target-douhan', goal.douhan || 0);
-    renderOpenDays(p.open_days || [1, 2, 3, 4, 5, 6]);
+    renderOpenDays(p.open_days || [1, 2, 3, 4, 5]);
 
     chk('s-closed-holidays', p.closed_on_holidays);
     chk('s-closed-newyear', p.closed_newyear);
@@ -148,7 +148,8 @@ var Settings = (function () {
     val('s-obon-from', p.obon_from || '08-13');
     val('s-obon-to', p.obon_to || '08-16');
 
-    val('s-douhan-deadline', p.douhan_deadline || '');
+    // 休みの条件を入れ終わってから数える。先に数えると祝日とお盆が引かれない
+    updateOpenDayCount();
 
     val('s-cooldown-contact', typeof p.cooldown_contact === 'number' ? p.cooldown_contact : 3);
     val('s-cooldown-invite', typeof p.cooldown_invite === 'number' ? p.cooldown_invite : 10);
@@ -158,9 +159,10 @@ var Settings = (function () {
     val('s-lead-douhan', typeof p.lead_default_douhan === 'number' ? p.lead_default_douhan : 5);
     val('s-max-contacts', typeof p.max_contacts_month === 'number' ? p.max_contacts_month : 3);
 
+    val('s-area', p.area || '');
+    val('s-meal-area', p.meal_area || '');
     val('s-myrole', p.my_role || 'both');
     val('s-shimei', p.shimei_system || 'eikyu');
-    val('s-douhan-timeout', p.douhan_timeout_min || 0);
     val('s-douhan-quota', p.douhan_quota_monthly || 0);
     renderApi(a);
     val('s-lock-after', typeof p.lock_after_min === 'number' ? p.lock_after_min : 3);
@@ -202,6 +204,7 @@ var Settings = (function () {
   function renderOpenDays(cur) {
     openDays = (cur || []).slice();
     var wrap = UI.clear(document.getElementById('s-open-days'));
+    if (!wrap) return;
     ['日', '月', '火', '水', '木', '金', '土'].forEach(function (label, i) {
       var b = UI.el('button', 'daybtn' + (openDays.indexOf(i) >= 0 ? ' is-on' : ''), label);
       b.type = 'button';
@@ -209,9 +212,44 @@ var Settings = (function () {
         var at = openDays.indexOf(i);
         if (at >= 0) openDays.splice(at, 1); else openDays.push(i);
         b.classList.toggle('is-on', openDays.indexOf(i) >= 0);
+        updateOpenDayCount();
       });
       wrap.appendChild(b);
     });
+    updateOpenDayCount();
+  }
+
+  /**
+   * いま選んでいる設定で、この期間に何日出られるか。
+   *
+   * ここが逆算の分母になる。分母が違えば、組数も単価も全部ずれる。
+   * 曜日を押したその場で数が動けば、間違いに気づいていただける。
+   */
+  function updateOpenDayCount() {
+    var el = document.getElementById('s-open-days-count');
+    if (!el) return;
+    var p = Store.getProfile();
+    var draft = {
+      off_days: p.off_days || [],
+      closed_dates: p.closed_dates || [],
+      open_days: openDays,
+      closed_on_holidays: on('s-closed-holidays'),
+      closed_newyear: on('s-closed-newyear'),
+      closed_obon: on('s-closed-obon'),
+      newyear_from: str('s-newyear-from') || '12-29',
+      newyear_to: str('s-newyear-to') || '01-03',
+      obon_from: str('s-obon-from') || '08-13',
+      obon_to: str('s-obon-to') || '08-16'
+    };
+
+    var period = Store.periodOf(Store.today());
+    var n = 0, d = period.start, guard = 0;
+    while (d <= period.end && guard < 70) {
+      if (!Holiday.closedReason(d, draft)) n += 1;
+      d = Store.addDays(d, 1);
+      guard += 1;
+    }
+    el.textContent = 'この設定だと、' + period.label + 'に出られるのは ' + n + '日です。';
   }
 
   function save() {
@@ -220,7 +258,7 @@ var Settings = (function () {
       closing_day: closing,
       target_sales: UI.getMoney('s-target-sales'),
       target_douhan: num('s-target-douhan'),
-      open_days: openDays.length ? openDays.slice().sort() : [1, 2, 3, 4, 5, 6],
+      open_days: openDays.length ? openDays.slice().sort() : [1, 2, 3, 4, 5],
       closed_on_holidays: on('s-closed-holidays'),
       closed_newyear: on('s-closed-newyear'),
       closed_obon: on('s-closed-obon'),
@@ -234,13 +272,12 @@ var Settings = (function () {
     Store.saveGoal(period.key, { sales: UI.getMoney('s-target-sales'), douhan: num('s-target-douhan') });
 
     Store.saveProfile({
+      area: str('s-area'),
+      meal_area: str('s-meal-area'),
       my_role: sel('s-myrole', 'kakari'),
       shimei_system: sel('s-shimei', 'eikyu'),
-      douhan_timeout_min: num('s-douhan-timeout'),
       douhan_quota_monthly: num('s-douhan-quota'),
       lock_after_min: Math.max(0, Math.min(120, num('s-lock-after'))),
-
-      douhan_deadline: str('s-douhan-deadline'),
 
       cooldown_contact: Math.max(0, Math.min(30, num('s-cooldown-contact'))),
       cooldown_invite: Math.max(0, Math.min(60, num('s-cooldown-invite'))),
@@ -292,7 +329,10 @@ var Settings = (function () {
   /** AIをどれだけ使ったか。クレジットの減りは推測ではなく実測で見せる */
   var AI_LABEL = {
     structure: '整理', card: '名刺', brief: '会う前の準備',
-    plan: '今日の段取り', drafts: '送る文', invite: 'お誘いの文', ping: '接続の確認'
+    plan: '今日の段取り', hooks: '話のきっかけ', study: '覚えておくこと',
+    places: 'お店を調べる', ping: '接続の確認',
+    // 古い記録に残っているもの。いまは使わない
+    drafts: '送る文', invite: 'お誘いの文'
   };
 
   function renderAiUsage() {
@@ -392,6 +432,13 @@ var Settings = (function () {
   }
 
   function init() {
+    // 休みの条件を変えたら、出られる日数もその場で数え直す
+    ['s-closed-holidays', 's-closed-newyear', 's-closed-obon',
+      's-newyear-from', 's-newyear-to', 's-obon-from', 's-obon-to'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', updateOpenDayCount);
+    });
+
     document.getElementById('btn-save-settings').addEventListener('click', save);
     document.getElementById('btn-test-api').addEventListener('click', function () { testApi('api-test-result'); });
     document.getElementById('btn-test-api-2').addEventListener('click', function () { testApi('api-test-result-2'); });

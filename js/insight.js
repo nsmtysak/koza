@@ -107,6 +107,8 @@ var Insight = (function () {
     Store.activeCustomers().forEach(function (c) {
       // ほかの方の口座には、こちらから声をかけない
       if (!Store.canContactDirectly(c)) return;
+      // ご事情でお越しになれない方。本人がそう決めた結果として外す
+      if (!Store.isActiveRelation(c)) return;
 
       var visits = Store.visitsOf(c.id);
       var last = visits[0] || null;
@@ -186,7 +188,14 @@ var Insight = (function () {
       visits.slice(0, 3).forEach(function (v) {
         hooksFor(v, c.id).forEach(function (h) {
           if (h.status === 'closed') return;
-          if (['family', 'health', 'work', 'event'].indexOf(h.type) >= 0) {
+          /* 本人が手で足した宿題は、AIが拾ったものより強く扱う。
+           * 種類を選ばせない代わりに（欄を増やすと埋まらなくなる）、
+           * **本人がわざわざ書き留めた**という事実そのものを重みにする。
+           * 席で「これは次に伺いたい」と思ったものが、いちばん確かな理由である。 */
+          if (h.by === 'self') {
+            // 本人が書いた言葉に、こちらで語尾を足さない。そのまま出す
+            reasons.push({ score: 92 + Math.min(since || 0, 30), text: h.text, tag: '書き留め' });
+          } else if (['family', 'health', 'work', 'event'].indexOf(h.type) >= 0) {
             reasons.push({ score: 55 + Math.min(since || 0, 25), text: h.text + 'について伺える', tag: '話題' });
           }
         });
@@ -226,7 +235,8 @@ var Insight = (function () {
     var season = giftSeason();
     if (!season) return null;
     var pending = [], done = [];
-    Store.activeCustomers().forEach(function (c) {
+    // ご挨拶は、お越しになれない方にも続ける。区切りがついた方だけ外す
+    Store.activeCustomers().filter(Store.keepsGreeting).forEach(function (c) {
       if (!c.gift_policy || !c.gift_policy[season.kind]) return;
       (Store.sentIn(c.id, season.kind, season.year) ? done : pending).push(c);
     });

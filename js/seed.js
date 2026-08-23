@@ -79,6 +79,29 @@ var Seed = (function () {
   var BOTTLES = ['響17年', '山崎12年', '白州', '森伊蔵', '村尾', 'バランタイン17年', 'ドンペリニヨン'];
   var FOODS = ['寿司', '焼肉', '天ぷら', 'フレンチ', '割烹', '鉄板焼き'];
 
+  /* お食事のお店。
+   *
+   * ここは**お客様ごとに一本の軸を通してある。**
+   * ジャンルがばらばらのデータでは、「その方が何を選ばれるか」を読む機能が確かめられない。
+   * 実際のお客様も、鮨と天ぷらと割烹を選ばれる方は「和のカウンター」で一貫していて、
+   * ジャンルではなく**席の作りと過ごし方**で選んでおられる。
+   *
+   * お店の名前も街の名前も架空。歩いて戻れる範囲に寄せてある。 */
+  var PLACE_AXES = [
+    { key: 'counter',
+      axis: 'カウンターで、静かに、ご主人と話せるお店',
+      food: ['寿司', '天ぷら', '割烹'],
+      places: ['鮨 なかむら', '天ぷら 天善', '割烹 みなみ', '鮨処 さいとう', '炉端 まき'] },
+    { key: 'private',
+      axis: '個室で、落ち着いて話せるお店。接待にも使える',
+      food: ['割烹', '鉄板焼き'],
+      places: ['日本料理 しののめ', '中華 燕来', '料亭 白扇', '鉄板焼 万作'] },
+    { key: 'lively',
+      axis: '気を張らずに、賑やかに過ごせるお店',
+      food: ['焼肉', 'フレンチ'],
+      places: ['オステリア ソラ', 'ビストロ ルポ', '焼肉 幸月', '中華 三宝'] }
+  ];
+
   var LIKES = ['氷は少なめ', '濃いめの水割り', '奥の席', '静かめの音楽', '最初はビール',
     '乾き物より果物', 'おしぼりは熱め'];
   var DISLIKES = ['カラオケ', '香水の強い席', '長居', '大人数', '早い時間の来店'];
@@ -357,9 +380,12 @@ var Seed = (function () {
       target_sales: 8000000,
       target_douhan: 10,
       douhan_quota_monthly: 10,
-      douhan_timeout_min: 30,
-      open_days: [1, 2, 3, 4, 5, 6],
-      closed_on_holidays: true
+      open_days: [1, 2, 3, 4, 5],
+      closed_on_holidays: true,
+      /* お店を探す範囲。ここが空だと、お食事のお店を調べる機能が
+       * 遠方の名店まで拾ってしまう。お食事のあとご一緒に戻れる範囲に限る。 */
+      area: '（お試し）本町',
+      meal_area: '（お試し）本町・東町・川端（歩ける範囲）'
     });
     Store.saveGoal(Store.periodOf(T).key, { sales: 8000000, douhan: 10 });
 
@@ -410,6 +436,14 @@ var Seed = (function () {
         if (likes.indexOf(lk) < 0) likes.push(lk);
       }
 
+      /* お食事のお店の軸。お好みの食べ物も、この軸に揃える。
+       * 「カウンター派なのに好物が焼肉」では、軸を読む機能を確かめられない。 */
+      var axis = PLACE_AXES[n % PLACE_AXES.length];
+
+      /* ご在宅になりやすい曜日。ご家族のいる方の一部に入れておく。
+       * 全員に入れると、この印が印にならない。 */
+      var quietDays = (family.length && chance(0.35)) ? [0, 6] : [];
+
       var c = Store.createCustomer({
         name: nm[0] + ' ' + nm[1],
         display_name: nm[0] + '様',
@@ -426,10 +460,11 @@ var Seed = (function () {
         birthday: chance(0.12) ? mmdd(ri(1, 10)) : mmdd(ri(40, 300)),
         interests: interests,
         prefs: {
-          drinks: [pick(DRINKS)], food: [pick(FOODS)], smoke: '', karaoke: [],
+          drinks: [pick(DRINKS)], food: [pick(axis.food)], smoke: '', karaoke: [],
           likes: likes, dislikes: chance(0.35) ? [pick(DISLIKES)] : []
         },
         ng_topics: chance(0.2) ? [pick(['政治', '前の会社のこと', 'ご家庭のこと', '健康のこと'])] : [],
+        quiet_days: quietDays,
         family: family,
         gift_policy: { nenga: true, ochugen: tier === 'futo', oseibo: tier !== 'light' },
         first_met: D(T, -ri(90, 700)),
@@ -458,7 +493,8 @@ var Seed = (function () {
         ctx.bt = Store.bottlesOf(c.id)[0].name;
       }
 
-      made.push({ c: c, unit: unit, interval: interval, tier: tier, owner: owner, ctx: ctx, arc: arc });
+      made.push({ c: c, unit: unit, interval: interval, tier: tier, owner: owner, ctx: ctx,
+                  arc: arc, axis: axis, places: [] });
     }
 
     /* ご来店とご連絡を、古いほうから時系列に積む。
@@ -519,7 +555,7 @@ var Seed = (function () {
       if (e.kind === 'invite') {
         Store.addTouch({
           customer_id: e.c.id, date: date, kind: 'line', direction: 'sent',
-          intent: 'invite', style: e.style, target_date: e.target,
+          intent: 'invite', target_date: e.target,
           title: 'お誘い', note: e.text,
           result: e.fail ? 'missed' : null
         });
@@ -545,7 +581,24 @@ var Seed = (function () {
         if (mate) attendees.push({ customer_id: mate.c.id, role: 'doukousha' });
       }
 
-      var douhan = m.owner === 'self' && chance(0.22);
+      /* 同伴は太いお客様ほど多い。ここが少なすぎると、
+       * お店の記録が1軒も溜まらず「軸を読む」機能を確かめられない。 */
+      var douhanRate = m.tier === 'futo' ? 0.38 : (m.tier === 'regular' ? 0.22 : 0.08);
+      var douhan = m.owner === 'self' && chance(douhanRate);
+
+      /* お食事のお店。**同じ軸の中から、続けて同じ店にならないように選ぶ。**
+       *
+       * どちらが決めたかは、お付き合いの深さで変わる。
+       * 長く通ってくださる方ほど「今度は◯◯へ行きたい」とおっしゃる。
+       * 浅いうちは、こちらでお選びすることが多い。 */
+      var place = '', placeBy = '';
+      if (douhan) {
+        var cand = m.axis.places.filter(function (x) { return m.places.indexOf(x) < 0; });
+        place = cand.length ? pick(cand) : pick(m.axis.places);
+        m.places.push(place);
+        var guestRate = m.tier === 'futo' ? 0.7 : (m.tier === 'regular' ? 0.45 : 0.25);
+        placeBy = chance(guestRate) ? 'guest' : 'self';
+      }
 
       /* 筋書きを一段進める。
        * ご来店の回数が筋書きより多いときは、最後の段のあとは単発の話でつなぐ */
@@ -599,6 +652,8 @@ var Seed = (function () {
         attendees: attendees,
         my_role: m.owner === 'self' ? 'kakari' : 'help',
         douhan: douhan,
+        douhan_place: place,
+        place_by: placeBy,
         kirikaeshi: douhan && chance(0.15),
         nominaoshi: chance(0.08),
         set_count: ri(1, 3),
@@ -646,13 +701,24 @@ var Seed = (function () {
       var st = pickStyle(m, 0);
       Store.addTouch({
         customer_id: m.c.id, date: D(T, -i), kind: 'line', direction: 'sent',
-        intent: 'invite', style: st, target_date: D(T, ri(3, 6)),
+        intent: 'invite', target_date: D(T, ri(3, 6)),
         title: 'お誘い', note: inviteText(st, m, 0)
       });
     });
 
     Store.settleOverdueInvites();
     Store.closeStaleAppointments();
+    /* ご事情があって、いまはお越しになれない方。
+     *
+     * ここを入れておかないと「もう追わない方」の扱いが確かめられない。
+     * そして実際、この街ではこちらの努力ではどうにもならない事情で
+     * お越しになれなくなる。ご転勤、ご退職、接待の枠そのものが無くなること——
+     * 企業の交際費は一度切られると習慣として戻らないと言われている。 */
+    var away = made.filter(function (m) { return m.owner === 'self'; }).slice(-3);
+    if (away[0]) Store.setStanding(away[0].c.id, 'paused', 'ご転勤・ご異動　名古屋へ。3年ほどとのこと');
+    if (away[1]) Store.setStanding(away[1].c.id, 'paused', '会社のご事情　接待の枠が無くなったとのこと');
+    if (away[2]) Store.setStanding(away[2].c.id, 'closed', 'ご退職・ご引退　お世話になりました');
+
     Store.clearDailyPlan();
 
     return {

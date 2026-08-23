@@ -47,9 +47,36 @@ var Review = (function () {
       if (v.douhan) douhanDone += 1;
     });
 
+    /* --- どなたに支えられた月だったか ---
+     *
+     * 顧客管理でいちばん多い落とし方が、これだと言われている。
+     *   「太客のみを管理し、新規開拓を怠る。太客が離れた時に収入が急減する」
+     * このアプリは口座を越えないので、新規の入り口はもともと狭い。
+     * だからせめて、いま何割をどなたに預けているかは見えているほうがよい。
+     *
+     * **評価はしない。危ないとも言わない。割合だけを置く。**判断は本人のもの。 */
+    var byCustomer = {};
+    visits.forEach(function (v) {
+      if (!Store.isMyVisit(v)) return;
+      (v.attendees || []).forEach(function (a) {
+        var amt = shareOf(v, a.customer_id);
+        if (amt > 0) byCustomer[a.customer_id] = (byCustomer[a.customer_id] || 0) + amt;
+      });
+    });
+    var top = Object.keys(byCustomer).map(function (id) {
+      return { customer: Store.getCustomer(id), amount: byCustomer[id] };
+    }).filter(function (x) { return x.customer; })
+      .sort(function (a, b) { return b.amount - a.amount; });
+
+    var topSum = top.slice(0, 3).reduce(function (n, x) { return n + x.amount; }, 0);
+    var lean = {
+      list: top.slice(0, 3),
+      share: actual > 0 ? Math.round(topSum / actual * 100) : 0,
+      people: top.length
+    };
+
     /* --- お誘いの決着 --- */
     var sent = 0, came = 0, missed = 0, asking = 0;
-    var byStyle = {};
     var credited = [];
 
     Store.listTouches().forEach(function (t) {
@@ -57,12 +84,8 @@ var Review = (function () {
       if (!inPeriod(t.date, p)) return;
       sent += 1;
 
-      var s = byStyle[t.style || ''] || { sent: 0, came: 0 };
-      s.sent += 1;
-
       if (t.result === 'came') {
         came += 1;
-        s.came += 1;
         // お越しになった日の来店から、その方のぶんを拾う
         var amount = 0, when = t.came_date || null;
         if (when) {
@@ -74,7 +97,6 @@ var Review = (function () {
         credited.push({
           customer: Store.getCustomer(t.customer_id),
           date: when,
-          style: t.style || '',
           amount: Math.round(amount)
         });
       } else if (t.result === 'missed') {
@@ -82,21 +104,10 @@ var Review = (function () {
       } else if (t.result === 'asking') {
         asking += 1;
       }
-      byStyle[t.style || ''] = s;
     });
 
     var creditedSpend = credited.reduce(function (n, x) { return n + x.amount; }, 0);
     credited.sort(function (a, b) { return b.amount - a.amount; });
-
-    /* --- 効いた型 --- */
-    var styles = Object.keys(byStyle).filter(function (k) { return k && byStyle[k].sent >= 2; })
-      .map(function (k) {
-        return {
-          style: k, label: Store.INVITE_STYLES[k] || k,
-          sent: byStyle[k].sent, came: byStyle[k].came,
-          rate: Math.round(byStyle[k].came / byStyle[k].sent * 100)
-        };
-      }).sort(function (a, b) { return b.rate - a.rate; });
 
     /* --- 準備を使ったか、当たっていたか --- */
     var made = 0, rated = 0, helpful = 0;
@@ -137,7 +148,7 @@ var Review = (function () {
         rate: (came + missed) ? Math.round(came / (came + missed) * 100) : null
       },
       credited: { count: credited.length, spend: creditedSpend, list: credited },
-      styles: styles,
+      lean: lean,
       briefs: { made: made, rated: rated, helpful: helpful },
       douhan: { target: goal.douhan || 0, done: douhanDone },
       newcomers: fresh.length
@@ -172,7 +183,7 @@ var Review = (function () {
     headline(body, r);
     salesBlock(body, r);
     creditBlock(body, r);
-    styleBlock(body, r);
+    leanBlock(body, r);
     habitBlock(body, r);
     nextBlock(body, r);
     switcher(body, r);
@@ -268,8 +279,7 @@ var Review = (function () {
       r.credited.list.forEach(function (x) {
         if (!x.customer) return;
         var row = UI.el('div', 'gift-row');
-        row.appendChild(UI.el('span', 'gname', x.customer.display_name +
-          (x.style ? '　' + (Store.INVITE_STYLES[x.style] || '') : '')));
+        row.appendChild(UI.el('span', 'gname', x.customer.display_name));
         // 金額が0の方もいる（同行者としてのご来店など）。空白を残さない
         row.appendChild(UI.el('span', 'gwhen',
           [x.date ? UI.shortDate(x.date) : '', x.amount ? UI.yen(x.amount) : '']
@@ -281,16 +291,23 @@ var Review = (function () {
     body.appendChild(s);
   }
 
-  /** どの誘い方が効いたか。来月の型選びはここから変わる */
-  function styleBlock(body, r) {
-    if (!r.styles.length) return;
+  /**
+   * どなたに支えられた月だったか。
+   *
+   * **ここに評価語を書かない。**「偏っています」「危険です」とは言わない。
+   * 割合を置くだけにして、どうするかは本人に返す。
+   * 採点はしない、というのがこのアプリの決まりごとである。
+   */
+  function leanBlock(body, r) {
+    if (!r.lean.list.length || !r.lean.share) return;
     var s = UI.el('div', 'brief-sec');
-    s.appendChild(UI.el('h3', null, '効いた誘い方'));
-    s.appendChild(UI.el('p', 'help', '2回以上お使いになった型だけを出しています。'));
+    s.appendChild(UI.el('h3', null, 'どなたに支えられた月か'));
+    s.appendChild(UI.el('p', 'help',
+      'この期間にお会いしたのは ' + r.lean.people + '名。' +
+      'そのうち上のお三方で、売上の ' + r.lean.share + '% です。'));
     var ul = UI.el('ul', 'brief-list');
-    r.styles.forEach(function (x) {
-      ul.appendChild(UI.el('li', null,
-        x.label + '　' + x.came + ' / ' + x.sent + '件（' + x.rate + '%）'));
+    r.lean.list.forEach(function (x) {
+      ul.appendChild(UI.el('li', null, x.customer.display_name + '　' + UI.yen(Math.round(x.amount))));
     });
     s.appendChild(ul);
     body.appendChild(s);
@@ -327,7 +344,7 @@ var Review = (function () {
       todo.push('お送りしたら「送りました」を押す。押さないと、何も学習しません。');
     } else if (r.invites.rate !== null && r.invites.rate < 40) {
       todo.push('お越しいただけた率が ' + r.invites.rate + '%です。' +
-        (r.styles.length ? '効いた型（' + r.styles[0].label + '）に寄せてみる。' : '誘い方を変えてみる。'));
+        '切り出し方を変えてみる。');
     }
     if (r.douhan.target && r.douhan.done < r.douhan.target) {
       todo.push('同伴が ' + (r.douhan.target - r.douhan.done) + '回足りませんでした。' +

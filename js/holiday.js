@@ -94,15 +94,17 @@ var Holiday = (function () {
    * その日が休みなら理由を返す。営業日なら空文字。
    * 判定の順番は、店に近いものから。
    */
-  function closedReason(iso) {
-    var p = Store.getProfile();
+  function closedReason(iso, override) {
+    // override を渡すと、まだ保存していない設定でも数えられる。
+    // 設定画面で曜日を選んだその場で日数を出すために要る
+    var p = override || Store.getProfile();
 
     // 本人が出ない日が先。店が開いていても、本人が出なければ枠にならない
     if ((p.off_days || []).indexOf(iso) >= 0) return 'お休み';
     if ((p.closed_dates || []).indexOf(iso) >= 0) return '店休';
 
     var wd = new Date(iso + 'T00:00:00').getDay();
-    var open = p.open_days || [1, 2, 3, 4, 5, 6];
+    var open = p.open_days || [1, 2, 3, 4, 5];
     if (open.indexOf(wd) < 0) return '定休';
 
     if (p.closed_on_holidays) {

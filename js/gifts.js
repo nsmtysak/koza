@@ -31,7 +31,10 @@ var Gifts = (function () {
   /** その月の記念日を集める。お誕生日・ご家族・初めてお越しいただいた日 */
   function anniversariesIn(month) {
     var out = [];
-    Store.activeCustomers().forEach(function (c) {
+    /* ご事情でお越しになれない方も、記念日とご挨拶は続ける。
+     * 来られないことと、関係が切れたことは別である。
+     * 区切りがついた方だけ、ここから外れる。 */
+    Store.activeCustomers().filter(Store.keepsGreeting).forEach(function (c) {
       var b = md(c.birthday);
       if (b && b.m === month) {
         out.push({ customer: c, day: b.d, kind: 'お誕生日', who: c.display_name });

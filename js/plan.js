@@ -56,6 +56,31 @@ var Plan = (function () {
       }
     }
 
+    /* お越しいただいたばかりの方を、また誘わない。
+     *
+     * 設計思想には「前回から日が浅い方には今日は動かない」と書いてあるのに、
+     * その判定は段取りを組むAI任せで、ここには無かった。
+     * だから一昨日いらした方に「今日お声がけしないと間に合いません」が出ていた。
+     * お礼がまだのうちに次のお誘いが届くのは、いちばん軽く見える形である。
+     *
+     * 何日空ければよいかは、その方の間隔で決まる。
+     * 週に二度お越しになる方の3日と、月に一度の方の3日は、意味が違う。 */
+    var lastVisit = Store.visitsOf(customerId)[0];
+    if (lastVisit) {
+      var sinceVisit = Store.daysBetween(lastVisit.date, t0);
+      var avg = Store.averageInterval(customerId) || 0;
+      // いつもの間隔の3分の1。ただし最低3日は空ける
+      var wait = Math.max(3, Math.round(avg / 3));
+      if (sinceVisit !== null && sinceVisit >= 0 && sinceVisit < wait) {
+        return {
+          ok: false,
+          reason: (sinceVisit === 0 ? '今日' : sinceVisit + '日前')
+            + 'お越しいただいたばかりです'
+            + (avg ? '（いつもは' + avg + '日ほどの間隔です）' : '')
+        };
+      }
+    }
+
     /* ひと月に何通まで。
      *
      * 間隔を空けるだけでは足りない。型を変えても、続けば「量」そのものが伝わる。
@@ -80,6 +105,55 @@ var Plan = (function () {
     return { ok: true, reason: '' };
   }
 
+  /**
+   * 止めはしないが、知っておいていただきたいこと。
+   *
+   * contactGuard は ok を false にして手を止める。
+   * こちらは止めない。**事実を置いて、判断は本人に返す。**
+   * 機械が禁じてよい範囲を越えると、本人が自分の勘で動けなくなる。
+   */
+  function contactNotes(customerId) {
+    var out = [];
+    var c = Store.getCustomer(customerId);
+    if (!c) return out;
+
+    /* お声がけなしでお越しになる方。
+     * 送らなくても来ていただけるなら、限られた手数は別の方に使える。 */
+    var sv = selfVisitRate(customerId);
+    if (sv.total >= 3 && sv.self * 2 > sv.total) {
+      out.push('この方は' + sv.total + '回のご来店のうち' + sv.self +
+        '回、お声がけなしでお越しになっています。お送りしなくても、ご自分でいらっしゃる方です');
+    }
+
+    /* ご在宅の曜日。
+     * 現場で実際に起きた事故がある。
+     *   「お客様の休日を把握できていなくて、ご在宅のときにラインを送ってしまい、
+     *     そのラインを奥様に見られてしまった」
+     * 深夜を避けるだけでは防げない。曜日が要る。 */
+    var wd = new Date(Store.today() + 'T00:00:00').getDay();
+    if ((c.quiet_days || []).indexOf(wd) >= 0) {
+      out.push('今日は、この方がご在宅になりやすい曜日として登録されています。' +
+        'ご家庭で読まれても差し支えのない中身にしてください');
+    }
+
+    return out;
+  }
+
+  /**
+   * 誰にでも当てはまる、今日の注意。
+   * その方固有の事実（contactNotes）とは分けておく。
+   * 同じ文が全員に出ると、その方だけの一つが読み飛ばされる。
+   */
+  function todayCaution(customerId) {
+    var c = Store.getCustomer(customerId);
+    var wd = new Date(Store.today() + 'T00:00:00').getDay();
+    if ((wd === 0 || wd === 6) && c && (c.family || []).length && !(c.quiet_days || []).length) {
+      return '今日は土日です。ご家族とご一緒かもしれません。' +
+        'ご在宅の曜日が分かっている方は、その方の記録に入れておけます。';
+    }
+    return '';
+  }
+
   /** 今、ご連絡を送ってよい時間帯か */
   function sendTimeWarning() {
     var h = new Date().getHours();
@@ -87,7 +161,7 @@ var Plan = (function () {
     var quiet = from <= to ? (h >= from && h < to) : (h >= from || h < to);
     if (!quiet) return '';
     return '今は' + h + '時です。この時間のご連絡は、ご家庭のある方には特にご迷惑になります。' +
-      '下書きだけ用意して、' + to + '時以降にお送りになるほうが安全です。';
+      '題材だけ見ておいて、' + to + '時以降にお送りになるほうが安全です。';
   }
 
   /**
@@ -146,6 +220,49 @@ var Plan = (function () {
     return { rate: (came + 1) / (n + 2), came: came, missed: missed, samples: n };
   }
 
+  /**
+   * お声がけなしでお越しになる割合。
+   *
+   * comeRate は「お誘いした回数のうち、何回来ていただけたか」を見ている。
+   * これはその裏返しで、**ご来店の側から**見る。
+   *
+   * 現場に、こういう声がある。
+   *   「来てくれる人は普段ラインはあまりしない。急に来る人が多い」
+   * このアプリは「声をかける → 来ていただける」を土台に組んであるが、
+   * その筋道を通らない方が実際にいる。
+   * その方に送り続けるのは、手数の無駄であるだけでなく、
+   * ご自分のときに来ようとしておられる方を急かすことになる。
+   *
+   * **止めはしない。判断は本人に返す。**ここが出すのは事実だけ。
+   */
+  function selfVisitRate(customerId) {
+    var visits = Store.visitsOf(customerId);
+    var invites = Store.touchesOf(customerId).filter(function (t) { return t.intent === 'invite'; });
+
+    // その方のリードタイムを基準に、少し余裕をみる。
+    // これより前のお誘いは、その来店の理由とは言えない
+    var lead = leadTime(customerId, 'visit');
+    var window = Math.max(14, lead.days * 2);
+
+    var self = 0;
+    visits.forEach(function (v) {
+      var invited = invites.some(function (t) {
+        var d = Store.daysBetween(t.date, v.date);
+        return d !== null && d >= 0 && d <= window;
+      });
+      if (!invited) self += 1;
+    });
+
+    var total = visits.length;
+    return {
+      // 標本が少ないうちは 0% や 100% と言い切らない
+      rate: (self + 1) / (total + 2),
+      self: self,
+      total: total,
+      samples: total
+    };
+  }
+
   /** ご来店の多い曜日 */
   function weekdayPattern(customerId) {
     var counts = [0, 0, 0, 0, 0, 0, 0];
@@ -155,39 +272,6 @@ var Plan = (function () {
     var top = -1, best = 0;
     counts.forEach(function (n, i) { if (n > best) { best = n; top = i; } });
     return { counts: counts, top: best >= 2 ? top : -1, total: counts.reduce(function (a, b) { return a + b; }, 0) };
-  }
-
-  /** その方に効いた誘い方 */
-  function styleStats(customerId) {
-    var out = {};
-    var src = customerId ? Store.touchesOf(customerId) : Store.listTouches();
-    src.forEach(function (t) {
-      if (t.intent !== 'invite' || !t.style) return;
-      if (!out[t.style]) out[t.style] = { tried: 0, came: 0 };
-      if (t.result === 'came' || t.result === 'missed') {
-        out[t.style].tried += 1;
-        if (t.result === 'came') out[t.style].came += 1;
-      }
-    });
-    return out;
-  }
-
-  /**
-   * 直近に使った誘いの型。
-   *
-   * 効いた型を繰り返すと、ほどなくテンプレだと気づかれる。
-   * 現場の評価でも、送り手と受け手の両方から同じ指摘が出た。
-   *   受け手「在庫の話が続くと、今月ノルマが足りないのかと勘繰る」
-   *   送り手「型の使い回しがばれた瞬間、40人分の信頼が同時に揺らぐ」
-   *
-   * 成功率だけを見て型を選ぶと、当たった型に寄っていって自分で自分を壊す。
-   * だから直近の型は事実として持っておき、避ける材料にする。
-   */
-  function recentStyles(customerId, n) {
-    return Store.touchesOf(customerId)
-      .filter(function (t) { return t.intent === 'invite' && t.style; })
-      .slice(0, n || 2)
-      .map(function (t) { return t.style; });
   }
 
   /**
@@ -228,20 +312,6 @@ var Plan = (function () {
       out.push('前回のご様子：' + obs);
     }
     return out;
-  }
-
-  function bestStyle(customerId) {
-    function pick(stats, minTried) {
-      var best = null;
-      Object.keys(stats).forEach(function (k) {
-        var s = stats[k];
-        if (s.tried < minTried) return;
-        var r = s.came / s.tried;
-        if (!best || r > best.rate) best = { style: k, rate: r, tried: s.tried };
-      });
-      return best;
-    }
-    return pick(styleStats(customerId), 2) || pick(styleStats(null), 3) || null;
   }
 
   /** 全体の平均単価。個人の記録が無いときの当てにする */
@@ -414,6 +484,11 @@ var Plan = (function () {
       // 越境は係の方の顔をつぶし、店の中で最も信を失う。ここは例外を作らない。
       if (!Store.canContactDirectly(c)) return;
 
+      /* ご事情があってお越しになれない方。ここを外さないと、
+       * 来られない方が「ご無沙汰な順」の上に居座り、動くべき方が埋もれる。
+       * 外したのは機械の判断ではなく、本人がそう決めた結果である。 */
+      if (!Store.isActiveRelation(c)) return;
+
       // すでに予定が入っている方は、誘う対象ではない（当日の準備の対象）
       if (Store.nextAppointmentOf(c.id)) return;
 
@@ -453,7 +528,6 @@ var Plan = (function () {
         come_rate: rate,
         expected_spend: amt,
         weekday_top: wp.top,
-        best_style: bestStyle(c.id),
         hooks: hooks,
         last_visit: last ? last.date : null,
         last_topic: last ? last.topic_detail : '',
@@ -475,21 +549,29 @@ var Plan = (function () {
       if (a.date >= t0) used[a.date] = (used[a.date] || 0) + 1;
     });
 
-    var PER_DAY = 2;   // 1日に自分がお迎えできる組数の目安
+    /* 「1日に何組まで」は決めない。
+     *
+     * 以前ここには PER_DAY = 2 と書いてあって、それを超えた方を別の日へ寄せていた。
+     * だが**その晩に何組つけるかは、その日の動きでしか分からない。**
+     * 予約の入り方も、お客様の滞在も、店の混み方も、前もっては決まらない。
+     * 断定できないものを機械が断定して、それを根拠に日を動かしていた。
+     *
+     * ここでやるのは**散らすことだけ**にする。
+     * 同じ日に積み上がると使いものにならないので、混んでいる日は少し不利にする。
+     * ただし弾かない。何名までが適正かは、盤面を見て本人が決める。 */
+    /* 1名すでに狙っている日は、その分だけ点を下げる。
+     * 実測して決めた値。0だと1日に10名積み上がり、18を超えると頭打ちになる。
+     * ただし散らしすぎると締めをまたぐ日に流れて、今月に効かなくなる。
+     * 12 が、今月に厚く残しながら最もばらける値だった。 */
+    var CROWD_PENALTY = 12;
+
     out.forEach(function (x) {
-      var chosen = null;
-      for (var i = 0; i < x.slots.length; i++) {
-        var d = x.slots[i].day.date;
-        if ((used[d] || 0) < PER_DAY) { chosen = x.slots[i]; break; }
-      }
-      // どこも埋まっているなら、いちばん空いている日に寄せる。
-      // 第一希望に積み上げると、その日だけ十数名になって使いものにならない
-      if (!chosen) {
-        x.slots.forEach(function (s) {
-          var n = used[s.day.date] || 0;
-          if (!chosen || n < (used[chosen.day.date] || 0)) chosen = s;
-        });
-      }
+      var chosen = null, best = -Infinity;
+      x.slots.forEach(function (s) {
+        var v = s.score - (used[s.day.date] || 0) * CROWD_PENALTY;
+        if (v > best) { best = v; chosen = s; }
+      });
+      if (!chosen) { delete x.slots; return; }
       used[chosen.day.date] = (used[chosen.day.date] || 0) + 1;
 
       x.target_date = chosen.day.date;
@@ -520,23 +602,37 @@ var Plan = (function () {
   function fillPlan() {
     var p = progress();
     var cands = candidates();
+    var period = Store.periodOf(Store.today());
     var taken = {};
     var chosen = [];
-    var sum = 0;
+    var sum = 0;        // 候補の合計
+    var inSum = 0;      // そのうち、締めまでに間に合う分
 
     cands.forEach(function (x) {
-      if (p.gap && sum >= p.gap) return;
+      /* 打ち切りは**今月に効く分**で見る。
+       * 合計で見ていたころは、来月狙いの方で埋まって早々に打ち切られ、
+       * 今月に効く方が候補から落ちていた。 */
+      if (p.gap && inSum >= p.gap) return;
       if (taken[x.target_date] && taken[x.target_date] >= 2) return;
       taken[x.target_date] = (taken[x.target_date] || 0) + 1;
       chosen.push(x);
       sum += x.value;
+      if (x.target_date && x.target_date <= period.end) inSum += x.value;
     });
 
+    /* 締めをまたぐ方を、今月の見込みに混ぜない。
+     *
+     * 混ぜていたころは、不足362万に対して「404万ぶん見込めます」と出しながら、
+     * その半分（208万）が9月狙いで、8月には一円も入らなかった。
+     * **逆算を看板にしている画面で、その逆算が水増しされていた。** */
     return {
       progress: p,
       chosen: chosen,
-      expected: sum,
-      covers_gap: !p.gap || sum >= p.gap,
+      expected: sum,                     // 候補ぜんぶの合計
+      expected_in_period: inSum,         // そのうち締めまでに間に合う分
+      expected_next: sum - inSum,        // 締めをまたぐ分。来月の頭をつくる
+      covers_gap: !p.gap || inSum >= p.gap,
+      shortfall: p.gap ? Math.max(0, p.gap - inSum) : 0,
       today: chosen.filter(function (x) { return x.urgency === 'today' || x.urgency === 'late'; }),
       soon: chosen.filter(function (x) { return x.urgency === 'soon'; })
     };
@@ -633,6 +729,7 @@ var Plan = (function () {
     // 同伴に応じてくださった実績のある方を先に。次に、よくお越しになる方
     var list = Store.activeCustomers().filter(function (c) {
       if (!Store.canContactDirectly(c)) return false;
+      if (!Store.isActiveRelation(c)) return false;
       if (Store.nextAppointmentOf(c.id)) return false;
       return contactGuard(c.id).ok;
     }).map(function (c) {
@@ -712,6 +809,7 @@ var Plan = (function () {
     Store.activeCustomers().forEach(function (c) {
       // すでに自分の口座なら、育てる相手ではない
       if (c.account_owner === 'self') return;
+      if (!Store.isActiveRelation(c)) return;
 
       var visits = Store.visitsOf(c.id);
       var withMe = visits.filter(function (v) { return v.my_role === 'help'; }).length;
@@ -724,6 +822,10 @@ var Plan = (function () {
         total: visits.length,
         last_visit: last ? last.date : null,
         last_topic: last ? last.topic_detail : '',
+        /* まだ閉じていない話。ヘルプの席でこれが出せるかどうかが、
+         * ご指名に変わるかどうかを分ける。こちらから連絡はしないが、
+         * 次にご一緒したときに続きが話せるかは、記録があるかで決まる。 */
+        hooks: (Insight.digest(c.id).open_hooks || []).slice(0, 2),
         // フリーの方は直接お声がけもできる。ほかの方の口座は店内だけ
         can_contact: Store.canContactDirectly(c),
         account: Store.accountLabel(c)
@@ -769,7 +871,7 @@ var Plan = (function () {
   return {
     HORIZON: HORIZON,
     leadTime: leadTime, comeRate: comeRate, weekdayPattern: weekdayPattern,
-    styleStats: styleStats, bestStyle: bestStyle, recentStyles: recentStyles,
+    selfVisitRate: selfVisitRate, contactNotes: contactNotes, todayCaution: todayCaution,
     watchSigns: watchSigns,
     expectedSpend: expectedSpend, overallAverage: overallAverage,
     progress: progress, board: board, candidates: candidates, fillPlan: fillPlan,

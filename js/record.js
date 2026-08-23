@@ -27,47 +27,85 @@ var Record = (function () {
   }
 
   /* ---------- マイク ----------
-   * 使えない事情がいくつもある。黙って何も起きないのがいちばん困るので、
-   * 「なぜ使えないか」と「代わりにどうするか」を必ず出す。
    *
-   *   - https でないと動かない（音声認識は保護された接続を要求する）
-   *   - iPhone の Safari には音声認識そのものが無い
-   *   - マイクの許可を断ったあとは、ブラウザの設定からしか戻せない
-   * どの場合も、キーボードのマイクからは入れられる。そこへ誘導する。
+   * ここには**二種類のマイク**がある。取り違えると話が合わなくなる。
+   *
+   *   ① このボタン（アプリ自前の音声認識）
+   *      https が要る。そして **ホーム画面から開くと動かない。**
+   *      iOSは、ホーム画面に追加したアプリにこの機能を渡さない。
+   *      Kōzaはホーム画面に置いて使うものなので、**普段は動かないと思ってよい。**
+   *
+   *   ② キーボードのマイク（iPhone本体の機能）
+   *      文字を入れる欄があれば、どこでも動く。ホーム画面から開いていても動く。
+   *      iOS15以降は時間制限が無く、iOS16以降は端末の中だけで文字にする。
+   *      **LINEやメモで使っているのはこちら。** 実装は要らない。
+   *
+   * 以前ここには「iPhone の Safari には音声認識そのものが無い」と書いてあった。
+   * それは誤りで、Safariでは動く。動かないのはホーム画面から開いたときである。
+   *
+   * ①が使えないときは、黙って何も起きないのがいちばん困る。
+   * **なぜ使えないか**と**代わりにどうするか**を必ず出して、②へ誘導する。
    */
 
   var micReady = false;
 
+  /** ホーム画面から開かれているか。ここでは①が動かない */
+  function isStandalone() {
+    return !!(window.navigator.standalone ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+  }
+
+  function micReason() {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!window.isSecureContext) {
+      return 'この接続（http）では、このボタンは使えません。';
+    }
+    if (isStandalone()) {
+      return 'ホーム画面から開いているあいだ、このボタンは使えません（iPhoneの決まりです）。';
+    }
+    if (!SR) {
+      return 'この端末では、このボタンは使えません。';
+    }
+    return '';
+  }
+
   function micNote() {
     var el = document.querySelector('.mic-note');
     if (!el) return;
-    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!window.isSecureContext) {
-      el.textContent = 'この接続（http）では音声にできません。公開後に使えます。今はキーボードのマイクからどうぞ';
-    } else if (!SR) {
-      el.textContent = 'この端末では音声にできません。キーボードのマイクからお願いします';
-    } else {
-      el.textContent = 'キーボードのマイクからでも入れられます';
-    }
+    var why = micReason();
+    el.textContent = why
+      ? why + 'キーボードのマイクから話していただけます。そちらはどこでも使えます。'
+      : 'キーボードのマイクからでも話せます。そちらはホーム画面から開いていても使えます。';
+  }
+
+  /* どちらが決めたお店か。分けて残さないと、店名が溜まっても好みの証拠にならない */
+  function renderPlaceBy() {
+    var host = document.getElementById('f-place-by');
+    if (!host) return;
+    UI.clear(host);
+    host.appendChild(UI.segmented(
+      [{ value: '', label: '—' },
+       { value: 'guest', label: 'お客様が' },
+       { value: 'self', label: 'こちらで' }],
+      draft.place_by || '',
+      function (v) { draft.place_by = v; }));
   }
 
   function setupMic() {
     var btn = document.getElementById('btn-mic');
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    btn.hidden = false;
+    // 使えない場所では、押せるボタンとして置いておかない
+    btn.hidden = !!micReason();
     micNote();
 
     if (micReady) return;
     micReady = true;
 
     btn.addEventListener('click', function () {
-      if (!window.isSecureContext) {
-        UI.toast('この接続では音声が使えません。キーボードのマイクからお願いします', true);
-        return;
-      }
-      if (!SR) {
-        UI.toast('この端末は音声に対応していません。キーボードのマイクからお願いします', true);
+      var why = micReason();
+      if (why) {
+        UI.toast(why + 'キーボードのマイクからお願いします', true);
         return;
       }
       if (listening && recognition) { recognition.stop(); return; }
@@ -212,6 +250,7 @@ var Record = (function () {
       my_role: v.my_role,
       douhan: v.douhan, kirikaeshi: v.kirikaeshi, nominaoshi: v.nominaoshi,
       set_count: v.set_count || 0, spend: v.spend, bottle: v.bottle || '',
+      douhan_place: v.douhan_place || '', place_by: v.place_by || '',
       topics: v.topics || [], topic_detail: v.topic_detail || '',
       drinks: v.drinks || [], observation: v.observation || '',
       hooks: v.hooks || [], next_visit_hint: v.next_visit_hint || {},
@@ -239,6 +278,21 @@ var Record = (function () {
     document.getElementById('f-sets').value = draft.set_count || '';
     UI.setMoney('f-spend', draft.spend);
     document.getElementById('f-bottle').value = draft.bottle || '';
+
+    /* お食事のお店は、同伴のときだけ出す。
+     * 毎回出していると欄が増えるだけで、肝心のときに埋まらない。 */
+    var pw = document.getElementById('f-place-wrap');
+    var dh = document.getElementById('f-douhan');
+    function syncPlace() {
+      pw.hidden = !dh.checked;
+      if (!pw.hidden) renderPlaceBy();
+    }
+    document.getElementById('f-place').value = draft.douhan_place || '';
+    if (!dh.dataset.placeBound) {
+      dh.dataset.placeBound = '1';
+      dh.addEventListener('change', syncPlace);
+    }
+    syncPlace();
     document.getElementById('f-topicdetail').value = draft.topic_detail;
     document.getElementById('f-drinks').value = (draft.drinks || []).map(function (d) {
       return d.count > 1 ? d.item + ' ×' + d.count : d.item;
@@ -331,20 +385,96 @@ var Record = (function () {
     updateHint();
   }
 
+  /**
+   * 次に声をかけるきっかけ（宿題）。
+   *
+   * ここは長らく**表示だけ**だった。つまりAIが拾えなかった宿題は、
+   * どこからも足せなかった。「◯◯と言われたまま」はいちばん強い声かけの理由なのに、
+   * 拾い漏れると永久に生まれない。
+   *
+   * **入力の場所は増やさない。**新しい画面も、常に開いている欄も作らない。
+   * すでに毎日通る整理の道の、宿題が並んでいるその下に、
+   * 押したときだけ開く一行を足す。それだけにしてある。
+   */
   function renderHooks() {
     var ul = UI.clear(document.getElementById('f-hooks'));
+
     if (!draft.hooks.length) {
       var li = UI.el('li', null, '（今回は見つかりませんでした）');
       li.style.color = 'var(--text-faint)';
       ul.appendChild(li);
-      return;
     }
-    draft.hooks.forEach(function (h) {
+
+    draft.hooks.forEach(function (h, i) {
       var li = UI.el('li');
       li.appendChild(UI.chip(hookLabel(h.type), 'gold'));
       li.appendChild(UI.el('span', null, h.text));
+      // 手で足したものは、その場で取り消せる。AIが拾ったものは触らない
+      if (h.by === 'self') {
+        var x = UI.el('button', 'nrow-x', '×');
+        x.type = 'button';
+        x.setAttribute('aria-label', 'これを消す');
+        x.addEventListener('click', function () {
+          draft.hooks.splice(i, 1);
+          renderHooks();
+        });
+        li.appendChild(x);
+      }
       ul.appendChild(li);
     });
+
+    var add = UI.el('li', 'hook-add');
+    var btn = UI.el('button', 'ghost small', '＋ 足す');
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      UI.clear(add);
+      var row = UI.el('div', 'f');
+      var input = UI.el('input');
+      input.type = 'text';
+      input.placeholder = '来月ゴルフに行かれる／お孫さんの発表会 など';
+      row.appendChild(input);
+
+      var ok = UI.el('button', 'ghost small', '足す');
+      ok.type = 'button';
+      function commit() {
+        var t = input.value.trim();
+        if (!t) { renderHooks(); return; }
+        /* 種類は選ばせない。欄が増えるほど埋まらなくなる。
+         * そのかわり「本人が足した」という印を持たせて、
+         * AIが拾ったものより強く扱う（本人が選んだ時点で、それは大事な宿題である）。 */
+        draft.hooks.push({ text: t, type: 'other', status: 'open', by: 'self' });
+        renderHooks();
+      }
+      ok.addEventListener('click', commit);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') commit(); });
+      row.appendChild(ok);
+      add.appendChild(row);
+      input.focus();
+    });
+    add.appendChild(btn);
+    ul.appendChild(add);
+  }
+
+  /**
+   * その話が、どなたのものか。
+   *
+   * AIが名前を返してきたときだけ、その席にいらっしゃる方の中から探す。
+   * **見つからなければ null。**そのときは今まで通り、
+   * 主客のものとして扱うか、複数名なら捨てられる（Insight 側の判断）。
+   *
+   * 取り違えるくらいなら、取りこぼすほうがはるかにましである。
+   * 同席のAさんが話されたご息女の受験が、Bさんの宿題として残り、
+   * そのまま次のご連絡の起点になれば、身に覚えのない話を振ることになる。
+   */
+  function hookOwner(h, attendees) {
+    if (h.customer_id) return h.customer_id;          // 既に決まっているもの
+    var nm = (h.customer || '').trim();
+    if (!nm) return null;
+    var m = Store.matchCustomer({ display_name: nm, name: nm });
+    if (!m) return null;
+    // その席にいらっしゃらない方の話にはしない
+    var here = (attendees || []).some(function (a) { return a.customer_id === m.id; });
+    return here ? m.id : null;
   }
 
   function hookLabel(t) {
@@ -481,13 +611,17 @@ var Record = (function () {
       set_count: parseInt(document.getElementById('f-sets').value, 10) || 0,
       spend: spendRaw === '' ? null : (parseInt(spendRaw, 10) || 0),
       bottle: document.getElementById('f-bottle').value.trim(),
+      douhan_place: document.getElementById('f-place').value.trim(),
+      place_by: draft.place_by || '',
       topics: draft.topics,
       topic_detail: document.getElementById('f-topicdetail').value.trim(),
       drinks: drinks,
       observation: draft.observation || '',   // 欄は廃止。古い記録のために残すだけ
       raw_memo: rawMemo,
       hooks: (draft.hooks || []).map(function (h) {
-        return { text: h.text, type: h.type, status: h.status || 'open' };
+        // 本人が足した印は残す。声かけの理由の強さがここで変わる
+        return { text: h.text, type: h.type, status: h.status || 'open', by: h.by || '',
+                 customer_id: hookOwner(h, attendees) };
       }),
       next_visit_hint: timing ? {
         timing: timing,
@@ -634,6 +768,9 @@ var Record = (function () {
       set_count: v.set_count || d.set_count,
       spend: typeof v.spend === 'number' ? v.spend : d.spend,
       bottle: v.bottle || d.bottle,
+      // 深夜に入れた分（予定からの引き継ぎ）を、AIの読みで上書きしない
+      douhan_place: v.douhan_place || d.douhan_place || '',
+      place_by: v.place_by || d.place_by || '',
       topics: d.topics,
       topic_detail: d.topic_detail || v.topic_detail || '',
       drinks: d.drinks,

@@ -207,6 +207,11 @@ a.linkbtn{display:flex;align-items:center;justify-content:center;text-decoration
 .hooks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .hooks li{background:var(--ink-1);border:1px solid var(--ink-3);border-radius:var(--radius);
   padding:11px 13px;font-size:.96rem;display:flex;gap:9px;align-items:center}
+/* 手で足すところ。押すまでは枠を持たせない（欄が増えたように見せない） */
+.hooks li.hook-add{background:none;border:none;padding:0;display:block}
+.hooks li.hook-add .f{margin:0;display:flex;gap:8px;align-items:center}
+.hooks li.hook-add input{flex:1}
+.hooks li .nrow-x{margin-left:auto}
 
 .enrich{display:flex;flex-direction:column;gap:8px}
 .enrich label{display:flex;gap:10px;align-items:flex-start;background:var(--ink-1);
@@ -415,7 +420,13 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
 .bd-w.sun{color:#c9857a}
 .bd-w.sat{color:#7fa0bd}
 .bd-mid{flex:1;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+/* 今日お会いする方の、ご趣味への入口。カードの下にぶら下げる */
+.guest-study{margin:-4px 0 4px;padding:0 2px;align-items:center}
+.guest-study .help{margin-right:2px}
+
 .bd-empty{color:var(--text-faint);font-size:.88rem}
+/* 狙っている数。予定そのものではないので、控えめに置く */
+.bd-aim{color:var(--accent-deep);font-size:.82rem}
 .bd-off{color:var(--text-faint);font-size:.85rem;opacity:.6}
 .bd-item{font-size:.87rem;padding:3px 10px;border-radius:999px;
   background:var(--ink-2);border:1px solid var(--ink-3)}

@@ -37,7 +37,7 @@ var Brief = (function () {
         offer: d.offer || [],
         trust_risks: d.trust_risks || [],
         seed_questions: d.seed_questions || [],
-        message_drafts: d.message_drafts || [],
+        meal: d.meal || null,
         timing: d.timing || ''
       });
       show(b.id);
@@ -76,6 +76,7 @@ var Brief = (function () {
     // 今日その席でする手当て。次があるかは、ここで決まる
     section(body, '今日して差し上げること', b.hospitality, 'hosp');
     renderOffer(body, b);
+    renderMeal(body, b);
     section(body, '話せること', b.talk_points);
     section(body, '確かめたいこと', b.confirm_points);
     renderSeeds(body, b);
@@ -89,29 +90,6 @@ var Brief = (function () {
       ul.appendChild(UI.el('li', null, b.timing));
       t.appendChild(ul);
       body.appendChild(t);
-    }
-
-    if ((b.message_drafts || []).length) {
-      var m = UI.el('div', 'brief-sec');
-      m.appendChild(UI.el('h3', null, 'お送りする言葉の案'));
-      b.message_drafts.forEach(function (d) {
-        var box = UI.el('div', 'draft');
-        box.appendChild(UI.el('div', 'tone', d.tone || ''));
-        box.appendChild(UI.el('div', 'txt', d.text || ''));
-        var copy = UI.el('button', 'ghost small copy', 'この文をコピー');
-        copy.type = 'button';
-        copy.addEventListener('click', function () {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(d.text).then(function () { UI.toast('コピーしました'); })
-              .catch(function () { UI.toast('長押しでコピーしてください', true); });
-          } else {
-            UI.toast('長押しでコピーしてください', true);
-          }
-        });
-        box.appendChild(copy);
-        m.appendChild(box);
-      });
-      body.appendChild(m);
     }
 
     renderOutcome(body, b);
@@ -183,6 +161,137 @@ var Brief = (function () {
     });
     det.appendChild(ul);
     parent.appendChild(det);
+  }
+
+  /**
+   * お食事にお誘いするなら、どういうお店か。
+   *
+   * **ジャンルの多数決を出さない。**「鮨が3回だから次も鮨」は、
+   * 記録を見ているのではなく数えているだけで、その方に飽きられる。
+   * 出すのは**共通している軸**（カウンター、静か、ご主人と話せる）。
+   * 軸が読めれば、毎回違うお店をお出ししても外れない。
+   *
+   * そして**お店の名前はここで出さない。** 店は入れ替わる。
+   * 実際に探すのは、ウェブで調べる別の仕事にしてある。
+   */
+  function renderMeal(parent, b) {
+    var m = b.meal;
+    if (!m || (!m.axis && !m.next && !m.ask)) return;
+
+    var c = Store.getCustomer(b.customer_id);
+    var p = c ? Store.placesOf(c.id) : null;
+
+    var s = UI.el('div', 'brief-sec');
+    s.appendChild(UI.el('h3', null, 'お食事にお誘いするなら'));
+
+    if (m.axis) {
+      var ax = UI.el('p', 'card-body whole');
+      ax.textContent = m.axis;
+      s.appendChild(ax);
+      if (m.basis) s.appendChild(UI.el('p', 'help', m.basis));
+    }
+
+    var ul = UI.el('ul', 'brief-list');
+    if (m.next) {
+      var li = UI.el('li');
+      li.appendChild(UI.el('div', 'seed-q', '次にお誘いするなら'));
+      li.appendChild(UI.el('p', 'seed-why', m.next));
+      ul.appendChild(li);
+    }
+    if (m.avoid) {
+      var la = UI.el('li');
+      la.appendChild(UI.el('div', 'seed-q', '避けること'));
+      la.appendChild(UI.el('p', 'seed-why', m.avoid));
+      ul.appendChild(la);
+    }
+    if (m.ask) {
+      var lq = UI.el('li');
+      lq.appendChild(UI.el('div', 'seed-q', 'まだ読み切れないこと'));
+      lq.appendChild(UI.el('p', 'seed-why', m.ask));
+      ul.appendChild(lq);
+    }
+    if (ul.children.length) s.appendChild(ul);
+
+    /* 記録そのもの。AIの読みが外れていないか、本人が確かめられるように */
+    if (p && (p.by_guest.length || p.recent.length)) {
+      var det = UI.el('details', 'raw');
+      det.appendChild(UI.el('summary', null, 'これまでのお店'));
+      if (p.by_guest.length) {
+        det.appendChild(UI.el('p', 'help', 'お客様が選ばれたお店：' +
+          p.by_guest.map(function (x) { return x.place + (x.times > 1 ? '（' + x.times + '回）' : ''); }).join('、')));
+      }
+      if (p.by_self.length) {
+        det.appendChild(UI.el('p', 'help', 'こちらでお選びしたお店：' +
+          p.by_self.map(function (x) { return x.place; }).join('、')));
+      }
+      if (p.recent.length) {
+        det.appendChild(UI.el('p', 'help', '直近：' +
+          p.recent.map(function (x) { return x.place; }).join('、')));
+      }
+      s.appendChild(det);
+    }
+
+    /* ここから先は、実際にウェブで探す。記憶で店名を出すと閉店した店を案内してしまう */
+    if (c && Api.isConfigured()) {
+      var find = UI.el('button', 'ghost small', 'この筋でお店を探す');
+      find.type = 'button';
+      find.addEventListener('click', function () { findPlaces(c.id, m.axis || ''); });
+      s.appendChild(find);
+      s.appendChild(UI.el('p', 'help',
+        'お食事のあとご一緒にお店へ向かえる範囲で、いま開いているお店を実際に調べます。'));
+    }
+
+    parent.appendChild(s);
+  }
+
+  /** 探した結果は、その場に出す。保存はしない（お店は入れ替わるため） */
+  function findPlaces(customerId, axis) {
+    UI.busy(true, 'お店を調べています…', {
+      estimate: Store.estimateMs('places', 40000),
+      steps: ['この筋のお店を探しています…', 'いま開いているか確かめています…']
+    });
+    Api.places(customerId, axis)
+      .then(function (d) {
+        UI.busy(false);
+        showPlaces(d);
+      })
+      .catch(function (e) {
+        UI.busy(false);
+        UI.toast(e.message, true);
+      });
+  }
+
+  function showPlaces(d) {
+    var host = document.getElementById('brief-body');
+    var s = UI.el('div', 'brief-sec');
+    s.appendChild(UI.el('h3', null, '調べたお店'));
+
+    var list = d.places || [];
+    if (!list.length) {
+      s.appendChild(UI.el('p', 'empty', d.note || '確かめられるお店が見つかりませんでした。'));
+      host.appendChild(s);
+      return;
+    }
+
+    list.forEach(function (x) {
+      var card = UI.el('div', 'card');
+      var top = UI.el('div', 'card-top');
+      top.appendChild(UI.el('div', 'card-name', x.name || ''));
+      if (x.kind) top.appendChild(UI.chip(x.kind));
+      card.appendChild(top);
+      if (x.where) card.appendChild(UI.el('p', 'card-body', x.where));
+      if (x.why) card.appendChild(UI.el('p', 'card-body whole', x.why));
+      if (x.note) card.appendChild(UI.el('p', 'help', x.note));
+      // 調べたものは古いことがある。予約の前に必ず確かめていただく
+      if (x.check) card.appendChild(UI.el('p', 'help', '確かめること：' + x.check));
+      s.appendChild(card);
+    });
+
+    if (d.note) s.appendChild(UI.el('p', 'help', d.note));
+    s.appendChild(UI.el('p', 'help',
+      'ウェブで調べたものです。**閉まっていることもあります。**お約束の前に必ずお確かめください。'.replace(/\*\*/g, '')));
+    host.appendChild(s);
+    s.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /**

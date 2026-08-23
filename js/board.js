@@ -87,6 +87,15 @@ var Board = (function () {
     var period = Store.periodOf(Store.today());
     var shownClose = false;
 
+    /* その日に何名を狙っているか。
+     *
+     * 「1日に何組まで」は機械が決めない。その晩の動きでしか分からないからである。
+     * だから代わりに**事実を出す。**多いと思えば、本人がその場で日を動かせる。 */
+    var aiming = {};
+    Plan.candidates().forEach(function (x) {
+      if (x.target_date) aiming[x.target_date] = (aiming[x.target_date] || 0) + 1;
+    });
+
     days.forEach(function (d) {
       // 締め日をまたぐところに線を入れる。ここから先は今月に効かない
       if (!shownClose && !d.in_period) {
@@ -115,6 +124,10 @@ var Board = (function () {
         });
       } else if (d.open) {
         mid.appendChild(UI.el('span', 'bd-empty', '空き'));
+      }
+      // 狙っている数は、予定とは別に添える。何名までにするかは本人が決める
+      if (d.open && aiming[d.date]) {
+        mid.appendChild(UI.el('span', 'bd-aim', aiming[d.date] + '名を狙っています'));
       }
       row.appendChild(mid);
 
@@ -187,6 +200,45 @@ var Board = (function () {
     soon:  { label: '', cls: '' }
   };
 
+  /**
+   * この候補ぜんぶに当たったとして、締めに届くのか。
+   *
+   * **届かないと計算しておきながら、黙って候補を並べていた。**
+   * 本人が知りたいのは名前の一覧ではなく「これで足りるのか」である。
+   * 足りないなら、組数ではなく単価か同伴で作るしかない——
+   * その判断を早く渡すほど、打つ手が残る。
+   */
+  function renderReach(wrap) {
+    var f = Plan.fillPlan();
+    var p = f.progress;
+    if (!p.goal.sales || !p.gap) return;
+
+    var box = UI.el('div', f.covers_gap ? 'banner' : 'banner-warn');
+    box.appendChild(UI.el('h3', null, f.covers_gap
+      ? 'この方々に当たれば、締めに届く見込みです'
+      : 'この方々ぜんぶに当たっても、締めには届きません'));
+
+    box.appendChild(UI.el('p', null,
+      '不足 ' + UI.yen(p.gap) + '　／　' +
+      'この候補で締めまでに見込めるのは ' + UI.yen(f.expected_in_period)));
+
+    /* 締めをまたぐ分を、今月の見込みと混ぜない。
+     * 混ぜると「届く」ように見えて、締めてから足りないことに気づく。 */
+    if (f.expected_next > 0) {
+      box.appendChild(UI.el('p', 'help',
+        'ほかに ' + UI.yen(f.expected_next) + 'ぶんは狙う日が締めより先です。' +
+        '今月の数字には入りませんが、来月の頭をつくります。'));
+    }
+
+    if (!f.covers_gap) {
+      box.appendChild(UI.el('p', null,
+        'あと ' + UI.yen(f.shortfall) + '足りません。' +
+        '**組数では届きませんので、単価か同伴で作ることになります。**'.replace(/\*\*/g, '')));
+    }
+
+    wrap.appendChild(box);
+  }
+
   function renderCandidates() {
     var wrap = UI.clear(document.getElementById('board-candidates'));
     var list = Plan.candidates(12);
@@ -198,6 +250,12 @@ var Board = (function () {
           : 'お客様を登録すると、ここに候補が出ます。'));
       return;
     }
+
+    renderReach(wrap);
+
+    /* 約束や記念日でも挙がっている方。**両方に理由がある方が、いちばん動く先。** */
+    inCallList = {};
+    Insight.callList().forEach(function (x) { inCallList[x.customer.id] = x; });
 
     list.forEach(function (x) { wrap.appendChild(candidateCard(x)); });
 
@@ -222,6 +280,8 @@ var Board = (function () {
     }
   }
 
+  var inCallList = {};
+
   function candidateCard(x) {
     var card = UI.el('div', 'card cand');
 
@@ -230,6 +290,8 @@ var Board = (function () {
     top.appendChild(UI.el('div', 'card-name', x.customer.display_name));
     var u = URGENCY[x.urgency];
     if (u.label) top.appendChild(UI.chip(u.label, u.cls));
+    var also = inCallList[x.customer.id];
+    if (also) top.appendChild(UI.chip(also.reason.tag + 'もあります'));
     card.appendChild(top);
 
     // ここが逆算の中身。1行で言い切る
@@ -264,14 +326,14 @@ var Board = (function () {
 
     var acts = UI.el('div', 'card-acts');
 
-    var inv = UI.el('button', 'primary small', 'お誘いの文を作る');
+    var inv = UI.el('button', 'primary small', '話のきっかけを見る');
     inv.type = 'button';
     inv.addEventListener('click', function () {
       Invite.open(x.customer.id, { target_date: x.target_date, kind: 'visit' });
     });
     acts.appendChild(inv);
 
-    var dou = UI.el('button', 'ghost small', '同伴で誘う');
+    var dou = UI.el('button', 'ghost small', 'お食事のきっかけ');
     dou.type = 'button';
     dou.addEventListener('click', function () {
       Invite.open(x.customer.id, { target_date: x.target_date, kind: 'douhan' });
@@ -335,7 +397,7 @@ var Board = (function () {
       card.appendChild(UI.el('p', 'card-body', meta.join('　/　')));
 
       var acts = UI.el('div', 'card-acts');
-      var inv = UI.el('button', 'primary small', '同伴のお誘いを作る');
+      var inv = UI.el('button', 'primary small', '話のきっかけを見る');
       inv.type = 'button';
       inv.addEventListener('click', function () {
         Invite.open(x.customer.id, { target_date: x.target_date, kind: 'douhan' });
@@ -381,6 +443,12 @@ var Board = (function () {
         card.appendChild(a);
       }
       if (x.last_topic) card.appendChild(UI.el('p', 'card-body', '前回：' + x.last_topic));
+
+      /* 次にご一緒したときに、この続きが話せる。ここが口座に変わる道 */
+      (x.hooks || []).forEach(function (h) {
+        card.appendChild(UI.el('p', 'card-body', '続きのある話：' + h.text));
+      });
+
       card.addEventListener('click', function () { People.openPerson(x.customer.id, 'brief'); });
       wrap.appendChild(card);
     });
@@ -578,6 +646,7 @@ var Board = (function () {
       expected_spend: editing ? editing.expected_spend : null,
       time: editing ? (editing.time || '') : (opts.time || ''),
       place: editing ? (editing.place || '') : '',
+      place_by: editing ? (editing.place_by || '') : '',
       note: editing ? editing.note : ''
     };
 
@@ -587,6 +656,7 @@ var Board = (function () {
     document.getElementById('appt-time').value = draft.time || '';
     document.getElementById('appt-place').value = draft.place || '';
     renderPlaces();
+    renderPlaceBy();
     document.getElementById('appt-note').value = draft.note || '';
     document.getElementById('appt-delete').hidden = !editing;
 
@@ -630,6 +700,21 @@ var Board = (function () {
     });
   }
 
+  /* どちらが決めたお店か。
+   * ここを分けて残さないと、店名がいくら溜まっても好みの証拠にならない。
+   * お客様が選ばれた店は、その方のお好みそのものである。 */
+  function renderPlaceBy() {
+    var host = document.getElementById('appt-place-by');
+    if (!host) return;
+    UI.clear(host);
+    host.appendChild(UI.segmented(
+      [{ value: '', label: 'まだ決めていない' },
+       { value: 'guest', label: 'お客様が' },
+       { value: 'self', label: 'こちらで' }],
+      draft.place_by || '',
+      function (v) { draft.place_by = v; }));
+  }
+
   function saveAppt() {
     var date = document.getElementById('appt-date').value;
     var cid = document.getElementById('appt-customer').value;
@@ -645,6 +730,7 @@ var Board = (function () {
       expected_spend: spend > 0 ? spend : null,
       time: document.getElementById('appt-time').value,
       place: document.getElementById('appt-place').value.trim(),
+      place_by: draft.place_by || '',
       note: document.getElementById('appt-note').value.trim()
     };
 

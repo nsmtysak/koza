@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=42">
+<link rel="stylesheet" href="css/app.css?v=59">
 </head>
 <body>
 
@@ -137,7 +137,8 @@
   </section>
 
   <section class="block">
-    <h2 class="sect">ほかに声をかけられる方</h2>
+    <h2 class="sect">約束と、忘れてはいけない方</h2>
+    <p class="help">果たしていないお約束・記念日・そろそろ空くボトル。<strong>金額とは別の理由で動く方々です。</strong></p>
     <div id="call-list" class="cards"></div>
     <button class="ghost small full" id="call-more" hidden></button>
   </section>
@@ -170,8 +171,8 @@
   </section>
 
   <section class="block">
-    <h2 class="sect">埋めるならこの方々</h2>
-    <p class="help">狙う日と、声をかける締切です。締切は「その方が誘われてからお越しになるまでの日数」から逆算しています。</p>
+    <h2 class="sect">締めを埋める方</h2>
+    <p class="help">狙う日と、声をかける締切です。締切は「その方が誘われてからお越しになるまでの日数」から逆算しています。<strong>こちらは金額と締切の順です。</strong></p>
     <div id="board-candidates" class="cards"></div>
   </section>
 
@@ -228,12 +229,17 @@
       </label>
     </div>
 
-    <label class="f" id="appt-place-wrap">
+    <div class="f" id="appt-place-wrap">
       <span>お食事のお店（同伴のとき）</span>
       <input type="text" id="appt-place" list="douhan-places" placeholder="店名">
       <datalist id="douhan-places"></datalist>
       <span class="help">同じお店に続けてお連れしないよう、これまでの記録から候補が出ます。</span>
-    </label>
+
+      <span class="sub-label">どちらが決めたお店ですか</span>
+      <div id="appt-place-by"></div>
+      <span class="help"><strong>お客様が選ばれたお店は、その方のお好みそのものです。</strong>
+        溜まるほど、次の一軒を決めやすくなります。</span>
+    </div>
 
     <label class="f">
       <span>覚え書き</span>
@@ -276,6 +282,8 @@
   <div class="actions col">
     <button class="primary" id="btn-scan-card">名刺を撮って登録</button>
     <button class="ghost" id="btn-new-person">手で登録する</button>
+    <button class="ghost" id="btn-study">覚えておくこと</button>
+    <p class="help">お客様のご趣味について、席で一歩踏み込んで伺うために知っておくことをまとめます。</p>
   </div>
 </section>
 
@@ -317,9 +325,10 @@
     </div>
   </header>
 
-  <p class="lede-sm">卓ごとに1行。お名前と金額と一言だけで構いません。<strong>整理は明日で構いません。</strong></p>
+  <p class="lede-sm">卓ごとに1行。<strong>話し言葉のままで構いません。整理は明日で構いません。</strong></p>
 
   <datalist id="night-names"></datalist>
+  <div id="night-voice" class="banner" hidden></div>
   <div id="night-old" class="banner-warn" hidden></div>
   <div id="night-rows" class="nrows"></div>
 
@@ -411,6 +420,15 @@
       <span>入れていただいたボトル</span>
       <input type="text" id="f-bottle" placeholder="響17年 など">
     </label>
+
+    <div class="f" id="f-place-wrap" hidden>
+      <span>お食事のお店</span>
+      <input type="text" id="f-place" placeholder="天喜、かねさか など">
+      <span class="sub-label">どちらが決めたお店ですか</span>
+      <div id="f-place-by"></div>
+      <span class="help"><strong>お客様が選ばれたお店は、その方のお好みそのものです。</strong>
+        溜まるほど、次にどういうお店へお誘いするかが読めるようになります。</span>
+    </div>
 
     <label class="f">
       <span>話したこと・覚え書き</span>
@@ -518,6 +536,15 @@
   <div id="brief-body"></div>
 </section>
 
+<!-- ========== 覚えておくこと（分野の手引き） ========== -->
+<section id="v-study" class="view" hidden>
+  <header class="vhead row">
+    <button class="back" id="study-back" aria-label="戻る">←</button>
+    <h1 id="study-title">覚えておくこと</h1>
+  </header>
+  <div id="study-body"></div>
+</section>
+
 <!-- ========== 設定 ========== -->
 <section id="v-settings" class="view" hidden>
   <header class="vhead"><h1>設定</h1></header>
@@ -548,6 +575,8 @@
     <div class="f">
       <span>営業する曜日</span>
       <div id="s-open-days" class="daypick"></div>
+      <span class="help"><strong>ここが逆算の分母になります。</strong>合っているか、必ずお確かめください。<br>
+        この街は土日祝と年末年始が休みのお店が多く、ひと月に出られるのは20日ほどが通例です。</span>
     </div>
 
     <div class="f inline">
@@ -555,6 +584,8 @@
       <label class="chk"><input type="checkbox" id="s-closed-newyear"><span>年末年始は休み</span></label>
       <label class="chk"><input type="checkbox" id="s-closed-obon"><span>お盆は休み</span></label>
     </div>
+
+    <p class="help" id="s-open-days-count"></p>
 
     <div class="grid2">
       <label class="f">
@@ -581,6 +612,18 @@
     <h2 class="sect">お店のこと</h2>
 
     <label class="f">
+      <span>お店のある場所</span>
+      <input type="text" id="s-area" placeholder="お店のある町名">
+    </label>
+
+    <label class="f">
+      <span>お食事に使える範囲</span>
+      <input type="text" id="s-meal-area" placeholder="例）お店から歩ける範囲の町名">
+      <span class="help">お食事のあと、<strong>ご一緒にお店へ向かえる範囲</strong>だけを書いてください。
+        どれだけ評判のよいお店でも、そこから戻れないならお誘いになりません。ここを埋めると、AIがその範囲でだけお店を探します。</span>
+    </label>
+
+    <label class="f">
       <span>自分の立場</span>
       <select id="s-myrole">
         <option value="kakari">係が中心</option>
@@ -598,23 +641,8 @@
     </label>
 
     <label class="f">
-      <span>同伴のタイムアウト（分・0＝なし）</span>
-      <input type="number" id="s-douhan-timeout" min="0" step="5" inputmode="numeric">
-      <span class="help">お食事を終えてから入店するまでの猶予です。<strong>超えると同伴にならず、切り返し扱いになって伝票が2枚になります。</strong><br>
-        AIはこれを見て、お誘いの文に時間の目安を入れます。<strong>「同伴」という言葉は文面には出しません。</strong>
-        「7時頃にお食事を上がれましたら、ゆっくりしていただけます」のように、お客様にとっての都合として書きます。</span>
-    </label>
-
-    <label class="f">
       <span>同伴の月間ノルマ（回数・0＝なし）</span>
       <input type="number" id="s-douhan-quota" min="0" inputmode="numeric">
-    </label>
-
-    <label class="f">
-      <span>同伴の入店締め</span>
-      <input type="time" id="s-douhan-deadline">
-      <span class="help">この時刻までに入店しないと、同伴として付きません。<strong>これは店の数え方なので、お客様への文には出しません。</strong><br>
-        20:00 と入れておくと、AIは逆算して「6時頃にお会いできましたら」と時間を提案します。理由は書きません。</span>
     </label>
 
     <div class="grid2">
@@ -665,7 +693,7 @@
 
     <h2 class="sect">このアプリについて</h2>
     <div class="actions col">
-      <a class="ghost linkbtn" href="about.html?v=42">できること・できないこと</a>
+      <a class="ghost linkbtn" href="about.html?v=59">できること・できないこと</a>
     </div>
     <p class="help">何のためのアプリか、AIが何を提案するのかをまとめています。</p>
 
@@ -801,28 +829,29 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=42"></script>
-<script src="js/store.js?v=42"></script>
-<script src="js/holiday.js?v=42"></script>
-<script src="js/insight.js?v=42"></script>
-<script src="js/plan.js?v=42"></script>
-<script src="js/api.js?v=42"></script>
-<script src="js/ui.js?v=42"></script>
-<script src="js/lock.js?v=42"></script>
-<script src="js/night.js?v=42"></script>
-<script src="js/record.js?v=42"></script>
-<script src="js/tidy.js?v=42"></script>
-<script src="js/scan.js?v=42"></script>
-<script src="js/people.js?v=42"></script>
-<script src="js/brief.js?v=42"></script>
-<script src="js/gifts.js?v=42"></script>
-<script src="js/board.js?v=42"></script>
-<script src="js/review.js?v=42"></script>
-<script src="js/invite.js?v=42"></script>
-<script src="js/home.js?v=42"></script>
-<script src="js/seed.js?v=42"></script>
-<script src="js/install.js?v=42"></script>
-<script src="js/settings.js?v=42"></script>
-<script src="js/app.js?v=42"></script>
+<script src="js/db.js?v=59"></script>
+<script src="js/store.js?v=59"></script>
+<script src="js/holiday.js?v=59"></script>
+<script src="js/insight.js?v=59"></script>
+<script src="js/plan.js?v=59"></script>
+<script src="js/api.js?v=59"></script>
+<script src="js/ui.js?v=59"></script>
+<script src="js/lock.js?v=59"></script>
+<script src="js/night.js?v=59"></script>
+<script src="js/record.js?v=59"></script>
+<script src="js/tidy.js?v=59"></script>
+<script src="js/scan.js?v=59"></script>
+<script src="js/people.js?v=59"></script>
+<script src="js/brief.js?v=59"></script>
+<script src="js/gifts.js?v=59"></script>
+<script src="js/board.js?v=59"></script>
+<script src="js/review.js?v=59"></script>
+<script src="js/invite.js?v=59"></script>
+<script src="js/study.js?v=59"></script>
+<script src="js/home.js?v=59"></script>
+<script src="js/seed.js?v=59"></script>
+<script src="js/install.js?v=59"></script>
+<script src="js/settings.js?v=59"></script>
+<script src="js/app.js?v=59"></script>
 </body>
 </html>

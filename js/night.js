@@ -6,8 +6,17 @@
  *   - 1画面で終わる。卓を移るたびに画面を往復させない
  *   - 1卓は1行。名前・金額・一言。それ以上は畳んでおく
  *   - AIを待たせない。整理は翌日に回す
- *   - 声に出させない。タクシーの中でお客様の名前と金額は音読できない
  *   - 途中で閉じても消えない
+ *
+ * 声については、**強いるのでも禁じるのでもなく、選べるようにする。**
+ * 以前は「声に出させない」を原則にしていた。タクシーの中では、
+ * お客様のお名前と金額を音読できないからである。それは今も正しい。
+ * ただし帰宅後の自室、控室、化粧を落としながら——声が出せる場所はある。
+ * 打つ手間で続かなくなるくらいなら、話していただいたほうがよい。
+ *
+ * 話す場合はキーボードのマイクを使う。iPhone本体の機能なので、
+ * ホーム画面から開いていても動く（アプリ自前の音声認識はここでは動かない）。
+ * iOS16以降は端末の中だけで文字にするので、話した中身は外に出ない。
  */
 var Night = (function () {
   'use strict';
@@ -24,7 +33,8 @@ var Night = (function () {
 
   function blankRow() {
     return { name: '', customer_id: null, spend: '', douhan: false, memo: '', help: false,
-             others: '', sets: '', bottle: '', kirikaeshi: false, nominaoshi: false, open: false };
+             others: '', sets: '', bottle: '', place: '', place_by: '',
+             kirikaeshi: false, nominaoshi: false, open: false };
   }
 
   /** 入力中の下書き。日をまたいでも捨てない */
@@ -68,6 +78,8 @@ var Night = (function () {
   function render() {
     var dateEl = document.getElementById('night-date');
     dateEl.textContent = UI.longDate(state.date);
+
+    renderVoiceNote();
 
     var old = document.getElementById('night-old');
     if (state.date !== businessDate()) {
@@ -150,6 +162,42 @@ var Night = (function () {
     hint.textContent = '新しくお客様として登録します';
   }
 
+  /* ---------- 話して入れられる、というご案内 ----------
+   *
+   * 打つ手間で続かなくなるのが、このアプリのいちばんの死に方である。
+   * ところがキーボードのマイクは、あることを知らなければ使われない。
+   * だから一度だけお伝えして、閉じられたら二度と出さない。
+   *
+   * ここで案内するのは**iPhone本体のマイク**であって、
+   * アプリ自前の音声認識ではない。後者はホーム画面から開くと動かない。
+   */
+  var VOICE_SEEN = 'koza2.night_voice_seen';
+
+  function renderVoiceNote() {
+    var host = document.getElementById('night-voice');
+    if (!host) return;
+    if (localStorage.getItem(VOICE_SEEN)) { host.hidden = true; return; }
+
+    UI.clear(host);
+    host.appendChild(UI.el('h3', null, '話して入れられます'));
+    host.appendChild(UI.el('p', null,
+      '下の欄を開くと、キーボードにマイクのボタンが出ます。' +
+      'そのまま話していただければ、文字になります。' +
+      'お名前も金額も、話の中に入っていれば翌日AIが拾います。'));
+    host.appendChild(UI.el('p', null,
+      '話した中身はiPhoneの中だけで文字になります。どこにも送られません。' +
+      'ただし声は出ますので、車の中など、人のいる場所ではお気をつけください。'));
+
+    var ok = UI.el('button', 'ghost small', 'もう出さない');
+    ok.type = 'button';
+    ok.addEventListener('click', function () {
+      try { localStorage.setItem(VOICE_SEEN, '1'); } catch (e) { /* 容量なら諦める */ }
+      host.hidden = true;
+    });
+    host.appendChild(ok);
+    host.hidden = false;
+  }
+
   function rowEl(r, i) {
     var box = UI.el('div', 'nrow' + (r.open ? ' is-open' : ''));
 
@@ -201,11 +249,17 @@ var Night = (function () {
 
     /* 2行目：一言。ここがいちばん大事なので広く取る。
      * 枠を固定すると、3行目から下が箱の縁で切れて読めなくなる。
-     * 深夜に打った本人が、打った端から見えなくなるのがいちばん困る。 */
+     * 深夜に打った本人が、打った端から見えなくなるのがいちばん困る。
+     *
+     * ここは話し言葉のまま入れてよい欄である。
+     * キーボードのマイクを押せば、そのまま声で入る（iPhoneの機能なので、
+     * ホーム画面から開いていても動く）。翌日、AIが卓ごとに組み直す。
+     * **お名前も金額も、話の中に入っていれば拾われる。**
+     * だから打つのは、この欄ひとつでも足りる。 */
     var memo = UI.el('textarea');
     memo.rows = 2;
     memo.className = 'nrow-memo';
-    memo.placeholder = '話したこと、覚えておきたいこと（そのままの言葉で）';
+    memo.placeholder = 'そのままの言葉で。「田中様と佐藤様。福岡の担当が代わったって話。8万くらい」';
     memo.value = r.memo;
     memo.style.overflow = 'hidden';
     memo.addEventListener('input', function () {
@@ -270,6 +324,26 @@ var Night = (function () {
     g.appendChild(field('セット数', 'sets', '2', true));
     g.appendChild(field('ボトル', 'bottle', '響17年'));
     d.appendChild(g);
+
+    /* お食事のお店。**同伴のときだけ出す。**
+     *
+     * ここが空のままだと、その方のお好みが永久に読めない。
+     * 予定に入れていれば「残す」で引き継ぐので、たいていは触らなくてよい。
+     * 触るのは、予定と違うお店になったときだけ。 */
+    if (r.douhan) {
+      d.appendChild(field('お食事のお店', 'place', '天喜、かねさか など'));
+      var pb = UI.el('div', 'f');
+      pb.appendChild(UI.el('span', null, 'どちらが決めたお店ですか'));
+      pb.appendChild(UI.segmented(
+        [{ value: '', label: '—' },
+         { value: 'guest', label: 'お客様が' },
+         { value: 'self', label: 'こちらで' }],
+        r.place_by || '',
+        function (v) { r.place_by = v; save(); }));
+      pb.appendChild(UI.el('span', 'help',
+        'お客様が選ばれたお店は、その方のお好みそのものです。'));
+      d.appendChild(pb);
+    }
 
     var t = UI.el('div', 'nrow-toggles');
     t.appendChild(toggle('切り返し', r.kirikaeshi, function (v) { r.kirikaeshi = v; save(); }));
@@ -337,11 +411,33 @@ var Night = (function () {
       var raw = [nm ? nm + 'と。' : '', r.memo,
         others.length ? '（ご一緒：' + others.join('、') + '）' : ''].filter(Boolean).join(' ');
 
+      /* お食事のお店を、予定から引き継ぐ。
+       *
+       * ここが無いと、予定にいくら店名を入れても来歴に残らず、
+       * その方のお好みが永久に読めないままになる（実際そうなっていた）。
+       * 深夜に手で入れ直させるのは酷なので、予定にあるものを黙って持ってくる。
+       * 手で入れてあれば、そちらを優先する。 */
+      var place = (r.place || '').trim();
+      var placeBy = r.place_by || '';
+      if (!place && r.douhan) {
+        var main = attendees[0];
+        if (main) {
+          Store.appointmentsOn(state.date).forEach(function (a) {
+            if (place || a.customer_id !== main.customer_id) return;
+            if (!(a.place || '').trim()) return;
+            place = a.place.trim();
+            placeBy = a.place_by || '';
+          });
+        }
+      }
+
       Store.addVisit({
         date: state.date,
         attendees: attendees,
         my_role: r.help ? 'help' : (Store.getProfile().my_role === 'help' ? 'help' : 'kakari'),
         douhan: !!r.douhan,
+        douhan_place: place,
+        place_by: placeBy,
         kirikaeshi: !!r.kirikaeshi,
         nominaoshi: !!r.nominaoshi,
         set_count: parseInt(r.sets, 10) || 0,

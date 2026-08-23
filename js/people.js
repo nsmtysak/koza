@@ -95,6 +95,8 @@ var People = (function () {
     if (sub.length) card.appendChild(UI.el('p', 'card-body', sub.join('　/　')));
 
     var tags = UI.el('div', 'card-tags');
+    // ご無沙汰な順で上に来る方なので、印が無いと理由が分からなくなる
+    if (r.c.standing) tags.appendChild(UI.chip(Store.STANDING[r.c.standing] || '', 'warn'));
     (r.c.interests || []).slice(0, 3).forEach(function (i) { tags.appendChild(UI.chip(i)); });
     if (r.c.relation_type === 'help') tags.appendChild(UI.chip('ヘルプ'));
     if (tags.children.length) card.appendChild(tags);
@@ -178,10 +180,19 @@ var People = (function () {
   /**
    * 連絡の導線。
    *
-   * 文を写しても、そこからアプリを切り替えて相手を探すのに40秒かかる。
-   * 1日10人なら7分。記録で節約した時間がそのまま戻ってくる。
-   * 電話とメールは相手まで直接つながる。LINEはアプリを開くところまで
-   * （LINEに、特定の相手を開く仕組みが公開されていないため）。
+   * **LINEと電話のボタンは外した。**（施主の指示・2026-08-23）
+   *
+   * LINEには、相手を指定して開く方法が公開されていない。
+   * ボタンが開けるのは**最後に見ていたトーク**であって、この方ではない。
+   * 別の方の画面が開いたことに気づかず打ち込めば、
+   * ここまでの記録が無駄になるどころか、店ごと信を失う。
+   *   「間違った客の話を別の客に送りかねない」（現場の評価より）
+   *
+   * 電話も、画面から一続きで発信まで行ってしまう。
+   * こちらの都合で鳴らす道具を、押しやすいところに置いておく理由がない。
+   *
+   * 相手を探す手間は本人に戻るが、**そのほうが安い。**
+   * 番号もLINEの表示名も、プロフィールの欄にそのまま残してある。
    */
   function renderContactRow(c) {
     var host = UI.clear(document.getElementById('person-contact'));
@@ -195,17 +206,6 @@ var People = (function () {
       any = true;
     }
 
-    if (c.line || c.mobile) {
-      var l = UI.el('a', 'contact-btn line', 'LINE');
-      l.href = 'https://line.me/R/';
-      l.addEventListener('click', function () {
-        if (c.line) UI.toast('LINEでの表示名：' + c.line);
-      });
-      host.appendChild(l);
-      any = true;
-    }
-    if (c.mobile) link('電話', 'tel:' + c.mobile.replace(/[^\d+]/g, ''));
-    else if (c.phone) link('電話', 'tel:' + c.phone.replace(/[^\d+]/g, ''));
     if (c.email) link('メール', 'mailto:' + c.email);
 
     host.hidden = !any;
@@ -228,10 +228,132 @@ var People = (function () {
     else renderTouchTab(body, c);
   }
 
+  /* ---------- いまの間柄 ----------
+   *
+   * こちらの努力ではどうにもならない事情で、お越しになれなくなることがある。
+   * ご転勤、ご退職、お立場の変化、接待の枠そのものが無くなること。
+   * 記憶を尽くしても戻らないものは戻らない。
+   *
+   * それでも候補に並び続けると、来られない方が「ご無沙汰な順」の上に居座って、
+   * 動くべき方が埋もれる。そして声をかけていない負い目だけが残る。
+   *
+   * **だから、間隔が空いたら尋ねる。決めるのは本人。**
+   * 機械が「この方はもう来ない」と判定してはいけない。
+   */
+  function renderStanding(body, c, d) {
+    // すでに決めておられる方。いつでも戻せるようにしておく
+    if (c.standing) {
+      var box = UI.el('div', 'banner-warn');
+      box.appendChild(UI.el('h3', null, Store.STANDING[c.standing] || ''));
+      var bits = [];
+      if (c.standing_reason) bits.push(c.standing_reason);
+      if (c.standing_at) bits.push(UI.shortDate(c.standing_at) + 'にそう記録しています');
+      if (bits.length) box.appendChild(UI.el('p', null, bits.join('　/　')));
+      box.appendChild(UI.el('p', null, c.standing === 'closed'
+        ? 'お声がけの候補からも、記念日からも外れています。'
+        : 'お声がけの候補から外れています。記念日とご挨拶は続きます。'));
+
+      var back = UI.el('button', 'ghost small', 'お付き合いが続いている、に戻す');
+      back.type = 'button';
+      back.addEventListener('click', function () {
+        Store.setStanding(c.id, null, '');
+        openPerson(c.id, 'brief');
+        UI.toast('戻しました');
+      });
+      box.appendChild(back);
+      body.appendChild(box);
+      return;
+    }
+
+    /* まだ決めておられない方。間隔が平均の2倍を超えたら、一度だけ尋ねる。
+     * 記録が少ない方に尋ねると、ただの早合点になる */
+    var avg = d ? d.average_interval : 0;
+    var since = d ? d.days_since : null;
+    if (!avg || since === null || d.visit_count < 3 || since < avg * 2) return;
+
+    var ask = UI.el('div', 'block');
+    ask.appendChild(UI.el('h3', 'sect', 'この方は、いかがでしょうか'));
+    ask.appendChild(UI.el('p', 'help',
+      'いつもは' + avg + '日ほどの間隔が、今日で' + since + '日です。' +
+      'ご事情でお越しになれないのであれば、ここで外しておけます。' +
+      'そのほうが、動ける方に手が回ります。'));
+
+    var row = UI.el('div', 'card-acts');
+
+    var pause = UI.el('button', 'ghost small', 'ご事情があって、いまは難しい');
+    pause.type = 'button';
+    pause.addEventListener('click', function () { askReason(c, 'paused'); });
+    row.appendChild(pause);
+
+    var close = UI.el('button', 'ghost small', '区切りがついた');
+    close.type = 'button';
+    close.addEventListener('click', function () { askReason(c, 'closed'); });
+    row.appendChild(close);
+
+    ask.appendChild(row);
+    ask.appendChild(UI.el('p', 'help',
+      'まだ分からなければ、何も押さずにそのままで構いません。'));
+    body.appendChild(ask);
+  }
+
+  /** なぜそうなったかを残す。残さないと、半年後にただの放置と見分けがつかない */
+  function askReason(c, standing) {
+    var body = UI.clear(document.getElementById('person-body'));
+    var box = UI.el('div', 'block');
+    box.appendChild(UI.el('h3', 'sect',
+      standing === 'closed' ? '区切りがついた、として記録します' : 'いまは難しい、として記録します'));
+    box.appendChild(UI.el('p', 'help', '差し支えなければ、事情を残しておいてください。'));
+
+    var chosen = '';
+    var wrap = UI.el('div', 'card-tags');
+    Store.STANDING_REASONS.forEach(function (label) {
+      var b = UI.el('button', 'ghost small', label);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        chosen = label;
+        // .ghost には .is-on のスタイルが無い。並べ替えの見出しと同じやり方で色を付ける
+        wrap.querySelectorAll('button').forEach(function (x) {
+          x.style.borderColor = '';
+          x.style.color = '';
+        });
+        b.style.borderColor = 'var(--accent-deep)';
+        b.style.color = 'var(--accent)';
+      });
+      wrap.appendChild(b);
+    });
+    box.appendChild(wrap);
+
+    var note = UI.el('textarea');
+    note.rows = 2;
+    note.placeholder = '補足があれば（任意）';
+    box.appendChild(note);
+
+    var acts = UI.el('div', 'card-acts');
+    var ok = UI.el('button', 'primary small', 'これで残す');
+    ok.type = 'button';
+    ok.addEventListener('click', function () {
+      var reason = [chosen, note.value.trim()].filter(String).join('　');
+      Store.setStanding(c.id, standing, reason);
+      openPerson(c.id, 'brief');
+      UI.toast('記録しました');
+    });
+    acts.appendChild(ok);
+
+    var cancel = UI.el('button', 'ghost small', 'やめる');
+    cancel.type = 'button';
+    cancel.addEventListener('click', function () { openPerson(c.id, 'brief'); });
+    acts.appendChild(cancel);
+
+    box.appendChild(acts);
+    body.appendChild(box);
+  }
+
   /* ---------- 準備タブ ---------- */
 
   function renderBriefTab(body, c) {
     var d = Insight.digest(c.id);
+
+    renderStanding(body, c, d);
 
     if (!Store.isMyAccount(c)) {
       var w = UI.el('div', 'banner-warn');
@@ -261,12 +383,10 @@ var People = (function () {
     // 誘ってからお越しになるまでの日数。逆算の根拠を本人にも見せる
     var lead = Plan.leadTime(c.id, 'visit');
     var rate = Plan.comeRate(c.id);
-    var st = Plan.bestStyle(c.id);
     if (lead.samples || rate.samples) {
       var lb = UI.el('p', 'help');
       var bits = ['お声がけから平均' + lead.days + '日でお越しになります'];
       if (rate.samples >= 2) bits.push('お誘いへのお応えは ' + rate.came + '／' + rate.samples);
-      if (st) bits.push('効いた型は「' + (Store.INVITE_STYLES[st.style] || st.style) + '」');
       lb.textContent = bits.join('　/　');
       body.appendChild(lb);
     }
@@ -330,6 +450,28 @@ var People = (function () {
       body.appendChild(prev);
     }
 
+    /* ご趣味から、その分野の手引きへ。
+     *
+     * 「ゴルフがお好き」と知っているだけでは、席で「へぇー」しか返せない。
+     * 深く伺うには、こちらが少し知っている必要がある。
+     * ここは**その方についての話ではなく、分野の話**へ渡す入口である。 */
+    var ints = (c.interests || []).filter(Boolean);
+    if (ints.length) {
+      var sb = UI.el('div', 'brief-sec');
+      sb.appendChild(UI.el('h3', null, '席で伺うために、覚えておくこと'));
+      sb.appendChild(UI.el('p', 'help',
+        'ご趣味の分野です。少し知っていると、一歩踏み込んで伺えます。'));
+      var row = UI.el('div', 'card-tags');
+      ints.slice(0, 6).forEach(function (t) {
+        var b = UI.el('button', 'ghost small', t + (Store.getStudy(t) ? '　用意済み' : ''));
+        b.type = 'button';
+        b.addEventListener('click', function () { Study.open(t); });
+        row.appendChild(b);
+      });
+      sb.appendChild(row);
+      body.appendChild(sb);
+    }
+
     var act = UI.el('div', 'actions col');
 
     var mk = UI.el('button', 'primary', last ? '最新の内容で準備し直す' : '会う前の準備をする');
@@ -339,7 +481,7 @@ var People = (function () {
 
     // ほかの方の口座には、お誘いの導線そのものを出さない
     if (Store.canContactDirectly(c)) {
-      var inv = UI.el('button', 'ghost', 'お誘いの文をつくる');
+      var inv = UI.el('button', 'ghost', '話のきっかけを見る');
       inv.type = 'button';
       inv.addEventListener('click', function () {
         var cand = Plan.candidates().filter(function (x) { return x.customer.id === c.id; })[0];
@@ -347,7 +489,7 @@ var People = (function () {
       });
       act.appendChild(inv);
 
-      var call = UI.el('button', 'ghost', '連絡する言葉を用意する');
+      var call = UI.el('button', 'ghost', 'ご連絡の前に下調べをする');
       call.type = 'button';
       call.addEventListener('click', function () { Brief.generate(c.id, 'contact'); });
       act.appendChild(call);
@@ -505,7 +647,7 @@ var People = (function () {
     badd.appendChild(bi); badd.appendChild(bb);
     bt.appendChild(badd);
     bt.appendChild(UI.el('p', 'help',
-      '「そろそろ空きます」にすると、お声がけの候補に出ます。AIもその事実を使って文を書けるようになります。'));
+      '「そろそろ空きます」にすると、お声がけの候補に出ます。話のきっかけにもなります。'));
     form.appendChild(bt);
 
     /* ご紹介くださった方。
@@ -658,6 +800,29 @@ var People = (function () {
     form.appendChild(listField('触れない話題',
       function () { return Store.getCustomer(c.id).ng_topics; },
       function (v) { Store.updateCustomer(c.id, { ng_topics: v }); }, '例）前の会社のこと'));
+
+    /* ご在宅になりやすい曜日。
+     * 深夜を避けるだけでは足りない。ご在宅の日に届けば、ご家族の目に触れる。 */
+    var qd = UI.el('div', 'f');
+    qd.appendChild(UI.el('span', null, 'ご連絡を控える曜日'));
+    var qdRow = UI.el('div', 'daypick');
+    ['日', '月', '火', '水', '木', '金', '土'].forEach(function (label, i) {
+      var cur = Store.getCustomer(c.id).quiet_days || [];
+      var b = UI.el('button', 'daybtn' + (cur.indexOf(i) >= 0 ? ' is-on' : ''), label);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        var days = (Store.getCustomer(c.id).quiet_days || []).slice();
+        var at = days.indexOf(i);
+        if (at >= 0) days.splice(at, 1); else days.push(i);
+        Store.updateCustomer(c.id, { quiet_days: days.sort() });
+        b.classList.toggle('is-on', days.indexOf(i) >= 0);
+      });
+      qdRow.appendChild(b);
+    });
+    qd.appendChild(qdRow);
+    qd.appendChild(UI.el('span', 'help',
+      'ご在宅になりやすい曜日です。その日にお送りすると、ご家族の目に触れることがあります。'));
+    form.appendChild(qd);
 
     // 贈答の方針
     var gp = UI.el('div', 'f');
@@ -841,10 +1006,7 @@ var People = (function () {
     var top = UI.el('div', 'card-top');
     top.appendChild(UI.el('span', 'soon-when', UI.shortDate(t.date)));
     top.appendChild(UI.el('div', 'card-name', Store.TOUCH_KINDS[t.kind] || t.kind));
-    if (t.intent === 'invite') {
-      top.appendChild(UI.chip(t.title || 'お誘い', 'gold'));
-      if (t.style) top.appendChild(UI.chip(Store.INVITE_STYLES[t.style] || t.style));
-    }
+    if (t.intent === 'invite') top.appendChild(UI.chip(t.title || 'お誘い', 'gold'));
     row.appendChild(top);
 
     if (t.note) {
@@ -936,6 +1098,8 @@ var People = (function () {
     });
     document.getElementById('btn-scan-card').addEventListener('click', function () { Scan.open(); });
     document.getElementById('btn-new-person').addEventListener('click', createBlank);
+    var st = document.getElementById('btn-study');
+    if (st) st.addEventListener('click', function () { Study.open(null); });
     document.getElementById('person-back').addEventListener('click', function () { UI.back('people'); });
     document.querySelectorAll('#person-tabs .tab').forEach(function (t) {
       t.addEventListener('click', function () {

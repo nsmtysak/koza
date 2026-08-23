@@ -1,7 +1,7 @@
 {
   "name": "Kōza",
   "short_name": "Kōza",
-  "description": "お客様の記録と、次の一手",
+  "description": "次にお越しいただくために、今日動く",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -180,6 +180,30 @@ var Home = (function () {
 
       card.addEventListener('click', function () { People.openPerson(c.id, 'brief'); });
       wrap.appendChild(card);
+
+      /* ご趣味の分野。**次の来店をつくるのは、席の中の会話である。**
+       *
+       * 声をかけて来ていただくところまでは、上の段取りが受け持つ。
+       * ただし「また来たい」と思っていただけるかは、その晩の会話で決まる。
+       * そして深く伺うには、こちらが少し知っている必要がある——
+       * 「へぇー、そうなんですね」しか返せない相手に、人は二度目を話さない。
+       *
+       * だからこの入口は、お客様一覧の奥ではなく**出勤前に目が行くところ**に置く。 */
+      var ints = (c.interests || []).filter(Boolean).slice(0, 4);
+      if (ints.length) {
+        var row = UI.el('div', 'card-tags guest-study');
+        row.appendChild(UI.el('span', 'help', '席で伺うために：'));
+        ints.forEach(function (t) {
+          var b = UI.el('button', 'ghost small', t + (Store.getStudy(t) ? '　用意済み' : ''));
+          b.type = 'button';
+          b.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            Study.open(t);
+          });
+          row.appendChild(b);
+        });
+        wrap.appendChild(row);
+      }
     });
   }
 
@@ -216,8 +240,6 @@ var Home = (function () {
     body.appendChild(b);
   }
 
-  var draftsPending = false;
-
   function fetchPlan() {
     UI.busy(true, '締め日から逆算しています…', {
       // 前に何秒かかったかを覚えている。2回目からはその人の実測が目安になる
@@ -232,47 +254,6 @@ var Home = (function () {
     Api.weekPlan().then(function (d) {
       UI.busy(false);
       Store.saveDailyPlan(d);
-      fetchDrafts(d);      // 文面はうしろで用意する。読んでいる間に埋まる
-      renderPlan();
-    }).catch(function (e) {
-      UI.busy(false);
-      UI.toast(e.message, true);
-    });
-  }
-
-  /** 送る文だけを、あとから埋める。待たせないための分割 */
-  function fetchDrafts(plan) {
-    var items = (plan.today || []).filter(function (it) {
-      return !it.draft && (it.action === 'line' || it.action === 'douhan' || it.action === 'thanks');
-    });
-    if (!items.length) return;
-
-    draftsPending = true;
-    Api.planDrafts(items).then(function (r) {
-      var map = {};
-      (r.drafts || []).forEach(function (x) { if (x.text) map[x.id] = x.text; });
-      (plan.today || []).forEach(function (it) { if (map[it.id]) it.draft = map[it.id]; });
-      Store.saveDailyPlan(plan);
-    }).catch(function () {
-      // 文が来なくても段取りは使える。作り直しは各カードのボタンから
-    }).then(function () {
-      draftsPending = false;
-      if (document.getElementById('plan-body')) renderPlan();
-    });
-  }
-
-  /** 1名ぶんだけ作り直す。まとめて取れなかったときの逃げ道 */
-  function makeOneDraft(it, card) {
-    UI.busy(true, '文を考えています…', { estimate: Store.estimateMs('drafts', 14000) });
-    Api.planDrafts([it]).then(function (r) {
-      UI.busy(false);
-      var d = (r.drafts || [])[0];
-      if (!d || !d.text) { UI.toast('文を作れませんでした', true); return; }
-      var cached = Store.getDailyPlan();
-      if (cached && cached.data) {
-        (cached.data.today || []).forEach(function (x) { if (x.id === it.id) x.draft = d.text; });
-        Store.saveDailyPlan(cached.data);
-      }
       renderPlan();
     }).catch(function (e) {
       UI.busy(false);
@@ -281,11 +262,13 @@ var Home = (function () {
   }
 
   function drawPlan(body, plan) {
-    body.appendChild(UI.aiNote('draft'));
+    body.appendChild(UI.aiNote('content'));
 
     // 深夜・早朝に送らせない。ご家庭のある方には特に響く
     var timeWarn = Plan.sendTimeWarning();
-    if (timeWarn && (plan.today || []).some(function (it) { return it.draft; })) {
+    if (timeWarn && (plan.today || []).some(function (it) {
+      return it.action === 'line' || it.action === 'douhan' || it.action === 'thanks';
+    })) {
       var tw = UI.el('div', 'banner-warn');
       tw.appendChild(UI.el('h3', null, 'お送りする時間にご注意ください'));
       tw.appendChild(UI.el('p', null, timeWarn));
@@ -372,66 +355,36 @@ var Home = (function () {
       card.appendChild(w);
     }
 
-    /* 文を写すことと、送ったことにすることは別。
-     * 押した瞬間に「送った」ことにすると、LINEに貼る前に気が変わっても
-     * 記録は「送った」まま残り、その方は10日間候補から外れる。
-     * 送っていない人が、送ったことにされて放置される。 */
-    if (it.draft) {
-      var d = UI.el('div', 'draft');
-      d.appendChild(UI.el('div', 'txt', it.draft));
+    /* ここには以前、送る文が出ていた。もう作らない。
+     *
+     * 段取りが決めるのは「誰に・何を・なぜ今日か」まで。
+     * 何と申し上げるかは本人が決める。そこに本人の年月が乗る。
+     *
+     * 「送りました」を押すのは、実際に送ったあと。
+     * 押した瞬間に送ったことにすると、気が変わって送らなかった方まで
+     * 記録の上では送ったことになり、そのまま10日間候補から外れる。 */
+    var acts = UI.el('div', 'card-acts');
 
-      /* 現場の評価で、送り手・受け手の双方から同じ話が出た。
-       * 骨組みはAIでよい。効くかどうかを分けるのは、最後に足す一言のほう。 */
-      d.appendChild(UI.el('p', 'draft-hint',
-        'LINEに貼ったあと、その方だけの一言を足してからお送りください。'));
-
-      var row = UI.el('div', 'card-acts');
-      var copy = UI.el('button', 'ghost small copy', '文を写す');
-      copy.type = 'button';
-      copy.addEventListener('click', function (ev) {
+    if (it.action === 'line' || it.action === 'douhan') {
+      var hk = UI.el('button', 'primary small', '話のきっかけを見る');
+      hk.type = 'button';
+      hk.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        copyText(it.draft);
+        Invite.open(c.id, { target_date: it.target_date, kind: it.action === 'douhan' ? 'douhan' : 'visit' });
       });
-      row.appendChild(copy);
+      acts.appendChild(hk);
+    }
 
-      var sent = UI.el('button', 'primary small', '送りました');
+    if (it.action === 'line' || it.action === 'douhan' || it.action === 'thanks') {
+      var sent = UI.el('button', 'ghost small', '送りました');
       sent.type = 'button';
       sent.addEventListener('click', function (ev) {
         ev.stopPropagation();
         recordSent(c, it);
       });
-      row.appendChild(sent);
-      d.appendChild(row);
-      card.appendChild(d);
-    } else if (it.action === 'line' || it.action === 'douhan' || it.action === 'thanks') {
-      // 段取りは出ている。文だけがまだ。ここで待たせない
-      var pend = UI.el('div', 'draft');
-      if (draftsPending) {
-        pend.appendChild(UI.el('div', 'txt pending', 'お送りする文を用意しています…'));
-      } else {
-        pend.appendChild(UI.el('div', 'txt pending', '文はまだできていません。'));
-        var mk = UI.el('button', 'ghost small', '文を作る');
-        mk.type = 'button';
-        mk.addEventListener('click', function (ev) {
-          ev.stopPropagation();
-          makeOneDraft(it, card);
-        });
-        var mr = UI.el('div', 'card-acts');
-        mr.appendChild(mk);
-        pend.appendChild(mr);
-      }
-      card.appendChild(pend);
+      acts.appendChild(sent);
     }
 
-    var acts = UI.el('div', 'card-acts');
-    if (it.action === 'line' || it.action === 'douhan') {
-      var alt = UI.el('button', 'ghost small', '別の言い方を出す');
-      alt.type = 'button';
-      alt.addEventListener('click', function () {
-        Invite.open(c.id, { target_date: it.target_date, kind: it.action === 'douhan' ? 'douhan' : 'visit' });
-      });
-      acts.appendChild(alt);
-    }
     var open = UI.el('button', 'ghost small', 'この方を見る');
     open.type = 'button';
     open.addEventListener('click', function () { People.openPerson(c.id, 'brief'); });
@@ -439,16 +392,6 @@ var Home = (function () {
     card.appendChild(acts);
 
     return card;
-  }
-
-  function copyText(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text)
-        .then(function () { UI.toast('写しました。LINEに貼ってお送りください'); })
-        .catch(function () { UI.toast('長押しでコピーしてください', true); });
-    } else {
-      UI.toast('長押しでコピーしてください', true);
-    }
   }
 
   /** 実際に送ってから押していただく。ここが埋まらないと次の逆算ができない */
@@ -459,10 +402,9 @@ var Home = (function () {
       kind: 'line',
       direction: 'sent',
       intent: isInvite ? 'invite' : null,
-      style: it.style || '',
       target_date: isInvite ? (it.target_date || null) : null,
       title: it.action === 'thanks' ? 'お礼' : (it.action === 'douhan' ? '同伴のお誘い' : 'お誘い'),
-      note: it.draft
+      note: ''
     });
 
     if (isInvite && it.target_date &&
@@ -527,9 +469,16 @@ var Home = (function () {
     el.onclick = function () { UI.show('gifts'); Gifts.render(); };
   }
 
+  /* 枠にも出ている方。**両方に理由がある方が、いちばん動く先である。**
+   * 2つのリストは別のことを見ている（こちらは約束と記念日、枠は金額と締切）ので、
+   * 重なった方だけは、どちらの画面からでも分かるようにしておく。 */
+  var inBoard = {};
+
   function renderCallList() {
     var wrap = UI.clear(document.getElementById('call-list'));
     var all = Insight.callList();
+    inBoard = {};
+    Plan.candidates().forEach(function (x) { inBoard[x.customer.id] = x; });
     var more = document.getElementById('call-more');
 
     if (!all.length) {
@@ -560,6 +509,7 @@ var Home = (function () {
     top.appendChild(UI.avatar(item.customer));
     top.appendChild(UI.el('div', 'card-name', item.customer.display_name));
     top.appendChild(UI.chip(item.reason.tag, 'gold'));
+    if (inBoard[item.customer.id]) top.appendChild(UI.chip('締めにも効きます'));
     card.appendChild(top);
 
     // 「なぜ今この人なのか」を必ず1行で

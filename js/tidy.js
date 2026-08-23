@@ -170,6 +170,19 @@ var Tidy = (function () {
     return card;
   }
 
+  /**
+   * その話がどなたのものか。名前が返ってきたときだけ、席にいる方から探す。
+   * **見つからなければ null。**取り違えるより、取りこぼすほうがよい。
+   */
+  function hookOwner(h, attendees) {
+    var nm = (h.customer || '').trim();
+    if (!nm) return null;
+    var m = Store.matchCustomer({ display_name: nm, name: nm });
+    if (!m) return null;
+    var here = (attendees || []).some(function (a) { return a.customer_id === m.id; });
+    return here ? m.id : null;
+  }
+
   /** 1卓だけ直したあと、一覧に戻る */
   function backFromEdit(i) {
     return function () {
@@ -220,9 +233,13 @@ var Tidy = (function () {
       attendees: attendees,
       topics: d.topics || v.topics,
       topic_detail: d.topic_detail || v.topic_detail,
+      // 話にお店が出ていれば拾う。深夜に入れた分（予定からの引き継ぎ）は上書きしない
+      douhan_place: v.douhan_place || d.douhan_place || '',
+      place_by: v.place_by || d.place_by || '',
       drinks: (d.drinks || []).length ? d.drinks : v.drinks,
       hooks: (d.hooks || []).map(function (h) {
-        return { text: h.text, type: h.type, status: 'open' };
+        return { text: h.text, type: h.type, status: 'open', by: h.by || '',
+                 customer_id: hookOwner(h, attendees) };
       }),
       next_visit_hint: d.next_visit_hint && d.next_visit_hint.timing ? d.next_visit_hint : v.next_visit_hint,
       ai_structured: true

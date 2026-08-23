@@ -22,6 +22,7 @@ var Store = (function () {
     visits:       NS + 'visits',
     touches:      NS + 'touches',
     briefs:       NS + 'briefs',
+    studies:      NS + 'studies',
     appointments: NS + 'appointments',
     goals:        NS + 'goals',
     api:          NS + 'api',
@@ -94,7 +95,6 @@ var Store = (function () {
     douhan_reward_type: null,
     douhan_reward_value: 0,
     douhan_reward_condition_sets: 0,
-    douhan_timeout_min: 0,
     douhan_quota_monthly: 0,
     my_role: null,
     /* 暗証番号。生のまま持たない（記録と同じ場所に置くと意味がないため）。
@@ -106,8 +106,13 @@ var Store = (function () {
     target_douhan: 0,        // 月の同伴目標（本）
 
     /* 休み。法人のお客様が中心なので、企業が休む日は店も休む。
-     * 空き枠として数えると、埋められるはずの日を数え間違える。 */
-    open_days: [1, 2, 3, 4, 5, 6],   // 営業曜日（0＝日）。既定は日曜休み
+     * 空き枠として数えると、埋められるはずの日を数え間違える。
+     *
+     * 既定は土日休み。この街は土日祝と年末年始が休みで、
+     * ひと月に出られるのは20日ほどというのが通例。
+     * ここは逆算の分母なので、外れると組数も単価も全部ずれる。
+     * 店によって違うので、設定画面で必ず確かめていただく。 */
+    open_days: [1, 2, 3, 4, 5],      // 営業曜日（0＝日）。既定は土日休み
     closed_on_holidays: true,
     closed_newyear: true,
     newyear_from: '12-29', newyear_to: '01-03',
@@ -120,8 +125,19 @@ var Store = (function () {
     off_days: [],            // 自分の休み（YYYY-MM-DD）
     workdays_per_month: 0,   // ひと月に出られる日数の目安
 
-    /* お店のきまり */
-    douhan_deadline: '',     // 同伴の入店締め時刻。例 21:00
+    /* お店の場所と、お食事に使える範囲。
+     *
+     * 同伴は、お食事のあとご一緒にお店へ向かって初めて成立する。
+     * どれだけ評判のよいお店でも、**そこから店に入れなければ意味がない。**
+     * だから探す範囲は「世の中で人気かどうか」ではなく、
+     * **お食事を終えて、ご一緒に入店できる距離かどうか**で決まる。 */
+    area: '',                // 店のある場所。本人が設定画面で入れる
+    meal_area: '',           // お食事に使える範囲。歩いて戻れる町名を本人が入れる
+
+    /* お店のきまり。
+     * 同伴の入店締めとタイムアウトは持たない。
+     * 店の数え方であって、アプリのどこでも使い道がなかった。
+     * AIに渡すためだけに持っていて、それが文面へ漏れる経路になっていた。 */
     douhan_places: [],       // 同伴で使うお店。同じ店に続けてお連れしないため
     open_time: '', close_time: '',
 
@@ -177,11 +193,64 @@ var Store = (function () {
     bottles: [],             // [{id, name, opened_at, remain, note}]
     ng_topics: [],
     avoid_pair: [],
+    /* ご連絡を控える曜日（0＝日）。
+     * 現場で起きた事故：ご在宅の日に送って、そのLINEを奥様に見られた。
+     * 時刻を避けるだけでは防げない。曜日が要る。 */
+    quiet_days: [],
     gift_policy: { nenga: true, ochugen: false, oseibo: false },
     memo: '',
     tags: [],
+
+    /* いまの間柄。
+     *
+     * この街では、こちらの努力ではどうにもならない事情でお越しになれなくなる。
+     * ご転勤、ご退職、お立場の変化、接待の枠そのものが無くなること——
+     * 実際、企業の交際費は一度切られると習慣として戻らないと言われている。
+     *
+     * それでも全員を候補に並べ続けると、来られない方が「ご無沙汰な順」の上に居座り、
+     * 本当に動くべき方が埋もれる。そして声をかけていない負い目だけが残る。
+     *
+     * **ただし、決めるのは本人。**機械は間隔を数えて尋ねるだけで、
+     * 勝手に「この方はもう来ない」と判定してはいけない。
+     *   null     お付き合いが続いている（既定）
+     *   'paused' 事情があって、いまはお越しになれない（記念日と年賀は残す）
+     *   'closed' 区切りがついた
+     */
+    standing: null,
+    standing_reason: '',
+    standing_at: null,
+
     archived: false
   };
+
+  var STANDING = {
+    paused: '事情があって、いまはお越しになれない',
+    closed: '区切りがついた'
+  };
+
+  /* 「なぜ」を残さないと、半年後にただの放置と見分けがつかなくなる */
+  var STANDING_REASONS = [
+    'ご転勤・ご異動', 'ご退職・ご引退', 'お立場が変わった',
+    '会社のご事情', 'ご体調', 'ご家庭のご事情', 'その他'
+  ];
+
+  /** こちらから動く先として数える方か */
+  function isActiveRelation(c) {
+    return !!c && !c.archived && !c.standing;
+  }
+
+  /** 記念日やご挨拶は続ける方か。区切りがついた方だけ外す */
+  function keepsGreeting(c) {
+    return !!c && !c.archived && c.standing !== 'closed';
+  }
+
+  function setStanding(customerId, standing, reason) {
+    return updateCustomer(customerId, {
+      standing: standing || null,
+      standing_reason: standing ? (reason || '') : '',
+      standing_at: standing ? today() : null
+    });
+  }
 
   function listCustomers() {
     return read(K.customers, []);
@@ -485,6 +554,14 @@ var Store = (function () {
       my_role: f.my_role || null,
       douhan: !!f.douhan,
       douhan_place: f.douhan_place || '',
+      /* そのお店を、どちらが決めたか。
+       *
+       * ここが空のままだと、店名がいくら溜まっても好みの証拠にならない。
+       * こちらが選んだ店と、その方が選ばれた店が混ざるからである。
+       *   guest … お客様が行きたいとおっしゃった店。**これがその方の好みそのもの**
+       *   self  … こちらでお選びした店
+       * 分けて数えられて初めて、次の一軒を決める材料になる。 */
+      place_by: f.place_by === 'guest' || f.place_by === 'self' ? f.place_by : '',
       set_count: typeof f.set_count === 'number' ? f.set_count : 0,
       kirikaeshi: !!f.kirikaeshi,
       nominaoshi: !!f.nominaoshi,
@@ -678,18 +755,11 @@ var Store = (function () {
     return listTouches().filter(function (t) { return t.customer_id === customerId; });
   }
 
-  /* 誘いの型。男性心理に沿って効き方が違うので、型ごとに成果を貯める */
-  var INVITE_STYLES = {
-    info:     'お知らせにする',
-    deadline: '期限をつける',
-    star:     '相手を主役に',
-    rely:     '教えを乞う',
-    match:    '会わせたい方がいる',
-    choice:   '二択で伺う',
-    meal:     'お食事に誘う',
-    work:     'お仕事と絡める',
-    report:   '近況をお伝えする'
-  };
+  /* 誘いの型は無くした。
+   *
+   * 型は「文の型」であって、文を書かなくなった以上は使い道がない。
+   * 打率を貯めても、それで文が変わらなければ、本人には何も返らない。
+   * 古い記録に style が入っているものは、そのまま置いておく。読まないだけ。 */
 
   function addTouch(f) {
     var t = {
@@ -704,7 +774,6 @@ var Store = (function () {
       responded_at: f.responded_at || null,
       // ここから下は「誘い」のときだけ使う
       intent: f.intent || null,          // invite（お誘い）/ keep（関係の維持）/ null
-      style: f.style || '',              // INVITE_STYLES のキー
       target_date: f.target_date || null, // 来ていただきたい日
       result: f.result || null,          // came / missed / superseded
       settled_at: null,
@@ -859,6 +928,7 @@ var Store = (function () {
       kind: f.kind === 'douhan' ? 'douhan' : 'visit',
       time: f.time || '',       // 待ち合わせ・ご来店の時刻
       place: f.place || '',     // 同伴のお食事の店
+      place_by: f.place_by === 'guest' || f.place_by === 'self' ? f.place_by : '',
       confidence: CONFIDENCE[f.confidence] ? f.confidence : 'verbal',
       expected_spend: typeof f.expected_spend === 'number' ? f.expected_spend : null,
       note: f.note || '',
@@ -981,6 +1051,134 @@ var Store = (function () {
 
   /* ---------- Brief（AI提案とその結果） ---------- */
 
+  /**
+   * その方とお食事に行ったお店。
+   *
+   * **記録するだけでは、ノートと変わらない。**
+   * 分けて数えて初めて、次の一軒を決める材料になる。
+   *
+   *   お客様が選ばれた店 … その方の好みそのもの。回を重ねるほど確かになる
+   *   こちらが選んだ店　 … 当たり外れがある。好みの証拠にはならない
+   *   直近の店　　　　　 … 続けて同じ店にお連れしない
+   *
+   * 同伴は「日・お店・待ち合わせの時刻」の3つが決まって初めて成立する。
+   * 店が決まらない誘いは必ずもう一往復し、往復が増えるほど流れる。
+   * **その場で決めきれること**が、そのまま同伴の数になる。
+   */
+  function placesOf(customerId) {
+    var byGuest = {}, bySelf = {}, recent = [];
+
+    visitsOf(customerId).forEach(function (v) {
+      var p = (v.douhan_place || '').trim();
+      if (!p) return;
+
+      /* そのお店は**主客のもの**である。
+       * ご同行された方の記録にも同じ来店が入るが、
+       * お店を選んだのはその方ではない。混ぜると軸が読めなくなる。 */
+      var me = (v.attendees || []).filter(function (a) { return a.customer_id === customerId; })[0];
+      if (me && me.role === 'doukousha') return;
+
+      if (recent.length < 3) recent.push({ place: p, date: v.date, by: v.place_by || '' });
+      if (v.place_by === 'guest') byGuest[p] = (byGuest[p] || 0) + 1;
+      else if (v.place_by === 'self') bySelf[p] = (bySelf[p] || 0) + 1;
+    });
+
+    // 予定に入っているだけで、まだ行っていないお店も「直近」に数える
+    listAppointments().forEach(function (a) {
+      if (a.customer_id !== customerId || a.closed) return;
+      var p = (a.place || '').trim();
+      if (p && !recent.some(function (r) { return r.place === p; })) {
+        recent.unshift({ place: p, date: a.date, by: a.place_by || '' });
+      }
+    });
+
+    function toList(m) {
+      return Object.keys(m).map(function (k) { return { place: k, times: m[k] }; })
+        .sort(function (a, b) { return b.times - a.times; });
+    }
+
+    return {
+      by_guest: toList(byGuest),
+      by_self: toList(bySelf),
+      recent: recent.slice(0, 3)
+    };
+  }
+
+  /* ---------- 分野の手引き ----------
+   *
+   * 一度取ったものは残す。同じ分野で毎回AIを叩くのは無駄だし、
+   * 覚えるものは繰り返し読むものだから、手元に置いておく意味がある。
+   *
+   * ここにはお客様の情報が入らない。分野の一般知識だけである。
+   * だから書き出しても差し支えないし、消えても誰も困らない。
+   */
+  function listStudies() {
+    return read(K.studies, []).sort(function (a, b) {
+      return (b.created_at || '').localeCompare(a.created_at || '');
+    });
+  }
+
+  function getStudy(topic) {
+    var t = String(topic || '').trim();
+    return listStudies().filter(function (s) { return s.topic === t; })[0] || null;
+  }
+
+  function saveStudy(topic, data) {
+    var all = read(K.studies, []).filter(function (s) { return s.topic !== topic; });
+    all.push({
+      id: uid('st'),
+      topic: topic,
+      now: data.now || [],
+      basics: data.basics || [],
+      questions: data.questions || [],
+      pitfalls: data.pitfalls || [],
+      deeper: data.deeper || '',
+      created_at: nowISO()
+    });
+    write(K.studies, all);
+    return getStudy(topic);
+  }
+
+  function removeStudy(topic) {
+    write(K.studies, read(K.studies, []).filter(function (s) { return s.topic !== topic; }));
+  }
+
+  /**
+   * どの分野を勉強すると効くか。
+   *
+   * 50人ぶんの趣味を全部さらうことはできない。だから順番をつける。
+   *   - 近くお会いする方の分野を先に
+   *   - 同じ分野に何人もいれば、その分だけ効く
+   * ここは端末の中で数えるだけ。AIは要らない。
+   */
+  function studyTopics() {
+    var soon = {};
+    openAppointments().forEach(function (a) {
+      if (a.customer_id) soon[a.customer_id] = true;
+    });
+
+    var map = {};
+    activeCustomers().forEach(function (c) {
+      (c.interests || []).forEach(function (t) {
+        var key = String(t).trim();
+        if (!key) return;
+        if (!map[key]) map[key] = { topic: key, people: [], soon: 0 };
+        map[key].people.push(c);
+        if (soon[c.id]) map[key].soon += 1;
+      });
+    });
+
+    return Object.keys(map).map(function (k) {
+      var m = map[k];
+      m.study = getStudy(k);
+      return m;
+    }).sort(function (a, b) {
+      if (a.soon !== b.soon) return b.soon - a.soon;          // 近く会う方が先
+      if (a.people.length !== b.people.length) return b.people.length - a.people.length;
+      return a.topic.localeCompare(b.topic, 'ja');
+    });
+  }
+
   function listBriefs() {
     return read(K.briefs, []).sort(function (a, b) {
       return (b.created_at || '').localeCompare(a.created_at || '');
@@ -1015,7 +1213,7 @@ var Store = (function () {
       offer: f.offer || [],                   // さりげなくお勧めできるもの（単価）
       trust_risks: f.trust_risks || [],       // 信を落としかねない点
       seed_questions: f.seed_questions || [], // 次の口実になる質問
-      message_drafts: f.message_drafts || [],
+      meal: f.meal || null,                   // お食事にお誘いするなら、どういうお店か
       timing: f.timing || '',
       outcome: null            // 来店後に埋める
     };
@@ -1165,6 +1363,7 @@ var Store = (function () {
       visits: read(K.visits, []),
       touches: read(K.touches, []),
       briefs: read(K.briefs, []),
+      studies: read(K.studies, []),
       appointments: read(K.appointments, []),
       goals: read(K.goals, {})
     };
@@ -1211,6 +1410,7 @@ var Store = (function () {
     merge(K.visits, data.visits, 'visits');
     merge(K.touches, data.touches, 'touches');
     merge(K.briefs, data.briefs, 'briefs');
+    merge(K.studies, data.studies, 'studies');
     merge(K.appointments, data.appointments, 'appointments');
 
     if (data.goals) write(K.goals, Object.assign(read(K.goals, {}), data.goals));
@@ -1259,7 +1459,7 @@ var Store = (function () {
   return {
     uid: uid, today: today, daysBetween: daysBetween,
     addDays: addDays, weekdayOf: weekdayOf, toISO: toISO,
-    TOUCH_KINDS: TOUCH_KINDS, INVITE_STYLES: INVITE_STYLES,
+    TOUCH_KINDS: TOUCH_KINDS,
     ACCOUNT_LABELS: ACCOUNT_LABELS, isMyAccount: isMyAccount,
     isAccountUnknown: isAccountUnknown, unknownAccountCustomers: unknownAccountCustomers,
     canContactDirectly: canContactDirectly, accountLabel: accountLabel, isMyVisit: isMyVisit,
@@ -1278,6 +1478,8 @@ var Store = (function () {
     getProfile: getProfile, saveProfile: saveProfile,
 
     listCustomers: listCustomers, activeCustomers: activeCustomers,
+    STANDING: STANDING, STANDING_REASONS: STANDING_REASONS,
+    isActiveRelation: isActiveRelation, keepsGreeting: keepsGreeting, setStanding: setStanding,
     getCustomer: getCustomer, matchCustomer: matchCustomer, candidates: candidates,
     createCustomer: createCustomer, updateCustomer: updateCustomer,
     deleteCustomer: deleteCustomer, enrichCustomer: enrichCustomer,
@@ -1295,6 +1497,8 @@ var Store = (function () {
     updateTouch: updateTouch, deleteTouch: deleteTouch, sentIn: sentIn,
 
     listBriefs: listBriefs, getBrief: getBrief, briefsOf: briefsOf,
+    listStudies: listStudies, getStudy: getStudy, saveStudy: saveStudy,
+    removeStudy: removeStudy, studyTopics: studyTopics, placesOf: placesOf,
     latestBrief: latestBrief, addBrief: addBrief, recordOutcome: recordOutcome,
 
     getDailyPlan: getDailyPlan, saveDailyPlan: saveDailyPlan, clearDailyPlan: clearDailyPlan,
