@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=69">
+<link rel="stylesheet" href="css/app.css?v=71">
 </head>
 <body>
 
@@ -160,6 +160,13 @@
 
   <div id="board-progress"></div>
 
+  <!-- 日をお決めいただく方。日付を持たないので、盤面の日には並べない -->
+  <section class="block" id="board-sched-block" hidden>
+    <h2 class="sect">日程調整</h2>
+    <p class="help">お越しになるお話はいただいています。<strong>日が決まれば、その日の枠になります。</strong></p>
+    <div id="board-sched" class="cards"></div>
+  </section>
+
   <section class="block">
     <div class="sect-row">
       <h2 class="sect">これから2週間</h2>
@@ -197,10 +204,11 @@
   </header>
 
   <div class="form">
-    <label class="f">
+    <label class="f" id="appt-date-wrap">
       <span>日にち</span>
       <input type="date" id="appt-date">
     </label>
+    <p class="help" id="appt-date-note" hidden>日程調整には日にちを入れません。<strong>日が決まったら「確定」に変えてください。</strong>そのときに枠へ入ります。</p>
 
     <div class="f">
       <span>どなた</span>
@@ -215,11 +223,12 @@
     <div class="f">
       <span>確からしさ</span>
       <div id="appt-confidence"></div>
-      <p class="help">確定＝日が決まっている／お約束＝口約束／狙う＝こちらの狙い。見込みの計算で重みが変わります。</p>
+      <p class="help"><strong>確定</strong>＝日にちが決まった。<strong>日程調整</strong>＝お越しになるお話はいただいたが、日はこれから。<strong>お返事待ち</strong>＝こちらからお誘いして、お返事がまだ。<br>
+        見込みに入るのは<strong>確定だけ</strong>です。ほかの2つは数だけ数えます。</p>
     </div>
 
-    <div class="grid2">
-      <label class="f">
+    <div class="grid2" id="appt-time-row">
+      <label class="f" id="appt-time-wrap">
         <span>時刻</span>
         <input type="time" id="appt-time">
       </label>
@@ -687,7 +696,7 @@
 
     <h2 class="sect">このアプリについて</h2>
     <div class="actions col">
-      <a class="ghost linkbtn" href="about.html?v=69">できること・できないこと</a>
+      <a class="ghost linkbtn" href="about.html?v=71">できること・できないこと</a>
     </div>
     <p class="help">何のためのアプリか、AIが何を提案するのかをまとめています。</p>
 
@@ -820,29 +829,29 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=69"></script>
-<script src="js/store.js?v=69"></script>
-<script src="js/holiday.js?v=69"></script>
-<script src="js/insight.js?v=69"></script>
-<script src="js/plan.js?v=69"></script>
-<script src="js/api.js?v=69"></script>
-<script src="js/ui.js?v=69"></script>
-<script src="js/lock.js?v=69"></script>
-<script src="js/night.js?v=69"></script>
-<script src="js/record.js?v=69"></script>
-<script src="js/tidy.js?v=69"></script>
-<script src="js/scan.js?v=69"></script>
-<script src="js/people.js?v=69"></script>
-<script src="js/brief.js?v=69"></script>
-<script src="js/gifts.js?v=69"></script>
-<script src="js/board.js?v=69"></script>
-<script src="js/review.js?v=69"></script>
-<script src="js/invite.js?v=69"></script>
-<script src="js/study.js?v=69"></script>
-<script src="js/home.js?v=69"></script>
-<script src="js/seed.js?v=69"></script>
-<script src="js/install.js?v=69"></script>
-<script src="js/settings.js?v=69"></script>
-<script src="js/app.js?v=69"></script>
+<script src="js/db.js?v=71"></script>
+<script src="js/store.js?v=71"></script>
+<script src="js/holiday.js?v=71"></script>
+<script src="js/insight.js?v=71"></script>
+<script src="js/plan.js?v=71"></script>
+<script src="js/api.js?v=71"></script>
+<script src="js/ui.js?v=71"></script>
+<script src="js/lock.js?v=71"></script>
+<script src="js/night.js?v=71"></script>
+<script src="js/record.js?v=71"></script>
+<script src="js/tidy.js?v=71"></script>
+<script src="js/scan.js?v=71"></script>
+<script src="js/people.js?v=71"></script>
+<script src="js/brief.js?v=71"></script>
+<script src="js/gifts.js?v=71"></script>
+<script src="js/board.js?v=71"></script>
+<script src="js/review.js?v=71"></script>
+<script src="js/invite.js?v=71"></script>
+<script src="js/study.js?v=71"></script>
+<script src="js/home.js?v=71"></script>
+<script src="js/seed.js?v=71"></script>
+<script src="js/install.js?v=71"></script>
+<script src="js/settings.js?v=71"></script>
+<script src="js/app.js?v=71"></script>
 </body>
 </html>

@@ -82,6 +82,7 @@ var Board = (function () {
   /* ---------- 14日の盤面 ---------- */
 
   function renderDays() {
+    renderScheduling();
     var wrap = UI.clear(document.getElementById('board-days'));
     var days = Plan.board(Plan.HORIZON);
     var period = Store.periodOf(Store.today());
@@ -144,7 +145,7 @@ var Board = (function () {
       }
       // 狙っている数は、予定とは別に添える。何名までにするかは本人が決める
       if (d.open && aiming[d.date]) {
-        mid.appendChild(UI.el('span', 'bd-aim', aiming[d.date] + '名を狙っています'));
+        mid.appendChild(UI.el('span', 'bd-aim', aiming[d.date] + '名にお誘いする'));
       }
       row.appendChild(mid);
 
@@ -581,6 +582,38 @@ var Board = (function () {
     body.appendChild(act);
   }
 
+  /* 日をお決めいただく方。
+   *
+   * 「また近いうちに行くよ」を、こちらで勝手にどこかの日へ置いていた。
+   * 盤面ではその日に来ると約束したように見え、
+   * その方は「今日声をかける人」の一覧からも消えていた。
+   * 日が無いのだから、日の並びからは外し、**やることとして**ここに出す。 */
+  function renderScheduling() {
+    var block = document.getElementById('board-sched-block');
+    var wrap = UI.clear(document.getElementById('board-sched'));
+    var list = Store.schedulingAppointments();
+    if (!list.length) { block.hidden = true; return; }
+    block.hidden = false;
+
+    list.forEach(function (a) {
+      var c = a.customer_id ? Store.getCustomer(a.customer_id) : null;
+      var card = UI.el('button', 'card');
+      card.type = 'button';
+
+      var top = UI.el('div', 'card-top');
+      if (c) top.appendChild(UI.avatar(c));
+      top.appendChild(UI.el('div', 'card-name', c ? c.display_name : '（お名前未定）'));
+      if (a.kind === 'douhan') top.appendChild(UI.chip('同伴', 'gold'));
+      card.appendChild(top);
+
+      if (a.note) card.appendChild(UI.el('p', 'card-body', a.note));
+      card.appendChild(UI.el('p', 'card-reason', '日を決めていただければ、枠に入ります'));
+
+      card.addEventListener('click', function () { openAppt({ id: a.id }); });
+      wrap.appendChild(card);
+    });
+  }
+
   function dayCard(a) {
     var c = a.customer_id ? Store.getCustomer(a.customer_id) : null;
     var card = UI.el('div', 'card');
@@ -697,10 +730,31 @@ var Board = (function () {
 
     var conf = UI.clear(document.getElementById('appt-confidence'));
     conf.appendChild(UI.segmented(
-      [{ value: 'confirmed', label: '確定' }, { value: 'verbal', label: 'お約束' }, { value: 'aiming', label: '狙う' }],
-      draft.confidence, function (v) { draft.confidence = v; }));
+      [{ value: 'confirmed', label: '確定' },
+       { value: 'verbal', label: '日程調整' },
+       { value: 'aiming', label: 'お返事待ち' }],
+      draft.confidence, function (v) { draft.confidence = v; renderApptDate(); }));
 
+    renderApptDate();
     UI.show('appt');
+  }
+
+  /* 日程調整には日が無い。
+   *
+   * 「近いうちに行くよ」を、こちらでどこかの日へ置いてしまうと、
+   * 盤面ではその日に来ると約束したように見える。
+   * 決まっていないものは、決まっていない形のまま持つ。 */
+  function renderApptDate() {
+    var pending = draft.confidence === 'verbal';
+    var dw = document.getElementById('appt-date-wrap');
+    var tw = document.getElementById('appt-time-wrap');
+    var note = document.getElementById('appt-date-note');
+    if (dw) dw.hidden = pending;
+    if (tw) tw.hidden = pending;
+    // 時刻を隠したときは、隔を寄せる。半分幅の欄が孤立すると壊れて見える
+    var row = document.getElementById('appt-time-row');
+    if (row) row.style.gridTemplateColumns = pending ? '1fr' : '';
+    if (note) note.hidden = !pending;
   }
 
   /** これまでにお連れしたお店。同じ店を続けないため候補に出す */
@@ -733,9 +787,10 @@ var Board = (function () {
   }
 
   function saveAppt() {
-    var date = document.getElementById('appt-date').value;
+    var pending = draft.confidence === 'verbal';
+    var date = pending ? '' : document.getElementById('appt-date').value;
     var cid = document.getElementById('appt-customer').value;
-    if (!date) { UI.toast('日にちを入れてください', true); return; }
+    if (!pending && !date) { UI.toast('日にちを入れてください', true); return; }
     if (!cid) { UI.toast('どなたか選んでください', true); return; }
 
     var spend = UI.getMoney('appt-spend');
@@ -745,7 +800,7 @@ var Board = (function () {
       kind: draft.kind,
       confidence: draft.confidence,
       expected_spend: spend > 0 ? spend : null,
-      time: document.getElementById('appt-time').value,
+      time: pending ? '' : document.getElementById('appt-time').value,
       place: document.getElementById('appt-place').value.trim(),
       place_by: draft.place_by || '',
       note: document.getElementById('appt-note').value.trim()

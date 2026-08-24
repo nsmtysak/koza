@@ -364,6 +364,23 @@ var People = (function () {
       body.appendChild(w);
     }
 
+    /* 日待ちのお話。日が無いので盤面には出ないが、
+     * ここに出さないと「行くよ」と仰せられたことごと見失う */
+    var sched = Store.schedulingOf(c.id);
+    if (sched) {
+      var sb2 = UI.el('div', 'brief-sec');
+      sb2.appendChild(UI.el('h3', null, '日程調整'));
+      sb2.appendChild(UI.el('p', 'card-reason',
+        'お越しになるお話をいただいています' +
+        (sched.kind === 'douhan' ? '（同伴）' : '') +
+        (sched.note ? '　「' + sched.note + '」' : '') + '。日を決めていただければ、枠に入ります。'));
+      var ed2 = UI.el('button', 'ghost small', '日を入れる');
+      ed2.type = 'button';
+      ed2.addEventListener('click', function () { Board.openAppt({ id: sched.id }); });
+      sb2.appendChild(ed2);
+      body.appendChild(sb2);
+    }
+
     // 次の予定。入っていれば、誘う相手ではなく迎える相手
     var appt = Store.nextAppointmentOf(c.id);
     if (appt) {

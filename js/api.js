@@ -183,6 +183,10 @@ var Api = (function () {
           name: x.customer.display_name,
           computed_reason: x.reason ? x.reason.text : '',
           tag: x.reason ? x.reason.tag : '',
+          /* 日待ちのお話がある方。これを渡さないと、
+           * すでに「行くよ」と仰せられた方に、
+           * もう一度お誘いを差し上げる段取りになる。 */
+          pending_date: !!Store.schedulingOf(x.customer.id),
           target_date: x.target_date,
           target_weekday: x.target_weekday,
           contact_by: x.contact_by,

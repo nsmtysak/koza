@@ -553,8 +553,9 @@ var Record = (function () {
       var t = UI.el('span');
       t.appendChild(UI.el('span', 'e-kind', (a.customer || '') + ' / ' +
         (a.kind === 'douhan' ? '同伴' : 'ご来店') +
-        '（' + (a.confidence === 'confirmed' ? '確定' : 'お約束') + '）'));
-      t.appendChild(UI.el('span', 'e-text', UI.longDate(a.date) + (a.note ? '　「' + a.note + '」' : '')));
+        '（' + (Store.CONFIDENCE[a.confidence] || '日程調整') + '）'));
+      t.appendChild(UI.el('span', 'e-text',
+        (a.date ? UI.longDate(a.date) : '日はこれから') + (a.note ? '　「' + a.note + '」' : '')));
 
       label.appendChild(cb); label.appendChild(t);
       box.appendChild(label);
@@ -668,17 +669,28 @@ var Record = (function () {
       var raw = a.raw;
       var key = (raw.customer || '').trim();
       var id = byName[key] || byName[key.replace(/(様|さん)$/, '')] || fallbackId;
-      if (!id || !raw.date) return;
+      if (!id) return;
 
-      // 同じ日に同じ方の予定が既にあれば重ねない
-      var dup = Store.appointmentsOn(raw.date).some(function (x) { return x.customer_id === id; });
-      if (dup) return;
+      /* 日が決まっていれば確定、決まっていなければ日程調整。
+       *
+       * 以前は日が無いものを丸ごと捨てていた。
+       * 「また近いうちに行くわ」は、いちばんよく出る言葉である。
+       * それを毎晩ひとつ残らず捨てていたことになる。 */
+      var confirmed = raw.confidence === 'confirmed' && !!raw.date;
+
+      if (confirmed) {
+        // 同じ日に同じ方の予定が既にあれば重ねない
+        if (Store.appointmentsOn(raw.date).some(function (x) { return x.customer_id === id; })) return;
+      } else {
+        // 日待ちのお話は、その方につき1件でよい
+        if (Store.schedulingOf(id)) return;
+      }
 
       Store.addAppointment({
-        date: raw.date,
+        date: confirmed ? raw.date : '',
         customer_id: id,
         kind: raw.kind === 'douhan' ? 'douhan' : 'visit',
-        confidence: raw.confidence === 'confirmed' ? 'confirmed' : 'verbal',
+        confidence: confirmed ? 'confirmed' : 'verbal',
         source: 'voice',
         note: raw.note || ''
       });

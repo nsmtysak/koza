@@ -468,12 +468,12 @@ function handleStructure(req) {
           type: 'object',
           properties: {
             customer: { type: 'string', description: '対象のお客様の名前' },
-            date: { type: 'string', description: 'YYYY-MM-DD。「金曜」なら次の金曜の日付に直す。日が定まらなければ空文字' },
+            date: { type: 'string', description: 'YYYY-MM-DD。「金曜」なら次の金曜の日付に直す。**日が定まらなければ空文字**。「近いうち」「また来る」は空文字にして confidence を verbal にする' },
             kind: { type: 'string', enum: ['visit', 'douhan'] },
             confidence: {
               type: 'string',
               enum: ['confirmed', 'verbal'],
-              description: 'confirmed＝日が決まった／verbal＝口約束'
+              description: 'confirmed＝日にちが決まった／verbal＝お越しになるお話は出たが日はこれから'
             },
             note: { type: 'string', description: '原文での言い方。例：来週の金曜に寄る' }
           },
@@ -989,6 +989,9 @@ function handlePlan(req) {
     hookRules(),
     '# 守ること',
     '- **候補にない方を足してはいけません。** id は必ず渡されたものを使います。',
+    '- **pending_date が true の方は、すでに「行くよ」とおっしゃっています。**',
+    '  お誘いし直すのではなく、**日をお決めいただく**一手にしてください。',
+    '  reason にも「お越しになるお話はいただいている」ことが分かるように書きます。',
     '- today には、contact_by が今日または過ぎている方を入れます。多くて6件。',
     '  お礼がまだの方は thanks として、**いちばん上に**入れます。',
     '  本日お会いする方がいれば、その方も store として today に入れます。',

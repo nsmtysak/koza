@@ -352,13 +352,17 @@ var Plan = (function () {
       var ac = a.customer_id ? Store.getCustomer(a.customer_id) : null;
       if (ac && (ac.account_owner === 'mama' || ac.account_owner === 'other')) return;
 
-      /* 「狙う」は見込みに入れない。
-       * こちらが誘っただけの予定を見込みに積むと、20人に声をかけただけで
-       * 20人分が売上に乗る。画面では届いているのに、締めてみたら足りない。
-       * 店に「今月いけます」と言ってしまってからでは遅い。 */
-      if (a.confidence === 'aiming') { aiming += 1; return; }
+      /* 見込みに入れてよいのは**確定だけ**である。
+       *
+       * お返事待ちを積むと、20人に声をかけただけで20人分が売上に乗る。
+       * 画面では届いているのに、締めてみたら足りない。
+       * 店に「今月いけます」と言ってしまってからでは遅い。
+       *
+       * 日程調整も同じ。日が決まっていないものは、その日の枠ではない。
+       * 以前は0.6を掛けて足していたが、あれは誰も測っていない数字だった。 */
+      if (a.confidence !== 'confirmed') { aiming += 1; return; }
 
-      var w = Store.CONFIDENCE_WEIGHT[a.confidence] || 0.5;
+      var w = Store.CONFIDENCE_WEIGHT[a.confidence] || 0;
       var amt = typeof a.expected_spend === 'number' && a.expected_spend > 0
         ? a.expected_spend
         : (a.customer_id ? expectedSpend(a.customer_id) : overallAverage());
@@ -412,9 +416,9 @@ var Plan = (function () {
 
       var expected = 0;
       apts.forEach(function (x) {
-        // 「狙う」は上の帯でも数えていない。ここだけ数えると食い違う
-        if (x.appointment.confidence === 'aiming') return;
-        var w = Store.CONFIDENCE_WEIGHT[x.appointment.confidence] || 0.5;
+        // 上の帯と同じ数え方にする。ここだけ数えると食い違う
+        if (x.appointment.confidence !== 'confirmed') return;
+        var w = Store.CONFIDENCE_WEIGHT[x.appointment.confidence] || 0;
         var amt = typeof x.appointment.expected_spend === 'number' && x.appointment.expected_spend > 0
           ? x.appointment.expected_spend
           : (x.customer ? expectedSpend(x.customer.id) : overallAverage());
