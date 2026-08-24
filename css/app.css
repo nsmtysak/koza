@@ -438,7 +438,9 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
 .bd-w{font-size:.8rem;color:var(--text-faint)}
 .bd-w.sun{color:#c9857a}
 .bd-w.sat{color:#7fa0bd}
-.bd-mid{flex:1;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+/* 予定は1件1行。横に並べていた頃は、2組入った日が
+ * 「高橋様（確定）松本様・同伴（お約束）」と続いて、境目が読めなかった */
+.bd-mid{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
 /* 今日お会いする方の、ご趣味への入口。カードの下にぶら下げる */
 .guest-study{margin:-4px 0 4px;padding:0 2px;align-items:center}
 /* 分野の手引きへの入口。趣味タグと見分けがつかないと、押すものだと分からない */
@@ -458,6 +460,8 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
 .bd-item.aiming{opacity:.6;border-style:dotted;color:var(--text-faint)}
 /* 確からしさは、線の違いだけでは読めない。言葉で添える */
 .bd-item .bd-conf{font-size:.78rem;opacity:.85;margin-left:4px}
+/* 待ち合わせの時刻。名前の前に置く。並びも時刻の順なので、左端で揃って読める */
+.bd-item .bd-time{font-variant-numeric:tabular-nums;color:var(--accent);margin-right:7px}
 .bd-right{flex:0 0 auto}
 .bd-yen{font-size:.83rem;color:var(--text-faint)}
 .board-sep{font-size:.78rem;letter-spacing:.1em;color:var(--text-faint);

@@ -122,7 +122,9 @@ var Insight = (function () {
           if (h.type === 'commitment' && h.status !== 'closed') {
             reasons.push({
               score: 100 + Math.min(since || 0, 60),
-              text: '「' + h.text + '」と言われたまま',
+              /* 「と言われたまま」はお客様を責める言い方に読める。
+               * 動かなかったのはこちらなので、こちらの側の事実として書く。 */
+              text: '「' + h.text + '」のお話が、そのままになっています',
               tag: '約束'
             });
           }

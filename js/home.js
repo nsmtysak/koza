@@ -228,6 +228,12 @@ var Home = (function () {
     var body = UI.clear(document.getElementById('plan-body'));
     var cached = Store.getDailyPlan();
 
+    /* 「組み直す」と「今日の段取りを組む」は、することが同じである。
+     * 両方出していたので、何が違うのか考えさせていた。
+     * まだ組んでいないうちは、組み直すものが無い。 */
+    var again = document.getElementById('plan-refresh');
+    if (again) again.hidden = !(cached && cached.data);
+
     if (cached && cached.data) { drawPlan(body, cached.data); return; }
 
     if (!Api.isConfigured()) {
@@ -515,7 +521,13 @@ var Home = (function () {
     var top = UI.el('div', 'card-top');
     top.appendChild(UI.avatar(item.customer));
     top.appendChild(UI.el('div', 'card-name', item.customer.display_name));
-    top.appendChild(UI.chip(item.reason.tag, 'gold'));
+    /* この欄は見出しが「約束と、忘れてはいけない方」で、
+     * 理由の行にも同じことが書いてある。
+     * 全員に「約束」を付けても、見分けの印にならない。
+     * それ以外（お誕生日・ボトル・贈答など）だけ出す。 */
+    if (item.reason.tag && item.reason.tag !== '約束') {
+      top.appendChild(UI.chip(item.reason.tag, 'gold'));
+    }
     if (inBoard[item.customer.id]) top.appendChild(UI.chip('締めにも効きます'));
     card.appendChild(top);
 

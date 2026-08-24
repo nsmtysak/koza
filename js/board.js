@@ -116,8 +116,20 @@ var Board = (function () {
       // 休みの日でも、入っている予定は必ず出す。消すと取りこぼす
       if (!d.open) mid.appendChild(UI.el('span', 'bd-off', d.closed_reason || '休み'));
       if (d.items.length) {
-        d.items.forEach(function (x) {
+        /* 同じ日に2組入ることがある。横に並べると誰と誰なのか読み取れないので、
+         * 1件につき1行にする。並びは時刻の順。時刻の無いものは後ろへ回す
+         * （まだ決まっていないものを、決まっているものの前に置かない）。 */
+        d.items.slice().sort(function (a, b) {
+          var at = (a.appointment.time || ''), bt = (b.appointment.time || '');
+          if (at && bt) return at < bt ? -1 : (at > bt ? 1 : 0);
+          if (at) return -1;
+          if (bt) return 1;
+          return 0;
+        }).forEach(function (x) {
           var t = UI.el('span', 'bd-item ' + x.appointment.confidence);
+          if (x.appointment.time) {
+            t.appendChild(UI.el('span', 'bd-time', x.appointment.time));
+          }
           t.appendChild(document.createTextNode(
             (x.customer ? x.customer.display_name : '（未定）') +
             (x.appointment.kind === 'douhan' ? '・同伴' : '')));
