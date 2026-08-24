@@ -8,6 +8,9 @@ var UI = (function () {
   var VIEWS = ['lock', 'setup', 'home', 'board', 'day', 'appt', 'invite', 'people', 'person', 'night', 'tidy',
     'record', 'confirm', 'scan', 'gifts', 'settings', 'brief', 'study', 'review'];
   var current = 'home';
+  /* 通ってきた道。{ view, y } で、離れたときの縦位置まで持つ。
+   * 名前だけを積んでいた頃は、戻るたびに一番上へ放り出されていた。
+   * 50名の一覧や2週間の盤面では、そのたびに探し直しになる。 */
   var stack = [];
   var toastTimer = null;
 
@@ -20,9 +23,28 @@ var UI = (function () {
 
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
 
+  function scrollNow() {
+    return window.pageYOffset || document.documentElement.scrollTop || 0;
+  }
+
+  /* 戻り先の中身は、この時点でまだ描かれていないことがある。
+   * 描き終わる前に合わせても、丈が足りず一番上のままになる。
+   * だから描画の区切りごとに3度合わせる。 */
+  function restoreScroll(y) {
+    window.scrollTo(0, y);
+    if (!y) return;
+    requestAnimationFrame(function () {
+      window.scrollTo(0, y);
+      setTimeout(function () { window.scrollTo(0, y); }, 80);
+    });
+  }
+
   function show(name, opts) {
     opts = opts || {};
-    if (!opts.replace && current !== name) stack.push(current);
+    if (!opts.replace && current !== name) {
+      stack.push({ view: current, y: scrollNow() });
+      if (stack.length > 20) stack.shift();
+    }
 
     VIEWS.forEach(function (v) {
       var n = document.getElementById('v-' + v);
@@ -44,12 +66,13 @@ var UI = (function () {
       b.classList.toggle('is-on', b.dataset.go === name);
     });
 
-    window.scrollTo(0, 0);
+    restoreScroll(opts.restore || 0);
   }
 
   function back(fallback) {
     var prev = stack.pop();
-    show(prev || fallback || 'home', { replace: true });
+    if (prev && prev.view) show(prev.view, { replace: true, restore: prev.y });
+    else show(fallback || 'home', { replace: true });
   }
 
   /* ---------- 待たせるときの見せ方 ----------

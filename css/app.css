@@ -131,13 +131,26 @@ body{
   border-radius:var(--radius);background:var(--ink-1);color:var(--text-dim);font-size:.9rem}
 
 /* ---------- 入力 ---------- */
+/* ここに型を入れ忘れると、その枠だけ素のまま白く残る。
+ * time と password が長いあいだ抜けていた。 */
 textarea,input[type=text],input[type=url],input[type=number],input[type=date],
+input[type=time],input[type=password],
 input[type=search],input[type=tel],input[type=email],select{
   width:100%;min-height:var(--tap);
   background:var(--ink-1);border:1px solid var(--ink-3);border-radius:var(--radius);
   color:var(--text);font-family:inherit;font-size:1.03rem;line-height:1.7;padding:13px 15px;
 }
 textarea{resize:vertical;line-height:1.85}
+
+/* iOSのSafariは、日付と時刻の枠だけ中身に合わせた幅を持とうとする。
+ * width:100% を書いても縮まず、右が画面の外へ出る。
+ * 見た目を自前にし、縮んでよいと明示して止める。 */
+input[type=date],input[type=time]{
+  -webkit-appearance:none;appearance:none;
+  min-width:0;max-width:100%;
+}
+/* 並べた枠（時刻とお会計など）も、狭い画面では縮められるようにする */
+.grid2 > *,.f > *{min-width:0}
 input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent-deep);
   box-shadow:0 0 0 3px var(--accent-soft)}
 select{appearance:none}
@@ -440,7 +453,11 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
 .bd-item{font-size:.87rem;padding:3px 10px;border-radius:999px;
   background:var(--ink-2);border:1px solid var(--ink-3)}
 .bd-item.confirmed{border-color:var(--accent-deep);color:var(--accent)}
-.bd-item.aiming{opacity:.72;border-style:dashed}
+.bd-item.verbal{border-style:dashed}
+/* 狙いは予定ではない。まだ何も決まっていないので、いちばん薄く置く */
+.bd-item.aiming{opacity:.6;border-style:dotted;color:var(--text-faint)}
+/* 確からしさは、線の違いだけでは読めない。言葉で添える */
+.bd-item .bd-conf{font-size:.78rem;opacity:.85;margin-left:4px}
 .bd-right{flex:0 0 auto}
 .bd-yen{font-size:.83rem;color:var(--text-faint)}
 .board-sep{font-size:.78rem;letter-spacing:.1em;color:var(--text-faint);

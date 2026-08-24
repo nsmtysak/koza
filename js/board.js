@@ -118,8 +118,13 @@ var Board = (function () {
       if (d.items.length) {
         d.items.forEach(function (x) {
           var t = UI.el('span', 'bd-item ' + x.appointment.confidence);
-          t.textContent = (x.customer ? x.customer.display_name : '（未定）') +
-            (x.appointment.kind === 'douhan' ? '・同伴' : '');
+          t.appendChild(document.createTextNode(
+            (x.customer ? x.customer.display_name : '（未定）') +
+            (x.appointment.kind === 'douhan' ? '・同伴' : '')));
+          /* 実線と点線だけでは、暗いところで見分けがつかない。
+           * 確定・お約束・狙うで見込みの重みが違うのだから、読めなければ意味がない。 */
+          t.appendChild(UI.el('span', 'bd-conf',
+            '（' + (Store.CONFIDENCE[x.appointment.confidence] || '') + '）'));
           mid.appendChild(t);
         });
       } else if (d.open) {
