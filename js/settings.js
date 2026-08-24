@@ -148,9 +148,6 @@ var Settings = (function () {
     val('s-obon-from', p.obon_from || '08-13');
     val('s-obon-to', p.obon_to || '08-16');
 
-    // 休みの条件を入れ終わってから数える。先に数えると祝日とお盆が引かれない
-    updateOpenDayCount();
-
     val('s-cooldown-contact', typeof p.cooldown_contact === 'number' ? p.cooldown_contact : 3);
     val('s-cooldown-invite', typeof p.cooldown_invite === 'number' ? p.cooldown_invite : 10);
     val('s-quiet-from', typeof p.quiet_from === 'number' ? p.quiet_from : 23);
@@ -212,44 +209,9 @@ var Settings = (function () {
         var at = openDays.indexOf(i);
         if (at >= 0) openDays.splice(at, 1); else openDays.push(i);
         b.classList.toggle('is-on', openDays.indexOf(i) >= 0);
-        updateOpenDayCount();
       });
       wrap.appendChild(b);
     });
-    updateOpenDayCount();
-  }
-
-  /**
-   * いま選んでいる設定で、この期間に何日出られるか。
-   *
-   * ここが逆算の分母になる。分母が違えば、組数も単価も全部ずれる。
-   * 曜日を押したその場で数が動けば、間違いに気づいていただける。
-   */
-  function updateOpenDayCount() {
-    var el = document.getElementById('s-open-days-count');
-    if (!el) return;
-    var p = Store.getProfile();
-    var draft = {
-      off_days: p.off_days || [],
-      closed_dates: p.closed_dates || [],
-      open_days: openDays,
-      closed_on_holidays: on('s-closed-holidays'),
-      closed_newyear: on('s-closed-newyear'),
-      closed_obon: on('s-closed-obon'),
-      newyear_from: str('s-newyear-from') || '12-29',
-      newyear_to: str('s-newyear-to') || '01-03',
-      obon_from: str('s-obon-from') || '08-13',
-      obon_to: str('s-obon-to') || '08-16'
-    };
-
-    var period = Store.periodOf(Store.today());
-    var n = 0, d = period.start, guard = 0;
-    while (d <= period.end && guard < 70) {
-      if (!Holiday.closedReason(d, draft)) n += 1;
-      d = Store.addDays(d, 1);
-      guard += 1;
-    }
-    el.textContent = 'この設定だと、' + period.label + 'に出られるのは ' + n + '日です。';
   }
 
   function save() {
@@ -323,52 +285,12 @@ var Settings = (function () {
     if (s.first_date) {
       cell('記録している期間', UI.shortDate(s.first_date) + ' 〜 ' + UI.shortDate(s.last_date), '', true);
     }
-    renderAiUsage();
   }
 
-  /** AIをどれだけ使ったか。クレジットの減りは推測ではなく実測で見せる */
-  var AI_LABEL = {
-    structure: '整理', card: '名刺', brief: '会う前の準備',
-    plan: '今日の段取り', hooks: '話のきっかけ', study: '覚えておくこと',
-    places: 'お店を調べる', ping: '接続の確認',
-    // 古い記録に残っているもの。いまは使わない
-    drafts: '送る文', invite: 'お誘いの文'
-  };
-
-  function renderAiUsage() {
-    var wrap = document.getElementById('ai-usage');
-    if (!wrap) return;
-    UI.clear(wrap);
-
-    var u = Store.usageThisMonth();
-    if (!u) {
-      wrap.appendChild(UI.el('p', 'help', '今月はまだAIを使っていません。'));
-      return;
-    }
-
-    var head = UI.el('p', null,
-      u.calls + '回　' + fmt(u.in + u.out) + 'トークン　およそ' + u.yen.toLocaleString('ja-JP') + '円');
-    head.style.fontSize = '1.02rem';
-    wrap.appendChild(head);
-
-    var rows = Object.keys(u.by).sort(function (a, b) { return u.by[b].calls - u.by[a].calls; });
-    var ul = UI.el('div', 'cards');
-    rows.forEach(function (k) {
-      var b = u.by[k];
-      var row = UI.el('div', 'gift-row');
-      var t = UI.el('span', 'gname',
-        (AI_LABEL[k] || k) + '　' + b.calls + '回　' + fmt(b.in) + '→' + fmt(b.out));
-      t.style.fontSize = '.9rem';
-      t.style.color = 'var(--text-dim)';
-      row.appendChild(t);
-      ul.appendChild(row);
-    });
-    wrap.appendChild(ul);
-
-    wrap.appendChild(UI.el('p', 'help',
-      '「送った量→返ってきた量」です。費用は1ドル155円で見た概算で、' +
-      '「お店を調べる」の検索料は含めていません。実際の請求はAnthropicの管理画面が正です。'));
-  }
+  /* 今月のAI利用は、本人の画面には出さない。
+   * 費用はこちらの持ち分であって、使う人が気にすると手が止まる。
+   * 数えること自体は Store.recordUsage が続けているので、必要なら
+   * 書き出したデータから見られる。請求はAnthropicの管理画面が正。 */
 
   function fmt(n) {
     if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -437,7 +359,6 @@ var Settings = (function () {
     ['s-closed-holidays', 's-closed-newyear', 's-closed-obon',
       's-newyear-from', 's-newyear-to', 's-obon-from', 's-obon-to'].forEach(function (id) {
       var el = document.getElementById(id);
-      if (el) el.addEventListener('change', updateOpenDayCount);
     });
 
     document.getElementById('btn-save-settings').addEventListener('click', save);

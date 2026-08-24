@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=65">
+<link rel="stylesheet" href="css/app.css?v=66">
 </head>
 <body>
 
@@ -570,13 +570,10 @@
     </label>
 
     <h2 class="sect">お店の休み</h2>
-    <p class="help">法人のお客様が中心なら、企業が休む日は枠になりません。ここが合っていないと「埋められる日」を数え間違えます。</p>
 
     <div class="f">
       <span>営業する曜日</span>
       <div id="s-open-days" class="daypick"></div>
-      <span class="help"><strong>ここが逆算の分母になります。</strong>合っているか、必ずお確かめください。<br>
-        この街は土日祝と年末年始が休みのお店が多く、ひと月に出られるのは20日ほどが通例です。</span>
     </div>
 
     <div class="f inline">
@@ -584,8 +581,6 @@
       <label class="chk"><input type="checkbox" id="s-closed-newyear"><span>年末年始は休み</span></label>
       <label class="chk"><input type="checkbox" id="s-closed-obon"><span>お盆は休み</span></label>
     </div>
-
-    <p class="help" id="s-open-days-count"></p>
 
     <div class="grid2">
       <label class="f">
@@ -689,11 +684,10 @@
       <span>同じ方への連絡は、ひと月に何通まで</span>
       <input type="number" id="s-max-contacts" min="0" max="20" inputmode="numeric">
     </label>
-    <p class="help">間隔を空けるだけでは足りません。型を変えても、続けば「量」そのものが伝わります。0で制限なし。</p>
 
     <h2 class="sect">このアプリについて</h2>
     <div class="actions col">
-      <a class="ghost linkbtn" href="about.html?v=65">できること・できないこと</a>
+      <a class="ghost linkbtn" href="about.html?v=66">できること・できないこと</a>
     </div>
     <p class="help">何のためのアプリか、AIが何を提案するのかをまとめています。</p>
 
@@ -751,9 +745,6 @@
       <summary>使っている量（確認用）</summary>
       <p class="help">件数だけです。お客様のお名前や会話の中身は出ません。</p>
       <div id="usage" class="usage"></div>
-
-      <h3 class="sect-sm">今月のAI利用</h3>
-      <div id="ai-usage"></div>
     </details>
 
     <h2 class="sect">暗証番号</h2>
@@ -829,29 +820,29 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=65"></script>
-<script src="js/store.js?v=65"></script>
-<script src="js/holiday.js?v=65"></script>
-<script src="js/insight.js?v=65"></script>
-<script src="js/plan.js?v=65"></script>
-<script src="js/api.js?v=65"></script>
-<script src="js/ui.js?v=65"></script>
-<script src="js/lock.js?v=65"></script>
-<script src="js/night.js?v=65"></script>
-<script src="js/record.js?v=65"></script>
-<script src="js/tidy.js?v=65"></script>
-<script src="js/scan.js?v=65"></script>
-<script src="js/people.js?v=65"></script>
-<script src="js/brief.js?v=65"></script>
-<script src="js/gifts.js?v=65"></script>
-<script src="js/board.js?v=65"></script>
-<script src="js/review.js?v=65"></script>
-<script src="js/invite.js?v=65"></script>
-<script src="js/study.js?v=65"></script>
-<script src="js/home.js?v=65"></script>
-<script src="js/seed.js?v=65"></script>
-<script src="js/install.js?v=65"></script>
-<script src="js/settings.js?v=65"></script>
-<script src="js/app.js?v=65"></script>
+<script src="js/db.js?v=66"></script>
+<script src="js/store.js?v=66"></script>
+<script src="js/holiday.js?v=66"></script>
+<script src="js/insight.js?v=66"></script>
+<script src="js/plan.js?v=66"></script>
+<script src="js/api.js?v=66"></script>
+<script src="js/ui.js?v=66"></script>
+<script src="js/lock.js?v=66"></script>
+<script src="js/night.js?v=66"></script>
+<script src="js/record.js?v=66"></script>
+<script src="js/tidy.js?v=66"></script>
+<script src="js/scan.js?v=66"></script>
+<script src="js/people.js?v=66"></script>
+<script src="js/brief.js?v=66"></script>
+<script src="js/gifts.js?v=66"></script>
+<script src="js/board.js?v=66"></script>
+<script src="js/review.js?v=66"></script>
+<script src="js/invite.js?v=66"></script>
+<script src="js/study.js?v=66"></script>
+<script src="js/home.js?v=66"></script>
+<script src="js/seed.js?v=66"></script>
+<script src="js/install.js?v=66"></script>
+<script src="js/settings.js?v=66"></script>
+<script src="js/app.js?v=66"></script>
 </body>
 </html>
