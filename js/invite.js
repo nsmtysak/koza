@@ -264,7 +264,7 @@ var Invite = (function () {
     d.value = cur.target_date;
     d.addEventListener('change', function () { cur.target_date = d.value; });
     f.appendChild(d);
-    f.appendChild(UI.el('span', 'help', 'ご自分の予定に「狙う」で立てるためのものです。相手にお伝えする日ではありません。'));
+    f.appendChild(UI.el('span', 'help', 'ご自分の予定に「お返事待ち」で立てるためのものです。相手にお伝えする日ではありません。'));
     form.appendChild(f);
 
     var kf = UI.el('div', 'f');
@@ -318,7 +318,7 @@ var Invite = (function () {
 
     Store.clearDailyPlan();
     UI.toast(cur.target_date
-      ? 'お誘いを残しました。' + UI.shortDate(cur.target_date) + 'の枠に「狙う」で立てています'
+      ? 'お誘いを残しました。' + UI.shortDate(cur.target_date) + 'の枠に「お返事待ち」で立てています'
       : 'お誘いを残しました');
     UI.back('board');
     if (UI.current === 'board') Board.render();

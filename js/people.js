@@ -1038,7 +1038,7 @@ var People = (function () {
     // 誘いがどうなったか。ここが次の逆算の材料になる
     if (t.intent === 'invite') {
       var bits = [];
-      if (t.target_date) bits.push(UI.shortDate(t.target_date) + 'を狙って');
+      if (t.target_date) bits.push(UI.shortDate(t.target_date) + 'にお越しいただくため');
       if (t.result === 'came') bits.push('お越しいただけました' + (t.came_date ? '（' + UI.shortDate(t.came_date) + '）' : ''));
       else if (t.result === 'missed') bits.push('このお誘いではお越しになりませんでした');
       else if (t.result === 'superseded') bits.push('あとのお誘いに引き継ぎ');

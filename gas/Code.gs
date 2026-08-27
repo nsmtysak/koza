@@ -914,7 +914,7 @@ function handlePlan(req) {
           man(p.candidates_in_period) + 'です。');
         if (p.candidates_next_period) {
           money.push('  ほかに ' + man(p.candidates_next_period) +
-            'ぶんは狙う日が締めより先で、**今月の数字には入りません**（来月の頭をつくる分です）。');
+            'ぶんは、お越しいただく日が締めより先で、**今月の数字には入りません**（来月の頭をつくる分です）。');
         }
         if (p.covers_gap === false) {
           money.push('  **つまり、候補ぜんぶに当たっても ' + man(p.shortfall) + '足りません。**');

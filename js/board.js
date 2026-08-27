@@ -244,7 +244,7 @@ var Board = (function () {
      * 混ぜると「届く」ように見えて、締めてから足りないことに気づく。 */
     if (f.expected_next > 0) {
       box.appendChild(UI.el('p', 'help',
-        'ほかに ' + UI.yen(f.expected_next) + 'ぶんは狙う日が締めより先です。' +
+        'ほかに ' + UI.yen(f.expected_next) + 'ぶんは、お越しいただく日が締めより先です。' +
         '今月の数字には入りませんが、来月の頭をつくります。'));
     }
 
@@ -405,7 +405,7 @@ var Board = (function () {
       card.appendChild(top);
 
       card.appendChild(UI.el('p', 'card-reason',
-        UI.longDate(x.target_date) + 'の同伴を狙うなら、' +
+        UI.longDate(x.target_date) + 'に同伴をいただくなら、' +
         (x.urgency === 'today' ? '今日' : UI.shortDate(x.contact_by) + 'まで') + 'にお声がけ'));
 
       var meta = [];
@@ -438,7 +438,7 @@ var Board = (function () {
     if (!list.length) { host.hidden = true; return; }
 
     UI.clear(host);
-    host.appendChild(UI.el('h2', 'sect', '場内でのご指名を狙える方'));
+    host.appendChild(UI.el('h2', 'sect', '場内でご指名をいただける方'));
     host.appendChild(UI.el('p', 'help',
       'ヘルプでご一緒した回数が多い方です。**新しい口座は、ここからしか生まれません。**'.replace(/\*\*/g, '')));
 
