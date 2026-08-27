@@ -28,14 +28,6 @@ var Invite = (function () {
 
   var cur = null;      // { customer, target_date, kind, result }
 
-  /* 常に効く心得。毎回AIに考えさせる必要のないものは、ここに置いて必ず出す。
-   * 機械に頼むほど不確かになるうえ、費用もかかる。 */
-  var ALWAYS = [
-    '日取りは、こちらの空いている日から出さないでください。先に相手のご都合を伺います。',
-    '一度目のご連絡に、お願いは要りません。用件だけで十分です。',
-    'お礼にお誘いを混ぜないでください。お礼はお礼で終わります。'
-  ];
-
   function open(customerId, opts) {
     opts = opts || {};
     var c = Store.getCustomer(customerId);
@@ -73,14 +65,6 @@ var Invite = (function () {
         '。重ねてお送りすると、しつこいという印象だけが残ります。'));
       body.appendChild(g);
     }
-    var timeWarn = Plan.sendTimeWarning();
-    if (timeWarn) {
-      var tw = UI.el('div', 'banner-warn');
-      tw.appendChild(UI.el('h3', null, 'お送りする時間にご注意ください'));
-      tw.appendChild(UI.el('p', null, timeWarn));
-      body.appendChild(tw);
-    }
-
     /* 止めはしない。事実だけ置いて、動くかどうかは本人が決める */
     var notes = Plan.contactNotes(cur.customer.id);
     if (notes.length) {
@@ -110,7 +94,6 @@ var Invite = (function () {
       drawResult(body, cur.result);
     }
 
-    body.appendChild(always());
     body.appendChild(recordBlock());
   }
 
@@ -136,7 +119,9 @@ var Invite = (function () {
     }
     var sv = Plan.selfVisitRate(cur.customer.id);
     if (sv.total >= 3) {
-      lines.push('お声がけなしでのご来店は ' + sv.self + '／' + sv.total + '回です');
+      lines.push('お声がけなしでのご来店は ' + sv.self + '／' + sv.total + '回です' +
+        // 半分より多ければ、送らなくてもいらっしゃる方。手数は別の方に使える
+        (sv.self * 2 > sv.total ? '（ご自分でいらっしゃる方です）' : ''));
     }
 
     lines.forEach(function (t) { wrap.appendChild(UI.el('div', null, t)); });
@@ -156,17 +141,6 @@ var Invite = (function () {
     block.appendChild(UI.el('h3', 'sect', '記録に残っている、続きのある話'));
     var ul = UI.el('ul', 'plain');
     hooks.slice(0, 6).forEach(function (h) { ul.appendChild(UI.el('li', null, h.text)); });
-    block.appendChild(ul);
-    return block;
-  }
-
-  function always() {
-    var block = UI.el('div', 'block');
-    block.appendChild(UI.el('h3', 'sect', 'いつも同じこと'));
-    var ul = UI.el('ul', 'plain');
-    ALWAYS.forEach(function (t) { ul.appendChild(UI.el('li', null, t)); });
-    var today = Plan.todayCaution(cur.customer.id);
-    if (today) ul.appendChild(UI.el('li', null, today));
     block.appendChild(ul);
     return block;
   }

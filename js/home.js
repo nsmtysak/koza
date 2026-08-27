@@ -282,17 +282,6 @@ var Home = (function () {
   function drawPlan(body, plan) {
     body.appendChild(UI.aiNote('content'));
 
-    // 深夜・早朝に送らせない。ご家庭のある方には特に響く
-    var timeWarn = Plan.sendTimeWarning();
-    if (timeWarn && (plan.today || []).some(function (it) {
-      return it.action === 'line' || it.action === 'douhan' || it.action === 'thanks';
-    })) {
-      var tw = UI.el('div', 'banner-warn');
-      tw.appendChild(UI.el('h3', null, 'お送りする時間にご注意ください'));
-      tw.appendChild(UI.el('p', null, timeWarn));
-      body.appendChild(tw);
-    }
-
     if (plan.headline) {
       var head = UI.el('div', 'brief-summary');
       head.appendChild(UI.el('div', null, plan.headline));

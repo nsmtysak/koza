@@ -117,13 +117,9 @@ var Plan = (function () {
     var c = Store.getCustomer(customerId);
     if (!c) return out;
 
-    /* お声がけなしでお越しになる方。
-     * 送らなくても来ていただけるなら、限られた手数は別の方に使える。 */
-    var sv = selfVisitRate(customerId);
-    if (sv.total >= 3 && sv.self * 2 > sv.total) {
-      out.push('この方は' + sv.total + '回のご来店のうち' + sv.self +
-        '回、お声がけなしでお越しになっています。お送りしなくても、ご自分でいらっしゃる方です');
-    }
+    /* お声がけなしでお越しになる方の話は、ここには置かない。
+     * すぐ下の枠に「お声がけなしでのご来店は 8／9回です」と数字で出ており、
+     * 同じことを二度言っていた。意味のほうは、その行に添えてある。 */
 
     /* ご在宅の曜日。
      * 現場で実際に起きた事故がある。
@@ -152,16 +148,6 @@ var Plan = (function () {
         'ご在宅の曜日が分かっている方は、その方の記録に入れておけます。';
     }
     return '';
-  }
-
-  /** 今、ご連絡を送ってよい時間帯か */
-  function sendTimeWarning() {
-    var h = new Date().getHours();
-    var from = num('quiet_from', 23), to = num('quiet_to', 9);
-    var quiet = from <= to ? (h >= from && h < to) : (h >= from || h < to);
-    if (!quiet) return '';
-    return '今は' + h + '時です。この時間のご連絡は、ご家庭のある方には特にご迷惑になります。' +
-      '題材だけ見ておいて、' + to + '時以降にお送りになるほうが安全です。';
   }
 
   /**
@@ -920,7 +906,7 @@ var Plan = (function () {
     progress: progress, board: board, candidates: candidates, fillPlan: fillPlan,
     aftercare: aftercare, guestsOfOthers: guestsOfOthers,
     douhanPlan: douhanPlan, phase: phase, jonaiCandidates: jonaiCandidates,
-    contactGuard: contactGuard, sendTimeWarning: sendTimeWarning,
+    contactGuard: contactGuard,
     clashOn: clashOn, heldBack: heldBack,
     todaysGuests: todaysGuests, todaysMaybe: todaysMaybe, upcomingGuests: upcomingGuests,
     isOpenDay: isOpenDay
