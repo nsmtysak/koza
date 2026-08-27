@@ -487,16 +487,13 @@ var Home = (function () {
     el.onclick = function () { UI.show('gifts'); Gifts.render(); };
   }
 
-  /* 枠にも出ている方。**両方に理由がある方が、いちばん動く先である。**
-   * 2つのリストは別のことを見ている（こちらは約束と記念日、枠は金額と締切）ので、
-   * 重なった方だけは、どちらの画面からでも分かるようにしておく。 */
-  var inBoard = {};
-
+  /* 「締めにも効きます」の印は出さない。
+   * この欄は金額とは別の理由で動く方を並べる場所である。
+   * そこに売上の印を混ぜると、結局は金額で選ばせることになる。
+   * Plan.candidates() を引くのも重かったので、まとめて落とす。 */
   function renderCallList() {
     var wrap = UI.clear(document.getElementById('call-list'));
     var all = Insight.callList();
-    inBoard = {};
-    Plan.candidates().forEach(function (x) { inBoard[x.customer.id] = x; });
     var more = document.getElementById('call-more');
 
     if (!all.length) {
@@ -533,7 +530,6 @@ var Home = (function () {
     if (item.reason.tag && item.reason.tag !== '約束') {
       top.appendChild(UI.chip(item.reason.tag, 'gold'));
     }
-    if (inBoard[item.customer.id]) top.appendChild(UI.chip('締めにも効きます'));
     card.appendChild(top);
 
     // 「なぜ今この人なのか」を必ず1行で

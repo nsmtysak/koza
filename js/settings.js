@@ -156,6 +156,8 @@ var Settings = (function () {
     val('s-lead-douhan', typeof p.lead_default_douhan === 'number' ? p.lead_default_douhan : 5);
     val('s-max-contacts', typeof p.max_contacts_month === 'number' ? p.max_contacts_month : 3);
 
+    val('s-open-from', p.open_from || '20:00');
+    val('s-open-to', p.open_to || '01:00');
     val('s-area', p.area || '');
     val('s-meal-area', p.meal_area || '');
     val('s-myrole', p.my_role || 'both');
@@ -234,6 +236,8 @@ var Settings = (function () {
     Store.saveGoal(period.key, { sales: UI.getMoney('s-target-sales'), douhan: num('s-target-douhan') });
 
     Store.saveProfile({
+      open_from: str('s-open-from') || '20:00',
+      open_to: str('s-open-to') || '01:00',
       area: str('s-area'),
       meal_area: str('s-meal-area'),
       my_role: sel('s-myrole', 'kakari'),

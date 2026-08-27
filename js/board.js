@@ -703,7 +703,6 @@ var Board = (function () {
     document.getElementById('appt-title').textContent = editing ? '予定を直す' : '予定を入れる';
     document.getElementById('appt-date').value = draft.date;
     UI.setMoney('appt-spend', draft.expected_spend);
-    document.getElementById('appt-time').value = draft.time || '';
     document.getElementById('appt-place').value = draft.place || '';
     renderPlaces();
     renderPlaceBy();
@@ -726,7 +725,10 @@ var Board = (function () {
     var kind = UI.clear(document.getElementById('appt-kind'));
     kind.appendChild(UI.segmented(
       [{ value: 'visit', label: 'ご来店' }, { value: 'douhan', label: '同伴' }],
-      draft.kind, function (v) { draft.kind = v; renderApptPlace(); }));
+      draft.kind, function (v) {
+        draft.time = document.getElementById('appt-time').value;
+        draft.kind = v; renderApptPlace(); renderApptTime();
+      }));
 
     var conf = UI.clear(document.getElementById('appt-confidence'));
     conf.appendChild(UI.segmented(
@@ -737,6 +739,7 @@ var Board = (function () {
 
     renderApptDate();
     renderApptPlace();
+    renderApptTime();
     UI.show('appt');
   }
 
@@ -775,6 +778,65 @@ var Board = (function () {
       note.textContent = STATE_NOTE[conf] || '';
       note.hidden = !note.textContent;
     }
+  }
+
+  /* 時刻の選び方。
+   *
+   * 以前は時刻の入力欄で、1分刻み・0時から24時まで選べた。
+   * 店の開いていない時間を選ばせても、書けるのは間違いだけである。
+   * 1分刻みも要らない。10分あれば足りる。
+   *
+   * ご来店は開店から閉店まで。同伴はお食事のあとに入店するので、
+   * 待ち合わせは開店より前になる。開店の3時間前から開店まで。
+   */
+  function timeOptions(kind) {
+    var p = Store.getProfile();
+    var from = toMin(p.open_from || '20:00');
+    var to = toMin(p.open_to || '01:00');
+    if (to <= from) to += 24 * 60;           // 01:00 は翌日
+
+    var start = kind === 'douhan' ? from - 180 : from;
+    var end = kind === 'douhan' ? from : to;
+    if (start < 0) start += 24 * 60;
+
+    var out = [];
+    for (var m = start; m <= end; m += 10) out.push(hhmm(m));
+    return out;
+  }
+
+  function toMin(s) {
+    var m = String(s || '').match(/^(\d{1,2}):(\d{2})$/);
+    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 0;
+  }
+
+  function hhmm(m) {
+    m = ((m % 1440) + 1440) % 1440;
+    return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
+  }
+
+  function renderApptTime() {
+    var sel = document.getElementById('appt-time');
+    var label = document.getElementById('appt-time-label');
+    if (!sel) return;
+    if (label) label.textContent = draft.kind === 'douhan' ? '待ち合わせの時刻' : 'ご来店の時刻';
+
+    var keep = draft.time || '';
+    UI.clear(sel);
+    var none = UI.el('option', null, '（決めていない）');
+    none.value = '';
+    sel.appendChild(none);
+
+    /* 並べ替えない。20:00→01:00 と日をまたぐので、
+     * 文字で並べ替えると 00:00 が先頭に来て、開店前のように見える。 */
+    var list = timeOptions(draft.kind);
+    // しまってある時刻が幅の外でも消さない。設定を変える前に入れたものがある
+    if (keep && list.indexOf(keep) < 0) list.unshift(keep);
+    list.forEach(function (t) {
+      var o = UI.el('option', null, t);
+      o.value = t;
+      if (t === keep) o.selected = true;
+      sel.appendChild(o);
+    });
   }
 
   /* お食事のお店と、どちらが決めたか。**同伴のときだけ。**

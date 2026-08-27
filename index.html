@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=79">
+<link rel="stylesheet" href="css/app.css?v=81">
 </head>
 <body>
 
@@ -234,8 +234,8 @@
     <!-- 時刻は確定のときだけ。横に並べていた頃は、時刻が消えると
          お会計の欄だけが倍に伸びて、別の画面のように見えていた -->
     <label class="f" id="appt-time-wrap">
-      <span>時刻</span>
-      <input type="time" id="appt-time">
+      <span id="appt-time-label">ご来店の時刻</span>
+      <select id="appt-time"></select>
     </label>
 
     <label class="f" id="appt-spend-wrap">
@@ -649,6 +649,17 @@
       </select>
     </label>
 
+    <div class="grid2">
+      <label class="f">
+        <span>開店</span>
+        <input type="time" id="s-open-from" step="600">
+      </label>
+      <label class="f">
+        <span>閉店</span>
+        <input type="time" id="s-open-to" step="600">
+      </label>
+    </div>
+
     <label class="f">
       <span>同伴の月間ノルマ（回数・0＝なし）</span>
       <input type="number" id="s-douhan-quota" min="0" inputmode="numeric">
@@ -701,7 +712,7 @@
 
     <h2 class="sect">このアプリについて</h2>
     <div class="actions col">
-      <a class="ghost linkbtn" href="about.html?v=79">できること・できないこと</a>
+      <a class="ghost linkbtn" href="about.html?v=81">できること・できないこと</a>
     </div>
     <p class="help">何のためのアプリか、AIが何を提案するのかをまとめています。</p>
 
@@ -834,29 +845,29 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=79"></script>
-<script src="js/store.js?v=79"></script>
-<script src="js/holiday.js?v=79"></script>
-<script src="js/insight.js?v=79"></script>
-<script src="js/plan.js?v=79"></script>
-<script src="js/api.js?v=79"></script>
-<script src="js/ui.js?v=79"></script>
-<script src="js/lock.js?v=79"></script>
-<script src="js/night.js?v=79"></script>
-<script src="js/record.js?v=79"></script>
-<script src="js/tidy.js?v=79"></script>
-<script src="js/scan.js?v=79"></script>
-<script src="js/people.js?v=79"></script>
-<script src="js/brief.js?v=79"></script>
-<script src="js/gifts.js?v=79"></script>
-<script src="js/board.js?v=79"></script>
-<script src="js/review.js?v=79"></script>
-<script src="js/invite.js?v=79"></script>
-<script src="js/study.js?v=79"></script>
-<script src="js/home.js?v=79"></script>
-<script src="js/seed.js?v=79"></script>
-<script src="js/install.js?v=79"></script>
-<script src="js/settings.js?v=79"></script>
-<script src="js/app.js?v=79"></script>
+<script src="js/db.js?v=81"></script>
+<script src="js/store.js?v=81"></script>
+<script src="js/holiday.js?v=81"></script>
+<script src="js/insight.js?v=81"></script>
+<script src="js/plan.js?v=81"></script>
+<script src="js/api.js?v=81"></script>
+<script src="js/ui.js?v=81"></script>
+<script src="js/lock.js?v=81"></script>
+<script src="js/night.js?v=81"></script>
+<script src="js/record.js?v=81"></script>
+<script src="js/tidy.js?v=81"></script>
+<script src="js/scan.js?v=81"></script>
+<script src="js/people.js?v=81"></script>
+<script src="js/brief.js?v=81"></script>
+<script src="js/gifts.js?v=81"></script>
+<script src="js/board.js?v=81"></script>
+<script src="js/review.js?v=81"></script>
+<script src="js/invite.js?v=81"></script>
+<script src="js/study.js?v=81"></script>
+<script src="js/home.js?v=81"></script>
+<script src="js/seed.js?v=81"></script>
+<script src="js/install.js?v=81"></script>
+<script src="js/settings.js?v=81"></script>
+<script src="js/app.js?v=81"></script>
 </body>
 </html>
