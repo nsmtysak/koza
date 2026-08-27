@@ -857,8 +857,25 @@ var Plan = (function () {
   }
 
   /** 今日お会いする方 */
+  /* 本日お会いする方。**確定だけ。**
+   *
+   * お返事待ちは、こちらがお誘いしただけで、お返事はまだ来ていない。
+   * それを「今日お会いする方」に並べると、来ると決まっていない方の
+   * ぶんまで支度をして、来なかった晩に肩透かしを食う。
+   * 見出しが言い切っている以上、言い切れるものだけを入れる。 */
   function todaysGuests() {
-    return Store.appointmentsOn(Store.today()).map(function (a) {
+    return todaysOn('confirmed');
+  }
+
+  /** お誘いして、お返事がまだの方。**来るとは限らない。**別の見出しで出す */
+  function todaysMaybe() {
+    return todaysOn('aiming');
+  }
+
+  function todaysOn(confidence) {
+    return Store.appointmentsOn(Store.today()).filter(function (a) {
+      return a.confidence === confidence;
+    }).map(function (a) {
       return { appointment: a, customer: a.customer_id ? Store.getCustomer(a.customer_id) : null };
     }).filter(function (x) { return x.customer; });
   }
@@ -901,7 +918,7 @@ var Plan = (function () {
     douhanPlan: douhanPlan, phase: phase, jonaiCandidates: jonaiCandidates,
     contactGuard: contactGuard, sendTimeWarning: sendTimeWarning,
     clashOn: clashOn, heldBack: heldBack,
-    todaysGuests: todaysGuests, upcomingGuests: upcomingGuests,
+    todaysGuests: todaysGuests, todaysMaybe: todaysMaybe, upcomingGuests: upcomingGuests,
     isOpenDay: isOpenDay
   };
 })();

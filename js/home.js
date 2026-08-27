@@ -151,9 +151,13 @@ var Home = (function () {
   /* ---------- 今日お会いする方 ---------- */
 
   function renderGuests() {
-    var block = document.getElementById('home-guests-block');
-    var wrap = UI.clear(document.getElementById('home-guests'));
-    var guests = Plan.todaysGuests();
+    drawGuests('home-guests-block', 'home-guests', Plan.todaysGuests());
+    drawGuests('home-maybe-block', 'home-maybe', Plan.todaysMaybe());
+  }
+
+  function drawGuests(blockId, wrapId, guests) {
+    var block = document.getElementById(blockId);
+    var wrap = UI.clear(document.getElementById(wrapId));
 
     if (!guests.length) { block.hidden = true; return; }
     block.hidden = false;
@@ -242,7 +246,8 @@ var Home = (function () {
     }
 
     var f = Plan.fillPlan();
-    if (!f.chosen.length && !Plan.todaysGuests().length && !Plan.aftercare().length) {
+    if (!f.chosen.length && !Plan.todaysGuests().length &&
+        !Plan.todaysMaybe().length && !Plan.aftercare().length) {
       body.appendChild(UI.el('p', 'empty', '今日は動く先がありません。'));
       return;
     }
