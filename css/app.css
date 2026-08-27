@@ -199,6 +199,12 @@ input::placeholder,textarea::placeholder{color:var(--text-faint)}
 }
 .primary{flex:1;background:var(--accent-deep);border:1px solid var(--accent);color:#14110c;font-weight:600}
 .primary:active{background:var(--accent)}
+/* 押せないものは、押せない見た目にする。
+ * この指定は長いあいだ今夜の分の上のボタンにしか当たっておらず、
+ * 下の「残す」だけが、押せないのに金色のまま出ていた。
+ * 押しても何も起きないボタンは、壊れていると思われる。 */
+.primary[disabled],.ghost[disabled],.danger[disabled]{opacity:.4;cursor:default}
+.primary[disabled]:active{background:var(--accent-deep)}
 .ghost{background:transparent;border:1px solid var(--ink-3);color:var(--text-dim)}
 .ghost.small{min-height:44px;font-size:.93rem;padding:0 15px}
 a.linkbtn{display:flex;align-items:center;justify-content:center;text-decoration:none;width:100%}
@@ -566,7 +572,11 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
 .nhead-t .today{margin:0;font-size:.88rem}
 .nhead-act{display:flex;gap:9px;margin-top:7px}
 .nhead-act button{flex:1;min-height:44px;font-size:.93rem;padding:0 12px}
-.nhead-act .primary[disabled]{opacity:.4}
+
+/* 下のボタンも、上の帯と同じ寸法にそろえる。
+ * 同じ「残す」が2つあって、大きさが違うと別のものに見える。 */
+#v-night #night-add,
+#v-night #night-save{min-height:44px;font-size:.93rem}
 
 .nrows{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
 .nrow{background:var(--ink-1);border:1px solid var(--ink-3);border-radius:var(--radius);padding:12px 13px}
