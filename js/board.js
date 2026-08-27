@@ -692,7 +692,7 @@ var Board = (function () {
       date: editing ? editing.date : (opts.date || Store.today()),
       customer_id: editing ? editing.customer_id : (opts.customer_id || null),
       kind: editing ? editing.kind : (opts.kind || 'visit'),
-      confidence: editing ? editing.confidence : (opts.confidence || 'verbal'),
+      confidence: editing ? editing.confidence : (opts.confidence || 'aiming'),
       expected_spend: editing ? editing.expected_spend : null,
       time: editing ? (editing.time || '') : (opts.time || ''),
       place: editing ? (editing.place || '') : '',
@@ -733,7 +733,6 @@ var Board = (function () {
     var conf = UI.clear(document.getElementById('appt-confidence'));
     conf.appendChild(UI.segmented(
       [{ value: 'confirmed', label: '確定' },
-       { value: 'verbal', label: '日程調整' },
        { value: 'aiming', label: 'お返事待ち' }],
       draft.confidence, function (v) { draft.confidence = v; renderApptDate(); }));
 
@@ -743,23 +742,20 @@ var Board = (function () {
     UI.show('appt');
   }
 
-  /* 日程調整には日が無い。
+  /* 確定には日が要る。お返事待ちは空でよい。
    *
-   * 「近いうちに行くよ」を、こちらでどこかの日へ置いてしまうと、
+   * 「また近いうちに行くよ」を、こちらでどこかの日へ置いてしまうと、
    * 盤面ではその日に来ると約束したように見える。
    * 決まっていないものは、決まっていない形のまま持つ。 */
   /* 決まったことだけを入れさせる。
    *
-   *   確定       日にち・時刻
-   *   お返事待ち 日にち（お返事が来ていないので、時刻は決まりようがない）
-   *   日程調整   どちらも無し
+   *   確定       日にち（必須）・時刻・見込みのお会計
+   *   お返事待ち 日にち（空でよい）
    *
-   * 確からしさが上がるほど欄が増える。逆は無い。
    * 欄はどれも横幅いっぱいなので、消えても隣が伸び縮みしない。 */
   var STATE_NOTE = {
     confirmed: '日にちが決まった予定です。見込みに入ります。',
-    aiming: 'こちらからお誘いして、お返事がまだ。いただいたら「確定」に。',
-    verbal: 'お越しになるお話はいただいた。日が決まったら「確定」に。'
+    aiming: 'まだ決まっていません。日が決まったら「確定」に。日はこのままでも構いません。'
   };
 
   function renderApptDate() {
@@ -767,7 +763,7 @@ var Board = (function () {
     var dw = document.getElementById('appt-date-wrap');
     var tw = document.getElementById('appt-time-wrap');
     var note = document.getElementById('appt-date-note');
-    if (dw) dw.hidden = (conf === 'verbal');
+    if (dw) dw.hidden = false;
     if (tw) tw.hidden = (conf !== 'confirmed');
     /* 見込みのお会計も確定のときだけ。
      * 「見込みに入るのは確定だけです」と書いて分からせるより、
@@ -877,10 +873,11 @@ var Board = (function () {
   }
 
   function saveAppt() {
-    var pending = draft.confidence === 'verbal';
-    var date = pending ? '' : document.getElementById('appt-date').value;
+    var confirmed = draft.confidence === 'confirmed';
+    var date = document.getElementById('appt-date').value;
     var cid = document.getElementById('appt-customer').value;
-    if (!pending && !date) { UI.toast('日にちを入れてください', true); return; }
+    // 確定には日が要る。お返事待ちは空でよい（「また近いうちに」）
+    if (confirmed && !date) { UI.toast('日にちを入れてください', true); return; }
     if (!cid) { UI.toast('どなたか選んでください', true); return; }
 
     var spend = UI.getMoney('appt-spend');
@@ -890,7 +887,7 @@ var Board = (function () {
       kind: draft.kind,
       confidence: draft.confidence,
       expected_spend: spend > 0 ? spend : null,
-      time: draft.confidence === 'confirmed' ? document.getElementById('appt-time').value : '',
+      time: confirmed ? document.getElementById('appt-time').value : '',
       place: draft.kind === 'douhan' ? document.getElementById('appt-place').value.trim() : '',
       place_by: draft.kind === 'douhan' ? (draft.place_by || '') : '',
       note: document.getElementById('appt-note').value.trim()

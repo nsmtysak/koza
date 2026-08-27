@@ -369,7 +369,7 @@ var People = (function () {
     var sched = Store.schedulingOf(c.id);
     if (sched) {
       var sb2 = UI.el('div', 'brief-sec');
-      sb2.appendChild(UI.el('h3', null, '日程調整'));
+      sb2.appendChild(UI.el('h3', null, '日がまだ決まっていません'));
       sb2.appendChild(UI.el('p', 'card-reason',
         'お越しになるお話をいただいています' +
         (sched.kind === 'douhan' ? '（同伴）' : '') +

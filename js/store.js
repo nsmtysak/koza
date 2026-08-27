@@ -981,18 +981,22 @@ var Store = (function () {
 
   /* ---------- Appointment（来店予定 ＝ 枠） ---------- */
 
-  /* 3つは、確からしさの段階ではなく**別々の状態**である。
+  /* 2つだけ。
    *
    *   確定       日にちが決まった。その日の枠である
-   *   日程調整   お越しになるお話はいただいた。**日はまだ無い**
-   *   お返事待ち こちらからお誘いした。返事がまだ
+   *   お返事待ち まだ決まっていない
    *
-   * 以前は「お約束」「狙う」と呼んでいた。
-   * 「お約束」は何を約束したのか分からず、「狙う」は
-   *   ・札  ＝ すでにお誘いした方
-   *   ・下段＝ まだ誰にも声をかけていない方
-   * の**逆の意味で二重に**使っていた。 */
-  var CONFIDENCE = { confirmed: '確定', verbal: '日程調整', aiming: 'お返事待ち' };
+   * 一時は「日程調整」を挟んで3つにしたが、お返事待ちとの違いが
+   * **こちらから声をかけたか、先方から言われたか**しかなかった。
+   * 画面の上でも計算の上でも同じ扱いになるので、分ける値打ちがない。
+   *
+   * 決まっていないものの中で本当に効く違いは、**日が入っているかどうか**。
+   * それは confidence ではなく date の有無で持つ。
+   *   日あり … その日を狙っている
+   *   日なし … 「また近いうちに」。日はこれから決める
+   *
+   * 'verbal' は古い記録に残る。読むときに 'aiming' として扱う。 */
+  var CONFIDENCE = { confirmed: '確定', aiming: 'お返事待ち' };
 
   /* 見込みに入れてよいのは確定だけ。
    *
@@ -1000,10 +1004,14 @@ var Store = (function () {
    * 高く見て動かなかった月は取り返せない。低く見た月は、その晩に一組多く
    * お迎えするだけで済む。**この2つは釣り合っていない。**
    * それに0.6を掛けると「同伴 予定1.6回」になる。そんなものは無い。 */
-  var CONFIDENCE_WEIGHT = { confirmed: 1, verbal: 0, aiming: 0 };
+  var CONFIDENCE_WEIGHT = { confirmed: 1, aiming: 0 };
 
   function listAppointments() {
-    return read(K.appointments, []).sort(function (a, b) {
+    return read(K.appointments, []).map(function (a) {
+      // 古い「日程調整」は、お返事待ちとして読む
+      if (a.confidence === 'verbal') a.confidence = 'aiming';
+      return a;
+    }).sort(function (a, b) {
       return String(a.date || '').localeCompare(String(b.date || ''));
     });
   }
@@ -1012,49 +1020,43 @@ var Store = (function () {
     return listAppointments().filter(function (a) { return !a.closed; });
   }
 
-  /* その日の枠に並ぶもの。
-   *
-   * **日程調整は日を持たない。**「近いうちに行くよ」を特定の日に置くと、
-   * 盤面ではその日に来ると約束したように見える。
-   * 古い記録には日が入っているので、ここで落とす（消しはしない）。 */
   function appointmentsOn(date) {
-    return openAppointments().filter(function (a) {
-      return a.confidence !== 'verbal' && a.date === date;
-    });
+    return openAppointments().filter(function (a) { return !!a.date && a.date === date; });
   }
 
-  /** 日をお決めいただく方。日付を持たないので、盤面とは別に置く */
+  /** 日がまだ決まっていない予定。日を持たないので、盤面とは別に置く */
   function schedulingAppointments() {
-    return openAppointments().filter(function (a) { return a.confidence === 'verbal'; });
+    return openAppointments().filter(function (a) { return !a.date; });
   }
 
   function appointmentsOf(customerId) {
     return listAppointments().filter(function (a) { return a.customer_id === customerId; });
   }
 
-  /* 次の予定。**日程調整は含めない。**
+  /* 次の予定。**日の無いものは含めない。**
    * 含めると、その方は「今日声をかける人」の一覧から消える。
    * 日が決まっていないのだから、いちばん声をかけるべき方である。 */
   function nextAppointmentOf(customerId) {
     var t0 = today();
     return appointmentsOf(customerId).filter(function (a) {
-      return !a.closed && a.confidence !== 'verbal' && a.date >= t0;
+      return !a.closed && !!a.date && a.date >= t0;
     })[0] || null;
   }
 
-  /** その方に、日待ちのお話があるか */
+  /** その方に、日がまだ決まっていないお話があるか */
   function schedulingOf(customerId) {
     return appointmentsOf(customerId).filter(function (a) {
-      return !a.closed && a.confidence === 'verbal';
+      return !a.closed && !a.date;
     })[0] || null;
   }
 
   function addAppointment(f) {
-    // 日程調整は日を持たない。ここで落としておかないと、盤面の日に現れる
-    var conf = CONFIDENCE[f.confidence] ? f.confidence : 'verbal';
+    // 古い呼び名（日程調整）で渡ってきても、お返事待ちとして受ける
+    var conf = CONFIDENCE[f.confidence] ? f.confidence : 'aiming';
     var a = {
       id: uid('a'),
-      date: conf === 'verbal' ? '' : (f.date || ''),
+      // 確定には日が要る。それ以外は空でよい（「また近いうちに」）
+      date: conf === 'confirmed' ? (f.date || '') : (f.date || ''),
       customer_id: f.customer_id || null,
       kind: f.kind === 'douhan' ? 'douhan' : 'visit',
       time: f.time || '',       // 待ち合わせ・ご来店の時刻
@@ -1079,8 +1081,6 @@ var Store = (function () {
     for (var i = 0; i < all.length; i++) {
       if (all[i].id === id) {
         all[i] = Object.assign(all[i], patch, { updated_at: nowISO() });
-        // 直して日程調整に戻したときも、日を残さない
-        if (all[i].confidence === 'verbal') all[i].date = '';
         write(K.appointments, all);
         return all[i];
       }
@@ -1099,7 +1099,7 @@ var Store = (function () {
     all.forEach(function (a) {
       if (a.closed || a.customer_id !== customerId) return;
 
-      /* 日程調整には日が無い。お越しになった時点で、その話は済んでいる。
+      /* 日の無いお話は、お越しになった時点で済んでいる。
        * ここを抜かすと、来ていただいたあとも「日を決めていただく」に
        * 残り続け、二度目のお願いをすることになる。 */
       if (!a.date) {
@@ -1123,7 +1123,7 @@ var Store = (function () {
    * こちらも勝手に「来なかった」にはしない。記録が遅れているだけかもしれない。
    * 7日過ぎたものだけ、盤面から下ろす（結果は unknown のまま残す）。
    *
-   * **日付の無いもの（日程調整）を巻き込まないこと。**
+   * **日付の無いものを巻き込まないこと。**
    * '' はどの日付より小さいので、素直に書くと入れた直後に消える。
    * 代わりに、伺ってから90日たったものを下ろす。
    * 三月も前の「また行くよ」を、まだ生きている話として数えない。

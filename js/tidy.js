@@ -268,7 +268,7 @@ var Tidy = (function () {
       Store.addAppointment({
         date: a.date, customer_id: id,
         kind: a.kind === 'douhan' ? 'douhan' : 'visit',
-        confidence: a.confidence === 'confirmed' ? 'confirmed' : 'verbal',
+        confidence: a.confidence === 'confirmed' ? 'confirmed' : 'aiming',
         source: 'voice', note: a.note || ''
       });
     });

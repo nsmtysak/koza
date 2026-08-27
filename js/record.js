@@ -553,7 +553,7 @@ var Record = (function () {
       var t = UI.el('span');
       t.appendChild(UI.el('span', 'e-kind', (a.customer || '') + ' / ' +
         (a.kind === 'douhan' ? '同伴' : 'ご来店') +
-        '（' + (Store.CONFIDENCE[a.confidence] || '日程調整') + '）'));
+        '（' + (Store.CONFIDENCE[a.confidence] || 'お返事待ち') + '）'));
       t.appendChild(UI.el('span', 'e-text',
         (a.date ? UI.longDate(a.date) : '日はこれから') + (a.note ? '　「' + a.note + '」' : '')));
 
@@ -673,7 +673,7 @@ var Record = (function () {
       var id = byName[key] || byName[key.replace(/(様|さん)$/, '')] || fallbackId;
       if (!id) return;
 
-      /* 日が決まっていれば確定、決まっていなければ日程調整。
+      /* 日が決まっていれば確定、決まっていなければ日なしのお返事待ち。
        *
        * 以前は日が無いものを丸ごと捨てていた。
        * 「また近いうちに行くわ」は、いちばんよく出る言葉である。
@@ -692,7 +692,7 @@ var Record = (function () {
         date: confirmed ? raw.date : '',
         customer_id: id,
         kind: raw.kind === 'douhan' ? 'douhan' : 'visit',
-        confidence: confirmed ? 'confirmed' : 'verbal',
+        confidence: confirmed ? 'confirmed' : 'aiming',
         source: 'voice',
         note: raw.note || ''
       });
