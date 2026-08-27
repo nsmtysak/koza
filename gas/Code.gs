@@ -959,8 +959,8 @@ function handlePlan(req) {
     'アプリ側で、各お客様について次を計算してあります。',
     '  - target_date：その方に来ていただきたい日（空いている日・その方が来やすい曜日から選定済み）',
     '  - contact_by：その日に来ていただくために、声をかける締切（＝リードタイムぶん手前）',
-    '  - urgency：late＝締切を過ぎている／today＝締切が今日／soon＝まだ先',
-    '**contact_by が今日、または過ぎている方が、今日の仕事です。** ここを外さないでください。',
+    '  - urgency：today＝締切が今日／soon＝まだ先',
+    '**contact_by が今日の方が、今日の仕事です。** ここを外さないでください。',
     '',
     aftercare.length ? [
       '# 先にやること：お礼（' + aftercare.length + '名）',

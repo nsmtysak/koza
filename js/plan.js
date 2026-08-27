@@ -596,12 +596,16 @@ var Plan = (function () {
       x.target_date = chosen.day.date;
       x.target_weekday = chosen.day.weekday;
       x.contact_by = Store.addDays(chosen.day.date, -x.lead.days);
-      x.urgency = x.contact_by < t0 ? 'late' : (x.contact_by === t0 ? 'today' : 'soon');
+      /* 締切が過ぎている、という状態は起きない。
+       * slotScore が「間に合わない日」（offset < lead）を先に落としているので、
+       * 選ばれた日は必ずリードタイムぶん先にある。
+       * 声をかけそびれた方は消えず、次に間に合う日へ狙いが移るだけである。 */
+      x.urgency = x.contact_by === t0 ? 'today' : 'soon';
       delete x.slots;
     });
 
     // 締切が近く、期待値の高い方から
-    var rank = { late: 0, today: 1, soon: 2 };
+    var rank = { today: 0, soon: 1 };
     out.sort(function (a, b) {
       if (rank[a.urgency] !== rank[b.urgency]) return rank[a.urgency] - rank[b.urgency];
       return b.value - a.value;
@@ -655,7 +659,7 @@ var Plan = (function () {
       expected_next: sum - inSum,        // 締めをまたぐ分。来月の頭をつくる
       covers_gap: !p.gap || inSum >= p.gap,
       shortfall: p.gap ? Math.max(0, p.gap - inSum) : 0,
-      today: chosen.filter(function (x) { return x.urgency === 'today' || x.urgency === 'late'; }),
+      today: chosen.filter(function (x) { return x.urgency === 'today'; }),
       soon: chosen.filter(function (x) { return x.urgency === 'soon'; })
     };
   }
@@ -786,8 +790,8 @@ var Plan = (function () {
       }
       if (slot) { taken[slot.date] = true; x.target_date = slot.date; x.target_weekday = slot.weekday; }
       x.contact_by = slot ? Store.addDays(slot.date, -x.lead.days) : null;
-      x.urgency = !x.contact_by ? 'none'
-        : (x.contact_by < t0 ? 'late' : (x.contact_by === t0 ? 'today' : 'soon'));
+      // ここも「間に合わない日」を先に落としているので、締切が過ぎることはない
+      x.urgency = !x.contact_by ? 'none' : (x.contact_by === t0 ? 'today' : 'soon');
     });
 
     return {

@@ -315,10 +315,7 @@ var Board = (function () {
     // ここが逆算の中身。1行で言い切る
     var line = UI.el('p', 'card-reason');
     line.textContent = UI.longDate(x.target_date) + 'に来ていただくなら、' +
-      (x.urgency === 'today' ? '今日' :
-        x.urgency === 'late' ? '本来は' + UI.shortDate(x.contact_by) + 'が締切。今日動くしかありません' :
-          UI.shortDate(x.contact_by) + 'まで') +
-      (x.urgency === 'late' ? '' : 'にお声がけ');
+      (x.urgency === 'today' ? '今日' : UI.shortDate(x.contact_by) + 'まで') + 'にお声がけ';
     card.appendChild(line);
 
     var meta = [];
@@ -401,7 +398,6 @@ var Board = (function () {
       top.appendChild(UI.avatar(x.customer));
       top.appendChild(UI.el('div', 'card-name', x.customer.display_name));
       if (x.urgency === 'today') top.appendChild(UI.chip('今日が締切', 'gold'));
-      else if (x.urgency === 'late') top.appendChild(UI.chip('締切を過ぎています', 'warn'));
       card.appendChild(top);
 
       card.appendChild(UI.el('p', 'card-reason',
