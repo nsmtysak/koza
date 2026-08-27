@@ -614,8 +614,10 @@ var Record = (function () {
       set_count: parseInt(document.getElementById('f-sets').value, 10) || 0,
       spend: spendRaw === '' ? null : (parseInt(spendRaw, 10) || 0),
       bottle: document.getElementById('f-bottle').value.trim(),
-      douhan_place: document.getElementById('f-place').value.trim(),
-      place_by: draft.place_by || '',
+      // 同伴を外したら、隠れている欄のお店は持たない（予定の画面と同じ扱い）
+      douhan_place: document.getElementById('f-douhan').checked
+        ? document.getElementById('f-place').value.trim() : '',
+      place_by: document.getElementById('f-douhan').checked ? (draft.place_by || '') : '',
       topics: draft.topics,
       topic_detail: document.getElementById('f-topicdetail').value.trim(),
       drinks: drinks,

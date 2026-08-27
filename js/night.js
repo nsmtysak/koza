@@ -304,10 +304,20 @@ var Night = (function () {
 
     /* 3行目：同伴だけは一等地に。ほかは畳む */
     var tog = UI.el('div', 'nrow-toggles');
-    tog.appendChild(toggle('同伴', r.douhan, function (v) { r.douhan = v; save(); }));
+
+    /* 何も押さないときが何になるのか、どこにも出ていなかった。
+     * いちばん多い形なのでボタンが無く、それゆえ画面から消えていた。
+     * 文で説明するより、その行に結果を出すほうが早い。 */
+    var state = UI.el('span', 'nrow-state', '係のお客様');
+    function syncState() { state.hidden = !!(r.douhan || r.help); }
+
+    tog.appendChild(toggle('同伴', r.douhan, function (v) { r.douhan = v; syncState(); save(); }));
     /* ヘルプの席は自分の売上ではない。
      * ここを分けないと、1晩の半分を占めるヘルプの卓が全部実績に乗って帯が嘘をつく。 */
-    tog.appendChild(toggle('ヘルプ', r.help, function (v) { r.help = v; save(); }));
+    tog.appendChild(toggle('ヘルプ', r.help, function (v) { r.help = v; syncState(); save(); }));
+
+    syncState();
+    tog.appendChild(state);
 
     var more = UI.el('button', 'nrow-more', r.open ? '閉じる' : 'そのほか');
     more.type = 'button';

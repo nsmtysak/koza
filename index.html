@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kōza">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="stylesheet" href="css/app.css?v=77">
+<link rel="stylesheet" href="css/app.css?v=79">
 </head>
 <body>
 
@@ -131,7 +131,6 @@
   <!-- お誘いして、お返事がまだの方。来ると決まってはいない -->
   <section class="block" id="home-maybe-block" hidden>
     <h2 class="sect">お越しになるかもしれない方</h2>
-    <p class="help">お誘いを差し上げて、お返事がまだの方です。<strong>お越しになったら、この準備が効きます。</strong></p>
     <div id="home-maybe" class="cards"></div>
   </section>
 
@@ -229,8 +228,6 @@
     <div class="f">
       <span>確からしさ</span>
       <div id="appt-confidence"></div>
-      <p class="help"><strong>確定</strong>＝日にちが決まった。<strong>日程調整</strong>＝お越しになるお話はいただいたが、日はこれから。<strong>お返事待ち</strong>＝こちらからお誘いして、お返事がまだ。<br>
-        見込みに入るのは<strong>確定だけ</strong>です。ほかの2つは数だけ数えます。</p>
       <p class="help" id="appt-date-note"></p>
     </div>
 
@@ -241,7 +238,7 @@
       <input type="time" id="appt-time">
     </label>
 
-    <label class="f">
+    <label class="f" id="appt-spend-wrap">
       <span>見込みのお会計（円）</span>
       <input type="text" id="appt-spend" inputmode="numeric">
     </label>
@@ -342,8 +339,7 @@
     </div>
   </header>
 
-  <p class="lede-sm">卓ごとに1行。<strong>話し言葉のままで構いません。整理は明日で構いません。</strong><br>
-    同伴とヘルプのときだけ押してください。<strong>何も押さなければ、係のお客様のご来店</strong>として残ります。</p>
+  <p class="lede-sm">卓ごとに1行。<strong>話し言葉のままで構いません。整理は明日で構いません。</strong></p>
 
   <datalist id="night-names"></datalist>
   <div id="night-voice" class="banner" hidden></div>
@@ -705,7 +701,7 @@
 
     <h2 class="sect">このアプリについて</h2>
     <div class="actions col">
-      <a class="ghost linkbtn" href="about.html?v=77">できること・できないこと</a>
+      <a class="ghost linkbtn" href="about.html?v=79">できること・できないこと</a>
     </div>
     <p class="help">何のためのアプリか、AIが何を提案するのかをまとめています。</p>
 
@@ -838,29 +834,29 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/db.js?v=77"></script>
-<script src="js/store.js?v=77"></script>
-<script src="js/holiday.js?v=77"></script>
-<script src="js/insight.js?v=77"></script>
-<script src="js/plan.js?v=77"></script>
-<script src="js/api.js?v=77"></script>
-<script src="js/ui.js?v=77"></script>
-<script src="js/lock.js?v=77"></script>
-<script src="js/night.js?v=77"></script>
-<script src="js/record.js?v=77"></script>
-<script src="js/tidy.js?v=77"></script>
-<script src="js/scan.js?v=77"></script>
-<script src="js/people.js?v=77"></script>
-<script src="js/brief.js?v=77"></script>
-<script src="js/gifts.js?v=77"></script>
-<script src="js/board.js?v=77"></script>
-<script src="js/review.js?v=77"></script>
-<script src="js/invite.js?v=77"></script>
-<script src="js/study.js?v=77"></script>
-<script src="js/home.js?v=77"></script>
-<script src="js/seed.js?v=77"></script>
-<script src="js/install.js?v=77"></script>
-<script src="js/settings.js?v=77"></script>
-<script src="js/app.js?v=77"></script>
+<script src="js/db.js?v=79"></script>
+<script src="js/store.js?v=79"></script>
+<script src="js/holiday.js?v=79"></script>
+<script src="js/insight.js?v=79"></script>
+<script src="js/plan.js?v=79"></script>
+<script src="js/api.js?v=79"></script>
+<script src="js/ui.js?v=79"></script>
+<script src="js/lock.js?v=79"></script>
+<script src="js/night.js?v=79"></script>
+<script src="js/record.js?v=79"></script>
+<script src="js/tidy.js?v=79"></script>
+<script src="js/scan.js?v=79"></script>
+<script src="js/people.js?v=79"></script>
+<script src="js/brief.js?v=79"></script>
+<script src="js/gifts.js?v=79"></script>
+<script src="js/board.js?v=79"></script>
+<script src="js/review.js?v=79"></script>
+<script src="js/invite.js?v=79"></script>
+<script src="js/study.js?v=79"></script>
+<script src="js/home.js?v=79"></script>
+<script src="js/seed.js?v=79"></script>
+<script src="js/install.js?v=79"></script>
+<script src="js/settings.js?v=79"></script>
+<script src="js/app.js?v=79"></script>
 </body>
 </html>

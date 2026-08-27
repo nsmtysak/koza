@@ -606,8 +606,8 @@ var Board = (function () {
       if (a.kind === 'douhan') top.appendChild(UI.chip('同伴', 'gold'));
       card.appendChild(top);
 
+      // 同じ一文を人数ぶん並べない。見出しの下に一度だけ書いてある
       if (a.note) card.appendChild(UI.el('p', 'card-body', a.note));
-      card.appendChild(UI.el('p', 'card-reason', '日を決めていただければ、枠に入ります'));
 
       card.addEventListener('click', function () { openAppt({ id: a.id }); });
       wrap.appendChild(card);
@@ -754,9 +754,9 @@ var Board = (function () {
    * 確からしさが上がるほど欄が増える。逆は無い。
    * 欄はどれも横幅いっぱいなので、消えても隣が伸び縮みしない。 */
   var STATE_NOTE = {
-    confirmed: '',
-    aiming: 'お返事をいただいたら「確定」に変えてください。お時間はそのときに。',
-    verbal: '日程調整には日にちを入れません。日が決まったら「確定」に変えてください。そのときに枠へ入ります。'
+    confirmed: '日にちが決まった予定です。見込みに入ります。',
+    aiming: 'こちらからお誘いして、お返事がまだ。いただいたら「確定」に。',
+    verbal: 'お越しになるお話はいただいた。日が決まったら「確定」に。'
   };
 
   function renderApptDate() {
@@ -766,6 +766,11 @@ var Board = (function () {
     var note = document.getElementById('appt-date-note');
     if (dw) dw.hidden = (conf === 'verbal');
     if (tw) tw.hidden = (conf !== 'confirmed');
+    /* 見込みのお会計も確定のときだけ。
+     * 「見込みに入るのは確定だけです」と書いて分からせるより、
+     * そのとき欄が無いほうが早い。 */
+    var sw = document.getElementById('appt-spend-wrap');
+    if (sw) sw.hidden = (conf !== 'confirmed');
     if (note) {
       note.textContent = STATE_NOTE[conf] || '';
       note.hidden = !note.textContent;

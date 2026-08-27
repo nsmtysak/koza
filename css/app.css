@@ -614,6 +614,8 @@ ul.plain li{margin:5px 0;font-size:.94rem;color:var(--text-dim);line-height:1.7}
 .ntog{min-height:40px;padding:0 16px;border-radius:999px;background:var(--ink-2);
   border:1px solid var(--ink-3);color:var(--text-dim);font-family:inherit;font-size:.9rem;cursor:pointer}
 .ntog.is-on{background:var(--accent-soft);border-color:var(--accent-deep);color:var(--accent)}
+/* 何も押していないときに出る、この卓の扱い。押せば消える */
+.nrow-state{font-size:.84rem;color:var(--text-faint);letter-spacing:.04em}
 .nrow-more{margin-left:auto;background:none;border:none;color:var(--text-faint);
   font-family:inherit;font-size:.85rem;cursor:pointer;min-height:40px;padding:0 6px}
 .nrow-detail{margin-top:11px;padding-top:11px;border-top:1px solid var(--ink-3);
