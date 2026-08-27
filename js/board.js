@@ -726,7 +726,7 @@ var Board = (function () {
     var kind = UI.clear(document.getElementById('appt-kind'));
     kind.appendChild(UI.segmented(
       [{ value: 'visit', label: 'ご来店' }, { value: 'douhan', label: '同伴' }],
-      draft.kind, function (v) { draft.kind = v; }));
+      draft.kind, function (v) { draft.kind = v; renderApptPlace(); }));
 
     var conf = UI.clear(document.getElementById('appt-confidence'));
     conf.appendChild(UI.segmented(
@@ -736,6 +736,7 @@ var Board = (function () {
       draft.confidence, function (v) { draft.confidence = v; renderApptDate(); }));
 
     renderApptDate();
+    renderApptPlace();
     UI.show('appt');
   }
 
@@ -744,17 +745,39 @@ var Board = (function () {
    * 「近いうちに行くよ」を、こちらでどこかの日へ置いてしまうと、
    * 盤面ではその日に来ると約束したように見える。
    * 決まっていないものは、決まっていない形のまま持つ。 */
+  /* 決まったことだけを入れさせる。
+   *
+   *   確定       日にち・時刻
+   *   お返事待ち 日にち（お返事が来ていないので、時刻は決まりようがない）
+   *   日程調整   どちらも無し
+   *
+   * 確からしさが上がるほど欄が増える。逆は無い。
+   * 欄はどれも横幅いっぱいなので、消えても隣が伸び縮みしない。 */
+  var STATE_NOTE = {
+    confirmed: '',
+    aiming: 'お返事をいただいたら「確定」に変えてください。お時間はそのときに。',
+    verbal: '日程調整には日にちを入れません。日が決まったら「確定」に変えてください。そのときに枠へ入ります。'
+  };
+
   function renderApptDate() {
-    var pending = draft.confidence === 'verbal';
+    var conf = draft.confidence;
     var dw = document.getElementById('appt-date-wrap');
     var tw = document.getElementById('appt-time-wrap');
     var note = document.getElementById('appt-date-note');
-    if (dw) dw.hidden = pending;
-    if (tw) tw.hidden = pending;
-    // 時刻を隠したときは、隔を寄せる。半分幅の欄が孤立すると壊れて見える
-    var row = document.getElementById('appt-time-row');
-    if (row) row.style.gridTemplateColumns = pending ? '1fr' : '';
-    if (note) note.hidden = !pending;
+    if (dw) dw.hidden = (conf === 'verbal');
+    if (tw) tw.hidden = (conf !== 'confirmed');
+    if (note) {
+      note.textContent = STATE_NOTE[conf] || '';
+      note.hidden = !note.textContent;
+    }
+  }
+
+  /* お食事のお店と、どちらが決めたか。**同伴のときだけ。**
+   * ご来店の予定に出しても書きようがなく、
+   * 書きようのない欄が並んでいると、画面ごと読み飛ばされる。 */
+  function renderApptPlace() {
+    var w = document.getElementById('appt-place-wrap');
+    if (w) w.hidden = draft.kind !== 'douhan';
   }
 
   /** これまでにお連れしたお店。同じ店を続けないため候補に出す */
@@ -800,9 +823,9 @@ var Board = (function () {
       kind: draft.kind,
       confidence: draft.confidence,
       expected_spend: spend > 0 ? spend : null,
-      time: pending ? '' : document.getElementById('appt-time').value,
-      place: document.getElementById('appt-place').value.trim(),
-      place_by: draft.place_by || '',
+      time: draft.confidence === 'confirmed' ? document.getElementById('appt-time').value : '',
+      place: draft.kind === 'douhan' ? document.getElementById('appt-place').value.trim() : '',
+      place_by: draft.kind === 'douhan' ? (draft.place_by || '') : '',
       note: document.getElementById('appt-note').value.trim()
     };
 
