@@ -134,12 +134,13 @@ var Api = (function () {
         booked: p.booked,
         forecast: p.forecast,
         gap: p.gap,
-        /* この候補で締めまでにいくら見込めるか。**締めをまたぐ分は入れない。**
-         * 混ぜて渡していたころは、AIが「これで届きます」と書いてしまっていた。 */
-        candidates_in_period: f.expected_in_period,
-        candidates_next_period: f.expected_next,
+        /* 候補は**人数**で渡す。金額は渡さない。
+         * 以前は「平均のお会計 × 来ていただける割合」の合計を渡していたが、
+         * あの額になる日は一度も来ない。読めない数字を根拠にさせない。
+         * 締めをまたぐ分は別に数える。混ぜるとAIが「これで届きます」と書く。 */
+        candidates_in_period: f.in_period,
+        candidates_next_period: f.next_period,
         covers_gap: f.covers_gap,
-        shortfall: f.shortfall,
         days_left: p.days_left,
         average_spend: p.average_spend,
         need_visits: p.need_visits,

@@ -231,27 +231,30 @@ var Board = (function () {
     var p = f.progress;
     if (!p.goal.sales || !p.gap) return;
 
+    /* 金額の見込みは出さない。出せるのは**組数と人数**だけである。
+     * 金額が予算に入るのは、日にちが決まって、その額を入れたときだけ。 */
     var box = UI.el('div', f.covers_gap ? 'banner' : 'banner-warn');
-    box.appendChild(UI.el('h3', null, f.covers_gap
-      ? 'この方々に当たれば、締めに届く見込みです'
-      : 'この方々ぜんぶに当たっても、締めには届きません'));
+    box.appendChild(UI.el('h3', null,
+      p.need_visits ? 'あと ' + p.need_visits + '組' : '目標に届いています'));
 
     box.appendChild(UI.el('p', null,
-      '不足 ' + UI.yen(p.gap) + '　／　' +
-      'この候補で締めまでに見込めるのは ' + UI.yen(f.expected_in_period)));
+      '不足 ' + UI.yen(p.gap) + '。平均のお会計は ' + UI.yen(p.average_spend) + 'です。'));
 
-    /* 締めをまたぐ分を、今月の見込みと混ぜない。
-     * 混ぜると「届く」ように見えて、締めてから足りないことに気づく。 */
-    if (f.expected_next > 0) {
+    box.appendChild(UI.el('p', null, f.in_period
+      ? '締めまでに間に合う候補が ' + f.in_period + '名います。'
+      : '締めまでに間に合う候補がいません。'));
+
+    /* 締めをまたぐ方を、今月の頭数と混ぜない。
+     * 混ぜると「足りている」ように見えて、締めてから足りないことに気づく。 */
+    if (f.next_period > 0) {
       box.appendChild(UI.el('p', 'help',
-        'ほかに ' + UI.yen(f.expected_next) + 'ぶんは、お越しいただく日が締めより先です。' +
+        'ほかに ' + f.next_period + '名は、お越しいただく日が締めより先です。' +
         '今月の数字には入りませんが、来月の頭をつくります。'));
     }
 
     if (!f.covers_gap) {
       box.appendChild(UI.el('p', null,
-        'あと ' + UI.yen(f.shortfall) + '足りません。' +
-        '**組数では届きませんので、単価か同伴で作ることになります。**'.replace(/\*\*/g, '')));
+        '組数では届きませんので、単価か同伴で作ることになります。'));
     }
 
     wrap.appendChild(box);
@@ -322,7 +325,8 @@ var Board = (function () {
     meta.push('お声がけから平均' + x.lead.days + '日' +
       (x.lead.samples < 2 ? '（記録が少ないため目安）' : ''));
     if (x.come_rate.samples >= 2) meta.push('お越しになる割合 ' + Math.round(x.come_rate.rate * 100) + '%');
-    if (x.expected_spend) meta.push('見込み ' + UI.yen(x.expected_spend));
+    // 見込みではない。その方のこれまでの平均である
+    if (x.expected_spend) meta.push('平均のお会計 ' + UI.yen(x.expected_spend));
     card.appendChild(UI.el('p', 'card-body', meta.join('　/　')));
 
     if (x.reason) {
@@ -407,7 +411,7 @@ var Board = (function () {
       var meta = [];
       meta.push(x.douhan_count ? '同伴 ' + x.douhan_count + '回' : '同伴の実績はまだ');
       meta.push('ご来店 ' + x.visit_count + '回');
-      if (x.expected_spend) meta.push('見込み ' + UI.yen(x.expected_spend));
+      if (x.expected_spend) meta.push('平均のお会計 ' + UI.yen(x.expected_spend));
       card.appendChild(UI.el('p', 'card-body', meta.join('　/　')));
 
       var acts = UI.el('div', 'card-acts');
@@ -533,7 +537,7 @@ var Board = (function () {
     if (apts.length) {
       var day = Plan.board(Plan.HORIZON).filter(function (d) { return d.date === date; })[0];
       if (day && day.expected) {
-        body.appendChild(UI.el('p', 'help', 'この日の見込み ' + UI.yen(day.expected) + '（確からしさで割り引いた額）'));
+        body.appendChild(UI.el('p', 'help', 'この日の見込み ' + UI.yen(day.expected) + '（確定の分だけ）'));
       }
     }
 

@@ -906,18 +906,22 @@ function handlePlan(req) {
       money.push('- **不足 ' + man(p.gap) + '。残り ' + p.days_left + '日。**');
       if (p.need_visits) money.push('- 平均単価 ' + man(p.average_spend) + 'なので、あと' + p.need_visits + '組ほどお迎えできれば届きます。');
 
-      /* 候補ぜんぶに当たって届くのか。**締めをまたぐ分は入っていない。**
-       * ここを混ぜて渡していたころは「これで届きます」と書かれてしまい、
-       * 締めてから足りないことに気づく形になっていた。 */
+      /* 候補は**人数**で渡す。金額の見込みは渡さない。
+       *
+       * 以前は「その方の平均のお会計 × 来ていただける割合」の合計を渡していた。
+       * だがその額になる日は一度も来ない。来れば満額、来なければ0である。
+       * 読めない数字を根拠に段取りを書かせない。
+       *
+       * **金額の見込みを自分で作らないこと。** 候補の人数と平均単価から
+       * 「◯◯万円は見込めます」と書くのは、ここでやめた計算をやり直すことになる。 */
       if (typeof p.candidates_in_period === 'number') {
-        money.push('- 今日の候補ぜんぶに当たって、締めまでに見込めるのは ' +
-          man(p.candidates_in_period) + 'です。');
+        money.push('- 締めまでに間に合う候補は ' + p.candidates_in_period + '名です。');
         if (p.candidates_next_period) {
-          money.push('  ほかに ' + man(p.candidates_next_period) +
-            'ぶんは、お越しいただく日が締めより先で、**今月の数字には入りません**（来月の頭をつくる分です）。');
+          money.push('  ほかに ' + p.candidates_next_period +
+            '名は、お越しいただく日が締めより先で、**今月の数字には入りません**（来月の頭をつくる分です）。');
         }
         if (p.covers_gap === false) {
-          money.push('  **つまり、候補ぜんぶに当たっても ' + man(p.shortfall) + '足りません。**');
+          money.push('  **必要な組数に対して、締めまでに間に合う候補が足りません。**');
           money.push('  **組数では届きません。** headline と gap_comment で、そのことを隠さずに書いてください。');
           money.push('  そのうえで、単価（offer）か同伴で作る筋を示してください。');
           money.push('  届かないと分かっているのに「あと何組」とだけ書くのは、いちばん不誠実です。');

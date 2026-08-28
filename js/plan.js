@@ -617,19 +617,22 @@ var Plan = (function () {
     var period = Store.periodOf(Store.today());
     var taken = {};
     var chosen = [];
-    var sum = 0;        // 候補の合計
-    var inSum = 0;      // そのうち、締めまでに間に合う分
+    var inPeriod = 0;   // そのうち、締めまでに間に合う方の人数
 
+    /* **金額を足し上げない。**
+     *
+     * 以前はここで「その方の平均のお会計 × 来ていただける割合」を足していた。
+     * 49万円の方に88%を掛けた43万円は、来ても43万にならず、来なければ0円である。
+     * **43万円という日は一日も来ない。**
+     * 中心の数字が誰にも読めないものになっていた。
+     *
+     * 金額が予算に入るのは、日にちが決まって（確定）、その額を入れたときだけ。
+     * ここで数えるのは**人数**にする。 */
     cands.forEach(function (x) {
-      /* 打ち切りは**今月に効く分**で見る。
-       * 合計で見ていたころは、来月狙いの方で埋まって早々に打ち切られ、
-       * 今月に効く方が候補から落ちていた。 */
-      if (p.gap && inSum >= p.gap) return;
       if (taken[x.target_date] && taken[x.target_date] >= 2) return;
       taken[x.target_date] = (taken[x.target_date] || 0) + 1;
       chosen.push(x);
-      sum += x.value;
-      if (x.target_date && x.target_date <= period.end) inSum += x.value;
+      if (x.target_date && x.target_date <= period.end) inPeriod += 1;
     });
 
     /* 締めをまたぐ方を、今月の見込みに混ぜない。
@@ -640,11 +643,10 @@ var Plan = (function () {
     return {
       progress: p,
       chosen: chosen,
-      expected: sum,                     // 候補ぜんぶの合計
-      expected_in_period: inSum,         // そのうち締めまでに間に合う分
-      expected_next: sum - inSum,        // 締めをまたぐ分。来月の頭をつくる
-      covers_gap: !p.gap || inSum >= p.gap,
-      shortfall: p.gap ? Math.max(0, p.gap - inSum) : 0,
+      in_period: inPeriod,                    // 締めまでに間に合う候補の人数
+      next_period: chosen.length - inPeriod,  // 狙う日が締めより先の人数
+      // 必要な組数ぶんの候補が、締めまでに間に合うところに居るか
+      covers_gap: !p.gap || inPeriod >= p.need_visits,
       today: chosen.filter(function (x) { return x.urgency === 'today'; }),
       soon: chosen.filter(function (x) { return x.urgency === 'soon'; })
     };
