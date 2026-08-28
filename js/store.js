@@ -884,6 +884,62 @@ var Store = (function () {
     return null;
   }
 
+  /* 送ったことを残す。
+   *
+   * 押すと2つできる。**接点**と、狙う日があれば**来店の予定**。
+   * 押し間違えると、その方は10日ほど声かけの候補から消え、
+   * 盤面にも来ない予定が残る。しかも本人は原因に気づけない
+   * （見えるのは「なぜあの方が出てこないのか」だけ）。
+   *
+   * だから作った2つの id を返す。戻すのは undoSent の仕事。
+   */
+  function recordSent(f) {
+    var touch = addTouch({
+      customer_id: f.customer_id,
+      kind: 'line',
+      direction: 'sent',
+      intent: f.intent || null,
+      target_date: f.target_date || null,
+      title: f.title || '',
+      note: f.note || ''
+    });
+
+    var appt = null;
+    if (f.intent === 'invite' && f.target_date &&
+        !appointmentsOn(f.target_date).some(function (a) { return a.customer_id === f.customer_id; })) {
+      appt = addAppointment({
+        date: f.target_date,
+        customer_id: f.customer_id,
+        kind: f.kind === 'douhan' ? 'douhan' : 'visit',
+        confidence: 'aiming',
+        source: f.source || 'manual',
+        note: 'お誘いを差し上げた'
+      });
+    }
+
+    /* **段取りを消さないこと。**
+     * 消すと押した瞬間に画面が「今日の段取りを組む」に戻り、
+     * 取り消すボタンごと消える。組み直しに30秒と7円もかかる。
+     * 声をかけ終えた方が一覧に残るのは、押した本人には見えている。 */
+    return { touch_id: touch.id, appointment_id: appt ? appt.id : null, date: f.target_date || '' };
+  }
+
+  /** 直前の「送りました」を戻す。作った2つだけを消す。ほかには触らない */
+  function undoSent(ref) {
+    if (!ref) return false;
+    var hit = false;
+    if (ref.touch_id && listTouches().some(function (t) { return t.id === ref.touch_id; })) {
+      deleteTouch(ref.touch_id);
+      hit = true;
+    }
+    if (ref.appointment_id &&
+        listAppointments().some(function (a) { return a.id === ref.appointment_id; })) {
+      deleteAppointment(ref.appointment_id);
+      hit = true;
+    }
+    return hit;
+  }
+
   function deleteTouch(id) {
     write(K.touches, read(K.touches, []).filter(function (t) { return t.id !== id; }));
   }
@@ -1652,6 +1708,7 @@ var Store = (function () {
 
     listTouches: listTouches, touchesOf: touchesOf, addTouch: addTouch,
     updateTouch: updateTouch, deleteTouch: deleteTouch, sentIn: sentIn,
+    recordSent: recordSent, undoSent: undoSent,
 
     listBriefs: listBriefs, getBrief: getBrief, briefsOf: briefsOf,
     listStudies: listStudies, getStudy: getStudy, saveStudy: saveStudy,

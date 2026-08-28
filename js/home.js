@@ -383,11 +383,21 @@ var Home = (function () {
     }
 
     if (it.action === 'line' || it.action === 'douhan' || it.action === 'thanks') {
-      var sent = UI.el('button', 'ghost small', '送りました');
+      /* 押した直後は「取り消す」に変える。
+       *
+       * トーストでは間に合わない。2.4秒で消えるので、
+       * 押し間違いに気づく前に取り消す先が無くなる。
+       * ボタンとして残しておけば、気づいたときに戻せる。 */
+      var key = c.id + '|' + it.action;
+      var undo = sentJustNow[key];
+
+      var sent = UI.el('button', 'ghost small' + (undo ? ' undo' : ''),
+        undo ? '取り消す' : '送りました');
       sent.type = 'button';
       sent.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        recordSent(c, it);
+        if (sentJustNow[key]) { undoSent(key); return; }
+        recordSent(c, it, key);
       });
       acts.appendChild(sent);
     }
@@ -401,29 +411,34 @@ var Home = (function () {
     return card;
   }
 
+  /* 押した直後に戻せるよう、作ったものの id を覚えておく。
+   * 画面を作り直しても消えないよう、この場所に置く。
+   * 読み込み直せば消える（そこまで残す必要はない）。 */
+  var sentJustNow = {};
+
   /** 実際に送ってから押していただく。ここが埋まらないと次の逆算ができない */
-  function recordSent(c, it) {
+  function recordSent(c, it, key) {
     var isInvite = it.action === 'line' || it.action === 'douhan';
-    Store.addTouch({
+    sentJustNow[key] = Store.recordSent({
       customer_id: c.id,
-      kind: 'line',
-      direction: 'sent',
       intent: isInvite ? 'invite' : null,
       target_date: isInvite ? (it.target_date || null) : null,
-      title: it.action === 'thanks' ? 'お礼' : (it.action === 'douhan' ? '同伴のお誘い' : 'お誘い'),
-      note: ''
+      kind: it.action === 'douhan' ? 'douhan' : 'visit',
+      source: 'ai',
+      title: it.action === 'thanks' ? 'お礼' : (it.action === 'douhan' ? '同伴のお誘い' : 'お誘い')
     });
 
-    if (isInvite && it.target_date &&
-        !Store.appointmentsOn(it.target_date).some(function (a) { return a.customer_id === c.id; })) {
-      Store.addAppointment({
-        date: it.target_date, customer_id: c.id,
-        kind: it.action === 'douhan' ? 'douhan' : 'visit',
-        confidence: 'aiming', source: 'ai', note: 'お誘いを差し上げた'
-      });
-    }
+    var r = sentJustNow[key];
+    UI.toast(r.appointment_id
+      ? '記録しました。' + UI.shortDate(r.date) + 'の枠に「お返事待ち」で立てています'
+      : '記録しました');
+    refresh();
+  }
 
-    UI.toast('記録しました');
+  function undoSent(key) {
+    Store.undoSent(sentJustNow[key]);
+    delete sentJustNow[key];
+    UI.toast('取り消しました');
     refresh();
   }
 

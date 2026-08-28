@@ -43,7 +43,8 @@ var Invite = (function () {
       customer: c,
       target_date: opts.target_date || '',
       kind: opts.kind === 'douhan' ? 'douhan' : 'visit',
-      result: null
+      result: null,
+      sent: null      // 残した直後だけ入る。取り消しに使う
     };
 
     document.getElementById('invite-title').textContent = c.display_name + 'への話のきっかけ';
@@ -226,6 +227,36 @@ var Invite = (function () {
     var wrap = UI.el('details', 'raw');
     wrap.appendChild(UI.el('summary', null, 'お送りしたら、ここに残す'));
 
+    /* 残したあとは、画面を閉じずにここへ結果を出す。
+     * 以前は残した瞬間に前の画面へ戻していたので、
+     * 押し間違いに気づいたときには戻る先が無かった。 */
+    if (cur.sent) {
+      wrap.open = true;
+      var done = UI.el('div', 'block');
+      done.appendChild(UI.el('p', null, cur.sent.appointment_id
+        ? '残しました。' + UI.shortDate(cur.sent.date) + 'の枠に「お返事待ち」で立てています'
+        : '残しました'));
+      var un = UI.el('button', 'ghost small undo', '取り消す');
+      un.type = 'button';
+      un.addEventListener('click', function () {
+        Store.undoSent(cur.sent);
+        cur.sent = null;
+        UI.toast('取り消しました');
+        render();
+      });
+      done.appendChild(un);
+      var back = UI.el('button', 'ghost small', '枠に戻る');
+      back.type = 'button';
+      back.addEventListener('click', function () {
+        UI.back('board');
+        if (UI.current === 'board') Board.render();
+        if (UI.current === 'home') Home.refresh();
+      });
+      done.appendChild(back);
+      wrap.appendChild(done);
+      return wrap;
+    }
+
     var form = UI.el('div', 'form');
     form.appendChild(UI.el('p', 'help',
       '送った事実だけを残します。これが次の「お声がけから何日で来ていただけるか」になります。'));
@@ -267,36 +298,19 @@ var Invite = (function () {
    * 狙う日が入っていれば、予定にも「狙う」で立てておく。
    */
   function recordInvite(text) {
-    Store.addTouch({
+    cur.sent = Store.recordSent({
       customer_id: cur.customer.id,
-      kind: 'line',
-      direction: 'sent',
       intent: 'invite',
       target_date: cur.target_date || null,
+      kind: cur.kind,
+      source: 'manual',
       title: cur.kind === 'douhan' ? '同伴のお誘い' : 'お誘い',
       note: text || ''
     });
 
-    if (cur.target_date && !Store.appointmentsOn(cur.target_date).some(function (a) {
-      return a.customer_id === cur.customer.id;
-    })) {
-      Store.addAppointment({
-        date: cur.target_date,
-        customer_id: cur.customer.id,
-        kind: cur.kind,
-        confidence: 'aiming',
-        source: 'ai',
-        note: 'お誘いを差し上げた'
-      });
-    }
-
-    Store.clearDailyPlan();
-    UI.toast(cur.target_date
-      ? 'お誘いを残しました。' + UI.shortDate(cur.target_date) + 'の枠に「お返事待ち」で立てています'
-      : 'お誘いを残しました');
-    UI.back('board');
-    if (UI.current === 'board') Board.render();
-    if (UI.current === 'home') Home.refresh();
+    // 画面は閉じない。取り消せる先を残しておく
+    UI.toast('残しました');
+    render();
   }
 
   function init() {
