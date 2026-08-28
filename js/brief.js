@@ -15,7 +15,7 @@ var Brief = (function () {
       return;
     }
     UI.busy(true, purpose === 'contact' ? '連絡の言葉を考えています…' : '前回までを読み返しています…', {
-      estimate: Store.estimateMs('brief', 26000),
+      estimate: Store.estimateMs('brief', 16000),
       steps: [
         'これまでの来歴を読み返しています…',
         'お好みと、お会計の運びを見ています…',

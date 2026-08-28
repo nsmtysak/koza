@@ -261,7 +261,7 @@ var Home = (function () {
   function fetchPlan() {
     UI.busy(true, '締め日から逆算しています…', {
       // 前に何秒かかったかを覚えている。2回目からはその人の実測が目安になる
-      estimate: Store.estimateMs('plan', 32000),
+      estimate: Store.estimateMs('plan', 20000),
       steps: [
         'これから2週間の埋まり方を見ています…',
         '締め日までの不足を数えています…',

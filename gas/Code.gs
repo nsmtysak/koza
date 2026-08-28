@@ -868,7 +868,10 @@ function handleBrief(req) {
     max_tokens: 12000,
     system: system,
     messages: [{ role: 'user', content: JSON.stringify(payload) }],
-    output_config: { effort: 'medium', format: { type: 'json_schema', schema: schema } }
+    /* 深く考えさせるほど待たされる。ここは毎日開くところなので、
+     * 待ち時間のほうが効く。**浅くする。**
+     * 出す中身が薄いと感じたら 'medium' に戻す。ここ一行で戻せる。 */
+    output_config: { effort: 'low', format: { type: 'json_schema', schema: schema } }
   });
 }
 
@@ -1111,7 +1114,10 @@ function handlePlan(req) {
       role: 'user',
       content: JSON.stringify({ candidates: cands, today_guests: guests, aftercare: aftercare })
     }],
-    output_config: { effort: 'medium', format: { type: 'json_schema', schema: schema } }
+    /* 深く考えさせるほど待たされる。ここは毎日開くところなので、
+     * 待ち時間のほうが効く。**浅くする。**
+     * 出す中身が薄いと感じたら 'medium' に戻す。ここ一行で戻せる。 */
+    output_config: { effort: 'low', format: { type: 'json_schema', schema: schema } }
   });
 }
 
