@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#100f0d">
+<title>Kōza — ご利用条件（案）</title>
+<style>
+:root{
+  --ink-0:#100f0d; --ink-1:#191714; --ink-2:#22201c; --ink-3:#2e2b26;
+  --text:#ece7de; --text-dim:#9a9187; --text-faint:#6d665e;
+  --accent:#b08d4f; --accent-deep:#8a6f3e; --accent-soft:rgba(176,141,79,.13);
+  --danger:#a8624f; --ok:#7d9469;
+  --font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
+  --display: "Hiragino Mincho ProN", "Yu Mincho", serif;
+}
+*{box-sizing:border-box;-webkit-text-size-adjust:100%}
+html,body{margin:0;padding:0}
+body{background:var(--ink-0);color:var(--text);font-family:var(--font);
+  font-size:16.5px;line-height:1.85;letter-spacing:.01em}
+.wrap{max-width:620px;margin:0 auto;padding:0 22px 90px}
+
+/* 戻り道。ホーム画面から立ち上げると、ブラウザの戻るボタンが無いことがある。
+ * 出口の無い画面を作らない。 */
+/* viewport-fit=cover なので、上端は時計と電波の下に潜る。
+ * 潜ったところは触っても反応しない。安全域のぶんだけ内側に押し出す。 */
+.backbar{
+  position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;
+  min-height:calc(52px + env(safe-area-inset-top));
+  padding:env(safe-area-inset-top) 22px 0;margin:0 -22px;
+  background:var(--ink-0);border-bottom:1px solid var(--ink-3);
+  color:var(--accent);text-decoration:none;font-size:.95rem;letter-spacing:.04em;
+}
+.backbar:active{background:var(--ink-1)}
+.backbar span{font-size:1.15rem;line-height:1}
+
+header.top{padding:34px 0 34px;text-align:center;border-bottom:1px solid var(--ink-3)}
+.brand{font-family:var(--display);font-size:2.9rem;letter-spacing:.14em;
+  color:var(--accent);margin:0 0 6px}
+.brand-sub{color:var(--text-faint);font-size:.8rem;letter-spacing:.3em;margin:0 0 20px}
+.lede{color:var(--text-dim);font-size:1rem;margin:0}
+
+h2{font-family:var(--display);font-size:1.32rem;letter-spacing:.06em;
+  margin:52px 0 4px;padding-top:8px}
+h2 .num{display:block;font-family:var(--font);font-size:.72rem;letter-spacing:.24em;
+  color:var(--accent);margin-bottom:9px}
+h3{font-size:1.02rem;margin:30px 0 8px;color:var(--text)}
+p{margin:14px 0}
+.dim{color:var(--text-dim)}
+.faint{color:var(--text-faint);font-size:.9rem}
+strong{color:var(--accent);font-weight:600}
+
+.actions-back{margin:52px 0 0}
+.backlink{
+  display:flex;align-items:center;justify-content:center;min-height:56px;
+  border:1px solid var(--ink-3);border-radius:14px;
+  color:var(--text-dim);text-decoration:none;font-size:1rem;letter-spacing:.04em;
+}
+.backlink:active{background:var(--ink-1)}
+
+.pull{font-family:var(--display);font-size:1.24rem;line-height:1.9;
+  border-left:2px solid var(--accent);padding:4px 0 4px 18px;margin:26px 0;color:var(--text)}
+
+.card{background:var(--ink-1);border:1px solid var(--ink-3);border-radius:14px;
+  padding:18px 20px;margin:14px 0}
+.card h4{margin:0 0 6px;font-size:1rem}
+.card p{margin:6px 0 0;font-size:.94rem;color:var(--text-dim)}
+.card .tag{display:inline-block;font-size:.72rem;letter-spacing:.1em;color:var(--accent);
+  border:1px solid var(--accent-deep);border-radius:999px;padding:2px 10px;margin-bottom:9px}
+
+ul{padding-left:1.15em;margin:12px 0}
+li{margin:9px 0}
+li::marker{color:var(--accent-deep)}
+
+.flow{counter-reset:f;margin:22px 0;padding:0;list-style:none}
+.flow li{counter-increment:f;position:relative;padding-left:52px;margin:0 0 22px}
+.flow li::before{content:counter(f);position:absolute;left:0;top:2px;
+  width:34px;height:34px;border-radius:50%;background:var(--accent-soft);
+  border:1px solid var(--accent-deep);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-size:.9rem}
+.flow b{display:block;font-size:1.02rem;margin-bottom:2px}
+.flow span{color:var(--text-dim);font-size:.93rem}
+.flow .when{color:var(--accent);font-size:.78rem;letter-spacing:.08em}
+
+table{width:100%;border-collapse:collapse;margin:18px 0;font-size:.9rem}
+th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--ink-3);vertical-align:top}
+th{color:var(--text-faint);font-weight:400;font-size:.78rem;letter-spacing:.08em}
+td:first-child{color:var(--text-dim);width:34%}
+.scroll{overflow-x:auto}
+
+.no li::marker{color:var(--danger)}
+.msg{background:var(--ink-2);border:1px solid var(--ink-3);border-left:2px solid var(--accent);
+  border-radius:10px;padding:13px 16px;margin:12px 0;font-size:.94rem;line-height:1.85}
+.msg .who{display:block;color:var(--text-faint);font-size:.76rem;letter-spacing:.08em;margin-bottom:5px}
+
+footer{margin-top:70px;padding-top:26px;border-top:1px solid var(--ink-3);
+  color:var(--text-faint);font-size:.84rem;text-align:center}
+</style>
+<style>
+/* 規約だけで使うもの */
+.draft{background:rgba(168,98,79,.12);border:1px solid var(--danger);border-radius:14px;
+  padding:18px 20px;margin:22px 0}
+.draft h3{margin:0 0 6px;color:#e7b8ac;font-size:1.02rem}
+.draft p{margin:6px 0 0;font-size:.94rem;color:var(--text-dim)}
+.blank{color:var(--danger);font-weight:600;background:rgba(168,98,79,.14);
+  border-radius:4px;padding:0 4px}
+.art{margin:40px 0 0}
+.art h2{margin-top:0}
+ol.plain{padding-left:1.3em}
+ol.plain li{margin:11px 0}
+.meta{color:var(--text-faint);font-size:.84rem;letter-spacing:.04em}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+<a class="backbar" id="backbar" href="about.html">
+  <span aria-hidden="true">&#8592;</span> 戻る
+</a>
+
+<header class="top">
+  <h1 class="brand">Kōza</h1>
+  <p class="brand-sub">り よ う き や く</p>
+  <p class="lede">ご利用条件</p>
+</header>
+
+<div class="draft">
+  <h3>これは案です。まだ確定していません。</h3>
+  <p><strong>法律の専門家による確認を受けていません。</strong>お渡しする前に、提供者が最終確認を行います。</p>
+  <p><span class="blank">〔　〕</span>で囲まれたところは、<strong>まだ決まっていない箇所</strong>です。
+    ここが埋まるまで、この文書は効力を持ちません。</p>
+</div>
+
+<p class="meta">最終更新　〔　年　月　日　〕　／　提供者　〔　　　　　　　　　〕</p>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第1条</span>このサービスは何か</h2>
+
+<p>Kōza（こうざ）は、<strong>お客様のことを記録し、次にお越しいただくために今日なにをすればよいかを出す道具</strong>です。
+ご利用になる方（以下「お客様」）の端末で動きます。</p>
+
+<h3>提供するもの</h3>
+<ul>
+  <li>お客様の記録（お名前・ご連絡先・ご家族・ご趣味・来歴・お会計）の保管と閲覧</li>
+  <li>締め日から逆算した、その日の段取りの提示</li>
+  <li>話し言葉で入れた記録の整理（AIを使います）</li>
+  <li>会う前の準備、話のきっかけ、分野の手引き（AIを使います）</li>
+  <li>これから2週間の予定の管理</li>
+</ul>
+
+<h3>提供しないもの</h3>
+<ul>
+  <li><strong>お客様に届く文章の作成。</strong>このアプリは、送る文を一行も書きません</li>
+  <li><strong>メッセージの送信。</strong>LINE・メール・電話のいずれも、このアプリからは送れません</li>
+  <li><strong>会計・レジ・伝票の機能。</strong>売上の集計はしますが、経理の帳票にはなりません</li>
+  <li><strong>複数の端末での共有。</strong>記録はその端末の中だけにあります</li>
+  <li>お店の勤怠、給与計算、在庫管理</li>
+</ul>
+</div>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第2条</span>データの取り扱い</h2>
+
+<h3>置き場所</h3>
+<p><strong>記録は、お使いの端末の中だけにあります。</strong>提供者のサーバーに保存されることはありません。
+提供者は、お客様が入力された内容を見ることができません。</p>
+
+<h3>AIへ送るもの</h3>
+<p>整理・会う前の準備・今日の段取り・話のきっかけ・分野の手引き・お店の検索を行うとき、
+必要な範囲の記録を Anthropic 社のAI（Claude）へ送ります。中継のために Google Apps Script を経由します。
+<strong>中継の仕組みは記録を保存しません。</strong></p>
+
+<p><strong>次のものは、AIへ送りません。</strong></p>
+<ul>
+  <li>お客様のご連絡先（電話番号・メールアドレス・LINEのID・ご住所）</li>
+  <li>名刺の画像（読み取りのときだけ送り、送った画像は保存されません）</li>
+  <li>お顔の写真</li>
+</ul>
+
+<p>送った内容が Anthropic 社のAIの学習に使われることはありません。</p>
+
+<h3>お客様（記録される方）への配慮</h3>
+<p>このアプリは、ご来店になる方の個人情報を扱います。
+<strong>その方々の情報を適切に扱う責任は、ご利用になる方にあります。</strong>
+端末の紛失・盗難、第三者による閲覧を防ぐため、端末そのもののロックと、
+アプリの暗証番号の両方をお使いください。</p>
+</div>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第3条</span>バックアップ</h2>
+
+<p><strong>記録の控えを取ることは、ご利用になる方の責任で行っていただきます。</strong></p>
+
+<p>設定 →「データの持ち出し」から、いつでも書き出せます。
+<strong>月に一度は書き出して、端末の外（パソコンやクラウド）に置いてください。</strong></p>
+
+<p>提供者は、お客様の記録の控えを持っていません。次の場合、記録は失われ、
+<strong>提供者には戻す手段がありません。</strong></p>
+<ul>
+  <li>端末の紛失・故障・初期化</li>
+  <li>機種変更（書き出して移す必要があります）</li>
+  <li>ブラウザの履歴・サイトデータの削除</li>
+  <li><strong>暗証番号を忘れたとき</strong>（記録ごと消すしかありません）</li>
+</ul>
+</div>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第4条</span>免責</h2>
+
+<h3>記録が失われたとき</h3>
+<p>前条の事由その他により記録が失われた場合、提供者は復旧の義務を負わず、
+それにより生じた損害について責任を負いません。</p>
+
+<h3>AIが出した内容について</h3>
+<p><strong>AIは事実を取り違えることがあります。</strong>
+日付・お名前・金額・お約束など、出てきた内容をそのままお使いにならず、
+お客様にお伝えになる前に必ずご確認ください。</p>
+<p>AIが出した内容にもとづく判断・行動の結果について、提供者は責任を負いません。
+売上、ご来店、お客様との関係について、いかなる成果も保証しません。</p>
+
+<h3>サービスが止まったとき</h3>
+<p>次の場合、AIを使う機能が一時的に、または継続して使えなくなることがあります。
+提供者はこれにより生じた損害について責任を負いません。</p>
+<ul>
+  <li>Anthropic 社または Google 社のサービスの停止・仕様変更・提供終了</li>
+  <li>通信環境の不具合</li>
+  <li>提供者の設定した利用上限に達したとき</li>
+</ul>
+<p><strong>AIが使えないときも、記録の入力・閲覧はできます。</strong></p>
+
+<h3>責任の上限</h3>
+<p>提供者が責任を負う場合であっても、その範囲は
+<strong><span class="blank">〔　直近◯か月ぶんの月額料金相当額　〕</span></strong>を上限とします。
+ただし提供者に故意または重大な過失がある場合を除きます。</p>
+</div>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第5条</span>料金</h2>
+
+<table>
+<tr><td>月額</td><td><span class="blank">〔　　　　　円（税　　）　〕</span></td></tr>
+<tr><td>お支払い</td><td><span class="blank">〔　毎月　日締め・翌月　日払い　〕</span></td></tr>
+<tr><td>お支払い方法</td><td><span class="blank">〔　　　　　　　　　　　　　〕</span></td></tr>
+</table>
+
+<p><strong>AIの利用料は、月額に含まれます。</strong>ご利用になる方が別途お支払いになることはありません。</p>
+
+<h3>お使いになる量について</h3>
+<p>AIの利用には、提供者側で費用が発生します。通常のご利用の範囲では月額に含まれますが、
+著しく多いご利用があった場合の扱いは次のとおりです。</p>
+<p><strong><span class="blank">〔　上限を設けない　／　一定回数を超えた分を別途申し受ける　／
+　上限に達した時点でAI機能を停止する　── いずれかを選んで記載　〕</span></strong></p>
+<p class="faint">この箇所は必ず決めてください。決めずに提供すると、
+どちらの側にも予想できない負担が生じます。</p>
+</div>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第6条</span>お問い合わせ</h2>
+
+<table>
+<tr><td>連絡先</td><td><span class="blank">〔　　　　　　　　　　　　　〕</span></td></tr>
+<tr><td>受付時間</td><td><span class="blank">〔　　曜日　　時　〜　　時　〕</span></td></tr>
+<tr><td>お返事の目安</td><td><span class="blank">〔　　　営業日以内　〕</span></td></tr>
+</table>
+
+<p>不具合のご連絡、使いにくいところのご指摘は、いつでも承ります。</p>
+<p><strong>お客様の記録そのものをお送りいただく必要はありません。</strong>
+どの画面で、何をしたら、どうなったかをお知らせください。</p>
+</div>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第7条</span>サービスを終えるとき</h2>
+
+<h3>提供者から終える場合</h3>
+<p>提供者は、<span class="blank">〔　　か月　〕</span>前までにお知らせしたうえで、
+このサービスの提供を終えることがあります。</p>
+
+<p>お知らせから終了までのあいだ、および終了後
+<span class="blank">〔　　か月　〕</span>のあいだは、
+<strong>記録の書き出しができる状態を保ちます。</strong></p>
+
+<p>終了後もアプリは端末に残り、<strong>記録の入力・閲覧・書き出しは引き続きお使いいただけます。</strong>
+使えなくなるのはAIを使う機能だけです。</p>
+
+<h3>ご利用になる方から終える場合</h3>
+<p><span class="blank">〔　　か月　〕</span>前までにお知らせください。
+その月の末日をもって終了とし、日割りの返金は行いません。</p>
+
+<p>終了後、提供者はAIの中継を停止します。<strong>記録は端末に残ります。</strong>
+提供者が記録を削除することはできません（そもそも持っていないため）。</p>
+</div>
+
+<!-- ============================ -->
+<div class="art">
+<h2><span class="num">第8条</span>その他</h2>
+
+<ul>
+  <li>この規約は、必要に応じて変更することがあります。変更する場合は
+    <span class="blank">〔　　　　　　　〕</span>でお知らせします</li>
+  <li>この規約に定めのない事項は、両者で協議して定めます</li>
+  <li>準拠法は日本法とし、管轄は
+    <span class="blank">〔　　　　地方裁判所　〕</span>を第一審の専属的合意管轄とします</li>
+</ul>
+</div>
+
+<div class="draft">
+  <h3>埋めるべき箇所（<span class="blank">〔　〕</span>）の一覧</h3>
+  <p>1. 最終更新日と提供者名<br>
+     2. 第4条　責任の上限額<br>
+     3. 第5条　月額・締め日と支払日・支払方法<br>
+     4. 第5条　<strong>使いすぎたときの扱い</strong>（3案から選ぶ）<br>
+     5. 第6条　連絡先・受付時間・お返事の目安<br>
+     6. 第7条　終了のお知らせの猶予（提供者側・利用者側）と、書き出しできる期間<br>
+     7. 第8条　変更のお知らせ方法・合意管轄の裁判所</p>
+</div>
+
+<div class="actions-back">
+  <a class="backlink" href="about.html">&#8592; 戻る</a>
+</div>
+
+<footer>Kōza</footer>
+
+</div>
+
+<script>
+(function () {
+  var same = document.referrer && document.referrer.indexOf(location.origin) === 0;
+  if (!same) return;
+  [].slice.call(document.querySelectorAll('#backbar, .backlink')).forEach(function (a) {
+    a.addEventListener('click', function (e) { e.preventDefault(); history.back(); });
+  });
+})();
+</script>
+</body>
+</html>
