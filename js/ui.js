@@ -181,6 +181,18 @@ var UI = (function () {
 
   /* ---------- 表示のための小道具 ---------- */
 
+  /* 内側の名札を、画面に出さない。
+   *
+   * AIが「prefs.likes：おしぼりは熱め」「contact_byが本日のため」と
+   * そのまま書いてくることがある。指示の側でも止めているが、
+   * 止め損ねたときに画面まで出さないための受け皿。
+   * 頭に付いた名札だけを落とす。文の途中は触らない（消すと意味が壊れる）。 */
+  function noCode(s) {
+    return String(s == null ? '' : s)
+      .replace(/^[\s←]*[A-Za-z][A-Za-z0-9_.\[\]]*\s*[：:]\s*/, '')
+      .trim();
+  }
+
   function yen(n) {
     if (typeof n !== 'number' || !isFinite(n)) return '—';
     if (n >= 10000) {
@@ -400,7 +412,7 @@ var UI = (function () {
 
   return {
     el: el, clear: clear,
-    show: show, back: back, busy: busy, toast: toast, aiNote: aiNote,
+    show: show, back: back, busy: busy, toast: toast, aiNote: aiNote, noCode: noCode,
     yen: yen, shortDate: shortDate, longDate: longDate, sinceLabel: sinceLabel,
     parseMoney: parseMoney, commas: commas, moneyInput: moneyInput,
     setMoney: setMoney, getMoney: getMoney,

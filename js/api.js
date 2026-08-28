@@ -309,6 +309,15 @@ var Api = (function () {
     var d = Insight.digest(customerId);
     if (!d) return Promise.reject(new Error('お客様が見つかりません'));
 
+    /* お食事の軸は、同伴の話があるときだけ出す。
+     *
+     * ご来店の準備には要らない。毎回書かせると、それだけで3秒ほど待たされる。
+     * 「同伴の話がある」とは、同伴の予定が入っているか、
+     * これまで同伴でお越しになったことがあるか。 */
+    var wantMeal = Store.appointmentsOf(customerId).some(function (a) {
+      return !a.closed && a.kind === 'douhan';
+    }) || Store.visitsOf(customerId).slice(0, 6).some(function (v) { return v.douhan; });
+
     // 送るのは分析に要る範囲だけ。電話番号や住所は送らない
     var c = d.customer;
     var payload = {
@@ -356,7 +365,8 @@ var Api = (function () {
       /* お食事に行ったお店。**どちらが決めたかで分けてある。**
        * お客様が選ばれた店がその方のお好みそのもので、
        * こちらが選んだ店は当たり外れがある。混ぜると何も読めない。 */
-      places: Store.placesOf(customerId),
+      // 同伴の話が無い方には送らない。送らなければ、その欄は書かれない
+      places: wantMeal ? Store.placesOf(customerId) : null,
       // 段取り側と同じ計算。ここがずれると、2つの画面が別のことを言い出す
       watch_signs: Plan.watchSigns(customerId),
       // 前回の提案とその結果。ここが螺旋の折り返し

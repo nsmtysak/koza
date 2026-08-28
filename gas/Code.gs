@@ -309,15 +309,22 @@ function hookRules() {
     '- 金額・単価・料金を、間接的にも匂わせること',
     '',
     '# 内側の名前を、人が読む文に書かないこと',
-    'この指示に出てくる英数字の名前（contact_by、target_date、urgency、',
-    'pending_date、watch_signs、ng_topics、do_on など）は、',
-    '**アプリの中で使っている名札であって、日本語ではありません。**',
+    '**出力のどの欄にも、英数字の名前を書かないでください。**',
+    '',
+    'これには2種類あり、どちらも書いてはいけません。',
+    '  1. この指示に出てくる名前　contact_by / target_date / urgency /',
+    '     pending_date / watch_signs / ng_topics / do_on など',
+    '  2. **お渡ししたデータの中の名前**　prefs.likes / prefs.drinks /',
+    '     prefs.dislikes / known_drinks / topic_detail / open_hooks など',
+    '',
+    'どれもアプリの中で使っている名札であって、日本語ではありません。',
     '読むのは、プログラムを知らない方です。そのまま書くと意味が通りません。',
     '',
     '  誤　contact_by が本日のため、今日連絡しないと9/1の枠に間に合わない。',
     '  正　9月1日にお越しいただくには、今日お声がけしないと間に合いません。',
     '',
-    '**出力のどの欄にも、英数字の項目名を書かないでください。**',
+    '  誤　← prefs.likes：おしぼりは熱め',
+    '  正　← お好みに「おしぼりは熱め」',
     ''
   ].join('\n');
 }
@@ -618,7 +625,9 @@ function handleBrief(req) {
     'これまでの来歴・接点・お客様の情報を読み、本人がすぐ動ける形に落とします。',
     '',
     '# 守ること',
-    '- **必ず根拠を添えます。** 各項目の basis に「いつの、どの記録から導いたか」を書きます。',
+    '- **必ず根拠を添えます。** 各項目に「いつの、どの記録から導いたか」を書きます。',
+    '  **根拠は20字以内。**「8/19の来店」「お好みに記録あり」で足ります。',
+    '  そこに理由まで書き足さないでください。理由は本文のほうに入っています。',
     '  記録に無いことを前提にしてはいけません。分からないことは書かないでください。',
     '- talk_points は「話せること」。相手が話したくなる具体的な話題にします。',
     '  「趣味の話をする」のような抽象的な指示は書きません。',
@@ -715,7 +724,9 @@ function handleBrief(req) {
     'why に、なぜ今この方にこれなのかを1文で。理由が書けないなら出さないでください。',
     '',
     '# meal（お食事にお誘いするなら、どういうお店か）',
-    'places が渡されている方にだけ出します。無ければ空にしてください。',
+    '**お食事の記録が渡されていないときは、5つとも空文字にして、何も考えないでください。**',
+    'その方には同伴のお話が無く、この欄は画面にも出ません。書くだけ待たせることになります。',
+    'お食事の記録が渡されているときだけ、以下を読んでください。',
     '',
     '  places.by_guest … **お客様ご自身が「行きたい」とおっしゃったお店**',
     '  places.by_self　… こちらでお選びしたお店',
@@ -776,7 +787,7 @@ function handleBrief(req) {
     type: 'object',
     properties: {
       text: { type: 'string' },
-      basis: { type: 'string', description: 'どの記録から導いたか。例：8/16の来店で伺った' }
+      basis: { type: 'string', description: 'どの記録から導いたか。**日本語で20字以内。** 例：8/16の来店で伺った／お好みに記録あり' }
     },
     required: ['text', 'basis'],
     additionalProperties: false
@@ -789,7 +800,7 @@ function handleBrief(req) {
     type: 'object',
     properties: {
       text: { type: 'string' },
-      basis: { type: 'string', description: 'どの記録から導いたか。記録に無いことが理由ならそう書く' },
+      basis: { type: 'string', description: 'どの記録から導いたか。**日本語で20字以内。** 記録に無いことが理由ならそう書く' },
       scope: { type: 'string', enum: ['personal', 'basic'], description: 'personal＝この方だから／basic＝誰にでも' }
     },
     required: ['text', 'basis', 'scope'],
@@ -846,7 +857,7 @@ function handleBrief(req) {
           properties: {
             question: { type: 'string', description: 'その場で伺う言葉。自然な聞き方で' },
             intent: { type: 'string', description: 'これを伺うと、いつ・どういうご連絡ができるようになるか' },
-            basis: { type: 'string', description: 'どの記録から作ったか' }
+            basis: { type: 'string', description: 'どの記録から作ったか。**日本語で20字以内**' }
           },
           required: ['question', 'intent', 'basis'],
           additionalProperties: false

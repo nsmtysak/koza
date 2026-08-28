@@ -118,7 +118,7 @@ var Brief = (function () {
     var ul = UI.el('ul', 'brief-list');
     items.forEach(function (it) {
       var text = typeof it === 'string' ? it : (it.text || '');
-      var why = (typeof it === 'object' && it.basis) ? it.basis : '';
+      var why = (typeof it === 'object' && it.basis) ? UI.noCode(it.basis) : '';
       var li = UI.el('li', cls || null);
       li.appendChild(document.createTextNode(text));
       if (why) {
@@ -188,7 +188,7 @@ var Brief = (function () {
       var ax = UI.el('p', 'card-body whole');
       ax.textContent = m.axis;
       s.appendChild(ax);
-      if (m.basis) s.appendChild(UI.el('p', 'help', m.basis));
+      if (m.basis) s.appendChild(UI.el('p', 'help', UI.noCode(m.basis)));
     }
 
     var ul = UI.el('ul', 'brief-list');
@@ -357,7 +357,7 @@ var Brief = (function () {
       if (q.basis) {
         var sm = UI.el('p', 'help');
         sm.style.marginTop = '6px';
-        sm.textContent = '← ' + q.basis;
+        sm.textContent = '← ' + UI.noCode(q.basis);
         li.appendChild(sm);
       }
       ul.appendChild(li);

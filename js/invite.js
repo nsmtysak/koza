@@ -186,7 +186,7 @@ var Invite = (function () {
 
       if (s.basis) {
         var ba = UI.el('p', 'card-body whole');
-        ba.textContent = s.basis;
+        ba.textContent = UI.noCode(s.basis);
         card.appendChild(ba);
       }
       if (s.why) {
