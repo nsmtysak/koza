@@ -493,6 +493,10 @@ button,.card,.board-row,.tab,.opt,.seg-btn,.daybtn,.lock-key,.chip,label.chk{tou
   border-top:1px solid var(--ink-3);padding-top:9px;margin-top:7px}
 
 .card.cand .card-acts,.card-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
+/* ボタンが3つ並ぶと390pxに入りきらない。
+ * .primary は flex:1 なので、余った幅まで縮められて「話のきっかけを見る」が
+ * 一文字ずつの縦書きになっていた。縮めず、入らなければ次の行へ送る。 */
+.card-acts > *{flex:0 0 auto;white-space:nowrap}
 .card.soon{opacity:.92}
 .soon-when{flex:0 0 auto;font-family:var(--display);font-size:.95rem;color:var(--accent);
   border:1px solid var(--accent-deep);border-radius:999px;padding:2px 11px}
